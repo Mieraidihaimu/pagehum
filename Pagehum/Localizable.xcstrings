@@ -1,0 +1,1114 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    " ago" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前"
+          }
+        }
+      }
+    },
+    "-%@" : {
+
+    },
+    "·" : {
+
+    },
+    "/ Tech blog imports" : {
+
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %lld files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$lld files"
+          }
+        }
+      }
+    },
+    "%@ at %@ · Library order" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ at %2$@ · Library order"
+          }
+        }
+      }
+    },
+    "%lld" : {
+
+    },
+    "%lld lines" : {
+
+    },
+    "%lld percent" : {
+
+    },
+    "%lld pt" : {
+
+    },
+    "%lld selected" : {
+
+    },
+    "%lld skipped" : {
+
+    },
+    "%lld%%" : {
+
+    },
+    "%lld%% complete" : {
+
+    },
+    "%lldh %lldm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lldh %2$lldm"
+          }
+        }
+      }
+    },
+    "%lldm" : {
+
+    },
+    "%lldpt" : {
+
+    },
+    "1 line" : {
+
+    },
+    "3 days" : {
+
+    },
+    "7 days" : {
+
+    },
+    "24 hours" : {
+
+    },
+    "24 kHz, mono" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 kHz，单声道"
+          }
+        }
+      }
+    },
+    "A place for your next listen" : {
+
+    },
+    "About" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于"
+          }
+        }
+      }
+    },
+    "About Pagehum" : {
+
+    },
+    "Activity" : {
+
+    },
+    "Add %lld to queue" : {
+
+    },
+    "Add content" : {
+
+    },
+    "Add content (⌘N)" : {
+
+    },
+    "Add to starred" : {
+
+    },
+    "Add your first article" : {
+
+    },
+    "Adjust anytime in the player." : {
+
+    },
+    "Any score" : {
+
+    },
+    "Article options" : {
+
+    },
+    "Article position" : {
+
+    },
+    "Article URLs" : {
+
+    },
+    "Articles you open or save will appear here." : {
+
+    },
+    "Articles you save or read will appear here." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "您保存或阅读的文章将显示在这里。"
+          }
+        }
+      }
+    },
+    "Articles you start will appear here, ready to resume." : {
+
+    },
+    "Audio" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音频"
+          }
+        }
+      }
+    },
+    "Audio Files" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音频文件"
+          }
+        }
+      }
+    },
+    "Back 20 seconds" : {
+
+    },
+    "Cached audio" : {
+
+    },
+    "Cached Audio" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "缓存音频"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
+    "Cancel selection" : {
+
+    },
+    "Cannot access file" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法访问文件"
+          }
+        }
+      }
+    },
+    "Choose at least one topic in import settings to get started." : {
+
+    },
+    "Choose at least one topic to import articles." : {
+
+    },
+    "Choose at least one topic." : {
+
+    },
+    "Choose PDF" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择 PDF"
+          }
+        }
+      }
+    },
+    "Choose PDF…" : {
+
+    },
+    "Choose what interests you. Matching articles are saved to your library, ready to listen." : {
+
+    },
+    "Clear Audio Cache" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除音频缓存"
+          }
+        }
+      }
+    },
+    "Clear Audio Cache?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清除音频缓存？"
+          }
+        }
+      }
+    },
+    "Clear cache" : {
+
+    },
+    "Clear cached audio?" : {
+
+    },
+    "Clear filters" : {
+
+    },
+    "Clear search" : {
+
+    },
+    "Clear upcoming" : {
+
+    },
+    "Completed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已完成"
+          }
+        }
+      }
+    },
+    "Content" : {
+
+    },
+    "Continue listening" : {
+
+    },
+    "Continues automatically · Resume saved positions" : {
+
+    },
+    "Continuous listening" : {
+
+    },
+    "Copied" : {
+
+    },
+    "Copy" : {
+
+    },
+    "Copy code" : {
+
+    },
+    "Couldn’t clear cache" : {
+
+    },
+    "Couldn’t save favorite" : {
+
+    },
+    "Current article" : {
+
+    },
+    "Daily Activity" : {
+
+    },
+    "day" : {
+
+    },
+    "days" : {
+
+    },
+    "Delete All Audio Files" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除所有音频文件"
+          }
+        }
+      }
+    },
+    "Discover tech blogs" : {
+
+    },
+    "Done" : {
+
+    },
+    "Empty" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空"
+          }
+        }
+      }
+    },
+    "Error" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "错误"
+          }
+        }
+      }
+    },
+    "Estimated listening time at %@, based on the remaining text. Updates as sentences advance; actual duration varies by voice and pauses." : {
+
+    },
+    "Estimated time remaining" : {
+
+    },
+    "Failed links" : {
+
+    },
+    "Faster" : {
+
+    },
+    "File" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件"
+          }
+        }
+      }
+    },
+    "Forward 20 seconds" : {
+
+    },
+    "Fresh finds from Hacker News, saved to your library." : {
+
+    },
+    "Freshness is based on the Hacker News submission date. The article itself may be older." : {
+
+    },
+    "Generated audio files are stored locally for offline playback." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成的音频文件存储在本地以供离线播放。"
+          }
+        }
+      }
+    },
+    "Generating" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在生成"
+          }
+        }
+      }
+    },
+    "https://example.com/article" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https://example.com/article"
+          }
+        }
+      }
+    },
+    "Import %lld links" : {
+
+    },
+    "Import latest articles" : {
+
+    },
+    "Import limits" : {
+
+    },
+    "Import settings" : {
+
+    },
+    "In Progress" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在阅读"
+          }
+        }
+      }
+    },
+    "Input" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入"
+          }
+        }
+      }
+    },
+    "Input type" : {
+
+    },
+    "Invalid URL" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无效的网址"
+          }
+        }
+      }
+    },
+    "Kokoro 82M" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kokoro 82M"
+          }
+        }
+      }
+    },
+    "Less" : {
+
+    },
+    "Library" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "书库"
+          }
+        }
+      }
+    },
+    "Library Unavailable" : {
+
+    },
+    "Listen in the displayed Library order" : {
+
+    },
+    "Listening progress" : {
+
+    },
+    "Listening stats" : {
+
+    },
+    "Listening Stats" : {
+
+    },
+    "Load Page" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加载页面"
+          }
+        }
+      }
+    },
+    "Loading model…" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载模型…"
+          }
+        }
+      }
+    },
+    "Match any selected topic in story titles and URLs." : {
+
+    },
+    "Maximum articles" : {
+
+    },
+    "Minimum HN score" : {
+
+    },
+    "More" : {
+
+    },
+    "Move %@ earlier" : {
+
+    },
+    "Move %@ later" : {
+
+    },
+    "Move earlier" : {
+
+    },
+    "Move later" : {
+
+    },
+    "Needs attention" : {
+
+    },
+    "Next article" : {
+
+    },
+    "No Articles Yet" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无文章"
+          }
+        }
+      }
+    },
+    "No matching articles" : {
+
+    },
+    "No matching starred articles" : {
+
+    },
+    "No readable text could be extracted from this page." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法从此页面提取可读文本。"
+          }
+        }
+      }
+    },
+    "No starred articles" : {
+
+    },
+    "Not starred" : {
+
+    },
+    "OK" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好"
+          }
+        }
+      }
+    },
+    "Open →" : {
+
+    },
+    "Open a PDF from your Mac." : {
+
+    },
+    "Open an article, a PDF, or a piece of text." : {
+
+    },
+    "Open page" : {
+
+    },
+    "Opening article…" : {
+
+    },
+    "Options for %@" : {
+
+    },
+    "Paste article links" : {
+
+    },
+    "Paste or type text here..." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在此粘贴或输入文本..."
+          }
+        }
+      }
+    },
+    "Paste text or article links" : {
+
+    },
+    "Paste text or article links here…" : {
+
+    },
+    "Pasted Text" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "粘贴的文本"
+          }
+        }
+      }
+    },
+    "Pause" : {
+
+    },
+    "Play" : {
+
+    },
+    "Play / Pause" : {
+
+    },
+    "Play %lld articles" : {
+
+    },
+    "Playback" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放"
+          }
+        }
+      }
+    },
+    "Playback options" : {
+
+    },
+    "Playback speed" : {
+
+    },
+    "Playback Speed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放速度"
+          }
+        }
+      }
+    },
+    "Please enter some text" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入一些文本"
+          }
+        }
+      }
+    },
+    "Please try starring this article again." : {
+
+    },
+    "Preferences save automatically and apply to imports from Add Content." : {
+
+    },
+    "Preparing" : {
+
+    },
+    "Read again from beginning" : {
+
+    },
+    "Read anything aloud" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "朗读任何内容"
+          }
+        }
+      }
+    },
+    "Read text" : {
+
+    },
+    "Read Text" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "朗读文本"
+          }
+        }
+      }
+    },
+    "Reader" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阅读器"
+          }
+        }
+      }
+    },
+    "Reader text size" : {
+
+    },
+    "Reading Queue" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阅读队列"
+          }
+        }
+      }
+    },
+    "Remove %@ from queue" : {
+
+    },
+    "Remove article" : {
+
+    },
+    "Remove from library?" : {
+
+    },
+    "Remove from library…" : {
+
+    },
+    "Remove from queue; keep in Library" : {
+
+    },
+    "Remove from starred" : {
+
+    },
+    "Restart from beginning" : {
+
+    },
+    "Resume →" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Retry failed links" : {
+
+    },
+    "Save for Later" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "稍后阅读"
+          }
+        }
+      }
+    },
+    "Saved for later" : {
+
+    },
+    "Saved links are skipped. Scanning more stories may take longer." : {
+
+    },
+    "Saved offline" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已离线保存"
+          }
+        }
+      }
+    },
+    "Saved to Reading Queue" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存到阅读队列"
+          }
+        }
+      }
+    },
+    "Search library" : {
+
+    },
+    "Search titles, sources, and text" : {
+
+    },
+    "Select %@" : {
+
+    },
+    "Select a document from Files" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从文件中选择文档"
+          }
+        }
+      }
+    },
+    "Select all" : {
+
+    },
+    "Select articles" : {
+
+    },
+    "Select one or more articles" : {
+
+    },
+    "Selected Voice" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择语音"
+          }
+        }
+      }
+    },
+    "Separate links with spaces, new lines, or commas." : {
+
+    },
+    "Settings" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置"
+          }
+        }
+      }
+    },
+    "Show all %lld lines" : {
+
+    },
+    "Show article" : {
+
+    },
+    "Show less" : {
+
+    },
+    "Skip article" : {
+
+    },
+    "Skip Backward" : {
+
+    },
+    "Skip Forward" : {
+
+    },
+    "Slower" : {
+
+    },
+    "Sometimes all an idea needs is a little room to breathe." : {
+
+    },
+    "Pagehum" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pagehum"
+          }
+        }
+      }
+    },
+    "Star %@" : {
+
+    },
+    "Starred" : {
+
+    },
+    "Starred only" : {
+
+    },
+    "Storage" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "存储"
+          }
+        }
+      }
+    },
+    "Stories" : {
+
+    },
+    "Stories to scan" : {
+
+    },
+    "Story filters" : {
+
+    },
+    "Submitted within" : {
+
+    },
+    "Tap the star beside an article to find it here." : {
+
+    },
+    "Tech Blog Imports" : {
+
+    },
+    "Text" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文本"
+          }
+        }
+      }
+    },
+    "Text size" : {
+
+    },
+    "Text Size" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "字体大小"
+          }
+        }
+      }
+    },
+    "Text to read aloud" : {
+
+    },
+    "The quick brown fox jumps over the lazy dog." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "天地玄黄，宇宙洪荒。日月盈昃，辰宿列张。"
+          }
+        }
+      }
+    },
+    "This is the last article. Playback stops when it finishes." : {
+
+    },
+    "This removes %@ of generated audio. Articles will generate audio again when you listen." : {
+
+    },
+    "This will delete %lld cached audio file%@ (%@). Articles will need to regenerate audio on next play." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "This will delete %1$lld cached audio file%2$@ (%3$@). Articles will need to regenerate audio on next play."
+          }
+        }
+      }
+    },
+    "Topics" : {
+
+    },
+    "Topics, story filters, and import limits" : {
+
+    },
+    "Total Listening Time" : {
+
+    },
+    "Try a different title, source, or phrase." : {
+
+    },
+    "Try different words or turn off Starred only." : {
+
+    },
+    "TTS Engine" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音引擎"
+          }
+        }
+      }
+    },
+    "Unstar %@" : {
+
+    },
+    "Up next" : {
+
+    },
+    "Up next · %lld" : {
+
+    },
+    "Up to %lld articles per import" : {
+
+    },
+    "URL" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网址"
+          }
+        }
+      }
+    },
+    "Version" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本"
+          }
+        }
+      }
+    },
+    "View library" : {
+
+    },
+    "Voice" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音"
+          }
+        }
+      }
+    },
+    "Voice engine" : {
+
+    },
+    "Waiting for the voice engine to load" : {
+
+    },
+    "Web Page" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网页"
+          }
+        }
+      }
+    },
+    "Your next good read starts here." : {
+
+    },
+    "Your next listen starts here" : {
+
+    }
+  },
+  "version" : "1.0"
+}

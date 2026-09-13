@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Local Reader Fixture</title>
+  <meta name="author" content="Ada Example">
+  <meta property="og:site_name" content="Fixture Journal">
+  <link rel="canonical" href="https://example.com/canonical-story">
+  <style>.publisher-only { color: red; }</style>
+  <script>
+    setTimeout(function () {
+      var paragraph = document.createElement('p');
+      paragraph.appendChild(document.createTextNode(
+        'Late paragraph captured after the page becomes quiet. It is long enough to remain part of the readable article.'
+      ));
+      document.getElementById('story').appendChild(paragraph);
+    }, 120);
+
+    Object.defineProperty(Node.prototype, 'textContent', {
+      configurable: true,
+      get: function () { return 'PUBLISHER TAMPER'; },
+      set: function () {}
+    });
+    Document.prototype.querySelectorAll = function () { return []; };
+    JSON.stringify = function () { return 'PUBLISHER TAMPER'; };
+  </script>
+</head>
+<body>
+  <nav>Home Products Pricing Account Subscribe Contact</nav>
+  <article id="story">
+    <h1>Local Reader Fixture</h1>
+    <p class="publisher-only" onclick="steal()">
+      First paragraph &amp; its <em>important phrase</em> provide enough meaningful prose for Readability to select this article.
+      The text continues with concrete details about deterministic offline reading, stable anchors, and reliable playback progress.
+      <a href="/related" onclick="steal()">Related article</a> remains a useful link.
+    </p>
+    <p>Line before a break.<br>Line after the break must have one canonical newline, independent of viewport styling.</p>
+    <ul>
+      <li>First list item explains that semantic structure should survive extraction without repeating its text.</li>
+      <li><p>Nested list paragraph appears once even though both list items and paragraphs are semantic candidates.</p></li>
+    </ul>
+    <blockquote><p>A quoted paragraph remains one block and is not duplicated by its nested paragraph element.</p></blockquote>
+    <pre class="language-swift"><code>let greeting = "hello"
+print(greeting)</code></pre>
+    <img src="/images/cover.jpg" alt="Fixture cover" onerror="steal()">
+    <a href="javascript:steal()">Unsafe link</a>
+    <form><input value="secret"><button>Submit</button></form>
+    <p>
+      Final initial paragraph adds enough article text to exceed Readability's normal character threshold and keep this fixture representative.
+      It also mentions local ownership, immutable revisions, sanitized HTML, deterministic projections, and UTF-16 ranges.
+    </p>
+  </article>
+  <aside>Sponsored links, newsletter signup, comments, and unrelated recommendations.</aside>
+</body>
+</html>

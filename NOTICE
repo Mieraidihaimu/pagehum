@@ -1,0 +1,12 @@
+Pagehum
+
+Derived from KokoroTestApp by mlalma and its contributors:
+https://github.com/mlalma/KokoroTestApp
+
+Pagehum contributors have modified this application to add and develop reading,
+library, playback, desktop, and command-line functionality, and to unify product
+naming under Pagehum. Original source attribution and license notices are retained.
+
+The source is distributed under the Apache License, Version 2.0.
+Third-party software and downloaded model assets retain their own licenses.
+Mozilla Readability and DOMPurify notices are included in Pagehum/ReaderScripts/.

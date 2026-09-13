@@ -1,0 +1,23 @@
+# Build output and downloaded model assets
+.build/
+DerivedData/
+build/
+Resources/*.safetensors
+Resources/*.npz
+Resources/.download.*
+
+# Local macOS and Xcode state
+.DS_Store
+xcuserdata/
+*.xcuserstate
+*.xcarchive
+*.ipa
+*.dSYM/
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Legacy local scratch file
+/File.txt
