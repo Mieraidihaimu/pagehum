@@ -11,6 +11,8 @@ struct PlaybackControlsView: View {
     @State private var characterOffsets: [Int] = [0]
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private let speeds: [Float] = [0.75, 1.0, 1.25, 1.5, 2.0, 2.25, 2.5, 3.0]
 
@@ -23,7 +25,7 @@ struct PlaybackControlsView: View {
             }
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isExpanded)
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: isExpanded)
         .onChange(of: viewModel.isPlaying, initial: true) { _, playing in
             if playing { scheduleAutoMinimize() }
             else {
@@ -99,8 +101,11 @@ struct PlaybackControlsView: View {
                 }
             }
 
-            // Transport + Speed
-            HStack(spacing: 0) {
+            // Stack the speed menu above transport at accessibility text sizes.
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 16))
+            layout {
                 Menu {
                     Picker("Playback speed", selection: $viewModel.speed) {
                         ForEach(speeds, id: \.self) { speed in
@@ -119,52 +124,52 @@ struct PlaybackControlsView: View {
                 .accessibilityLabel("Playback speed")
                 .accessibilityValue(currentSpeedLabel)
 
-                Spacer()
-
-                Button { viewModel.skipBackward() } label: {
-                    Image(systemName: "gobackward.20")
-                        .font(.title3)
-                        .frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("Back 20 seconds")
-
-                Spacer()
-
-                Button { viewModel.togglePlayback() } label: {
-                    Group {
-                        if viewModel.isPreparing {
-                            ProgressView()
-                                .controlSize(.large)
-                        } else {
-                            Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                                .symbolRenderingMode(.hierarchical)
-                        }
+                HStack(spacing: 0) {
+                    Button { viewModel.skipBackward() } label: {
+                        Image(systemName: "gobackward.20")
+                            .font(.title3)
+                            .frame(minWidth: 44, minHeight: 44)
                     }
-                    .font(.system(size: 44))
-                    .frame(width: 44, height: 44)
+                    .accessibilityLabel("Back 20 seconds")
+
+                    Spacer()
+
+                    Button { viewModel.togglePlayback() } label: {
+                        Group {
+                            if viewModel.isPreparing {
+                                ProgressView()
+                                    .controlSize(.large)
+                            } else {
+                                Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                                    .symbolRenderingMode(.hierarchical)
+                            }
+                        }
+                        .font(.system(size: 44))
+                        .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel(viewModel.isPreparing ? "Cancel audio preparation" : viewModel.isPlaying ? "Pause" : "Play")
+                    .disabled(!viewModel.isModelLoaded)
+
+                    Spacer()
+
+                    Button { viewModel.skipForward() } label: {
+                        Image(systemName: "goforward.20")
+                            .font(.title3)
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel("Forward 20 seconds")
+
+                    Spacer()
+
+                    Button { viewModel.restartFromBeginning() } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.title3)
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel("Read again from beginning")
+                    .help("Read again from beginning")
+                    .disabled(!viewModel.isModelLoaded)
                 }
-                .accessibilityLabel(viewModel.isPreparing ? "Cancel audio preparation" : viewModel.isPlaying ? "Pause" : "Play")
-                .disabled(!viewModel.isModelLoaded)
-
-                Spacer()
-
-                Button { viewModel.skipForward() } label: {
-                    Image(systemName: "goforward.20")
-                        .font(.title3)
-                        .frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("Forward 20 seconds")
-
-                Spacer()
-
-                Button { viewModel.restartFromBeginning() } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.title3)
-                        .frame(width: 56, height: 44)
-                }
-                .accessibilityLabel("Read again from beginning")
-                .help("Read again from beginning")
-                .disabled(!viewModel.isModelLoaded)
             }
             .foregroundStyle(.primary)
             .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
@@ -172,12 +177,18 @@ struct PlaybackControlsView: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
         .frame(maxWidth: 460)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .background {
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: 20).fill(Color.platformGroupedBackground)
+            } else {
+                RoundedRectangle(cornerRadius: 20).fill(.ultraThinMaterial)
+            }
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(.separator.opacity(0.3), lineWidth: 0.5)
         )
-        .transition(.asymmetric(
+        .transition(reduceMotion ? .opacity : .asymmetric(
             insertion: .scale(scale: 0.8, anchor: .bottomTrailing).combined(with: .opacity),
             removal: .scale(scale: 0.8, anchor: .bottomTrailing).combined(with: .opacity)
         ))
@@ -187,11 +198,14 @@ struct PlaybackControlsView: View {
 
     private var minimizedCircleView: some View {
         Button {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { isExpanded = true }
+            withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8)) { isExpanded = true }
         } label: {
             ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
+                if reduceTransparency {
+                    Circle().fill(Color.platformGroupedBackground)
+                } else {
+                    Circle().fill(.ultraThinMaterial)
+                }
 
                 Circle()
                     .stroke(Color.platformGray, style: StrokeStyle(lineWidth: 3))
@@ -211,7 +225,7 @@ struct PlaybackControlsView: View {
         .accessibilityLabel("Show playback controls")
         .accessibilityValue(viewModel.isPlaying ? "Playing" : "Paused")
         .frame(maxWidth: .infinity, alignment: .trailing)
-        .transition(.asymmetric(
+        .transition(reduceMotion ? .opacity : .asymmetric(
             insertion: .scale(scale: 0.5, anchor: .bottomTrailing).combined(with: .opacity),
             removal: .scale(scale: 0.5, anchor: .bottomTrailing).combined(with: .opacity)
         ))
@@ -266,7 +280,7 @@ struct PlaybackControlsView: View {
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 if viewModel.isPlaying && isExpanded && !isDragging && !voiceOverEnabled && !dynamicTypeSize.isAccessibilitySize {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { isExpanded = false }
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8)) { isExpanded = false }
                 }
             }
         }

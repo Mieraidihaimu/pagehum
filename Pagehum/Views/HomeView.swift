@@ -17,6 +17,7 @@ struct HomeView: View {
     @State private var showFilePicker = false
     @State private var navigateToReader = false
     @FocusState private var isURLFieldFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
@@ -40,9 +41,11 @@ struct HomeView: View {
                             .foregroundStyle(Color.accentColor)
                             .symbolRenderingMode(.hierarchical)
                     }
+                    .accessibilityHidden(true)
 
                     Text("Pagehum")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .font(.largeTitle.weight(.bold))
+                        .accessibilityAddTraits(.isHeader)
 
                     if viewModel.isModelLoaded {
                         Text("Read anything aloud")
@@ -110,6 +113,7 @@ struct HomeView: View {
                     Image(systemName: "books.vertical")
                         .symbolRenderingMode(.hierarchical)
                 }
+                .accessibilityLabel("Library")
             }
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
@@ -118,6 +122,7 @@ struct HomeView: View {
                     Image(systemName: "gearshape")
                         .symbolRenderingMode(.hierarchical)
                 }
+                .accessibilityLabel("Settings")
             }
             #else
             ToolbarItem(placement: .navigation) {
@@ -127,6 +132,7 @@ struct HomeView: View {
                     Image(systemName: "books.vertical")
                         .symbolRenderingMode(.hierarchical)
                 }
+                .accessibilityLabel("Library")
             }
             ToolbarItem(placement: .automatic) {
                 NavigationLink {
@@ -135,6 +141,7 @@ struct HomeView: View {
                     Image(systemName: "gearshape")
                         .symbolRenderingMode(.hierarchical)
                 }
+                .accessibilityLabel("Settings")
             }
             #endif
         }
@@ -169,16 +176,16 @@ struct HomeView: View {
                 .padding(.vertical, 12)
                 .background(.green.gradient, in: Capsule())
                 .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 .padding(.bottom, 24)
                 .onAppear {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        withAnimation { viewModel.savedConfirmation = false }
+                        withAnimation(reduceMotion ? nil : .default) { viewModel.savedConfirmation = false }
                     }
                 }
             }
         }
-        .animation(.spring(duration: 0.4), value: viewModel.savedConfirmation)
+        .animation(reduceMotion ? nil : .spring(duration: 0.4), value: viewModel.savedConfirmation)
     }
 
     // MARK: - Inputs
@@ -197,6 +204,7 @@ struct HomeView: View {
                     .textInputAutocapitalization(.never)
                     #endif
                     .focused($isURLFieldFocused)
+                    .accessibilityLabel("Article URLs")
                 if !urlString.isEmpty {
                     Button {
                         urlString = ""
@@ -204,7 +212,9 @@ struct HomeView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
+                            .frame(minWidth: 44, minHeight: 44)
                     }
+                    .accessibilityLabel("Clear article URLs")
                 }
             }
             .padding(14)
@@ -254,6 +264,7 @@ struct HomeView: View {
     private var textInputView: some View {
         VStack(spacing: 14) {
             TextEditor(text: $pastedText)
+                .accessibilityLabel("Text to read aloud")
                 .frame(height: 120)
                 .padding(10)
                 .background(Color.secondaryGroupedBackground, in: RoundedRectangle(cornerRadius: 12))
