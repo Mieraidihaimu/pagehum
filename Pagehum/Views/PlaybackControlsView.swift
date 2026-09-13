@@ -8,9 +8,11 @@ struct PlaybackControlsView: View {
     @State private var autoMinimizeTask: Task<Void, Never>?
     @State private var isDragging = false
     @State private var dragProgress: Double = 0
+    @State private var characterOffsets: [Int] = [0]
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private let speeds: [Float] = [0.75, 1.0, 1.25, 1.5, 2.0, 2.25, 2.5, 3.0]
-    private let speedLabels = ["0.75x", "1x", "1.25x", "1.5x", "2x", "2.25x", "2.5x", "3x"]
 
     var body: some View {
         Group {
@@ -22,9 +24,25 @@ struct PlaybackControlsView: View {
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isExpanded)
-        .onChange(of: viewModel.isPlaying) { _, playing in
+        .onChange(of: viewModel.isPlaying, initial: true) { _, playing in
             if playing { scheduleAutoMinimize() }
+            else {
+                autoMinimizeTask?.cancel()
+                isExpanded = true
+            }
         }
+        .onChange(of: viewModel.sentences, initial: true) { _, sentences in
+            var offsets = [0]
+            for sentence in sentences { offsets.append(offsets.last! + sentence.count) }
+            characterOffsets = offsets
+        }
+        .onChange(of: voiceOverEnabled) { _, enabled in
+            if enabled { autoMinimizeTask?.cancel(); isExpanded = true }
+        }
+        .onChange(of: dynamicTypeSize) { _, size in
+            if size.isAccessibilitySize { autoMinimizeTask?.cancel(); isExpanded = true }
+        }
+        .onDisappear { autoMinimizeTask?.cancel() }
     }
 
     // MARK: - Expanded
@@ -32,39 +50,27 @@ struct PlaybackControlsView: View {
     private var expandedView: some View {
         VStack(spacing: 8) {
             VStack(spacing: 2) {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(.quaternary)
-                            .frame(height: isDragging ? 6 : 4)
-                        Capsule()
-                            .fill(Color.accentColor)
-                            .frame(width: max(0, geo.size.width * displayProgress), height: isDragging ? 6 : 4)
-
-                        Circle()
-                            .fill(.white)
-                            .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
-                            .frame(width: 14, height: 14)
-                            .offset(x: max(0, min(geo.size.width - 14, geo.size.width * displayProgress - 7)))
-                            .opacity(isDragging ? 1 : 0)
+                Slider(value: Binding(
+                    get: { displayProgress },
+                    set: { value in
+                        dragProgress = value
+                        // VoiceOver and keyboard adjustments can bypass dragging.
+                        if !isDragging { seek(to: value) }
                     }
-                    .frame(maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                isDragging = true
-                                dragProgress = max(0, min(1, value.location.x / geo.size.width))
-                            }
-                            .onEnded { _ in
-                                let count = max(viewModel.sentences.count, 1)
-                                let target = min(Int(dragProgress * Double(count)), count - 1)
-                                viewModel.seekToSentence(target)
-                                isDragging = false
-                            }
-                    )
-                }
-                .frame(height: 20)
+                ), in: 0...1, step: 1 / Double(max(viewModel.sentences.count, 1)), onEditingChanged: { editing in
+                    if editing {
+                        dragProgress = viewModel.progress
+                        isDragging = true
+                        autoMinimizeTask?.cancel()
+                    } else {
+                        isDragging = false
+                        seek(to: dragProgress)
+                        scheduleAutoMinimize()
+                    }
+                })
+                .accessibilityLabel("Article position")
+                .accessibilityValue("\(Int(displayProgress * 100)) percent")
+                .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
 
                 HStack {
                     Text(elapsedTimeText)
@@ -95,14 +101,23 @@ struct PlaybackControlsView: View {
 
             // Transport + Speed
             HStack(spacing: 0) {
-                Button { cycleSpeed() } label: {
+                Menu {
+                    Picker("Playback speed", selection: $viewModel.speed) {
+                        ForEach(speeds, id: \.self) { speed in
+                            Text(speedLabel(speed)).tag(speed)
+                        }
+                    }
+                } label: {
                     Text(currentSpeedLabel)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
                         .background(.fill.tertiary, in: Capsule())
+                        .frame(minWidth: 44, minHeight: 44)
                 }
+                .accessibilityLabel("Playback speed")
+                .accessibilityValue(currentSpeedLabel)
 
                 Spacer()
 
@@ -111,6 +126,7 @@ struct PlaybackControlsView: View {
                         .font(.title3)
                         .frame(width: 44, height: 44)
                 }
+                .accessibilityLabel("Back 20 seconds")
 
                 Spacer()
 
@@ -127,6 +143,8 @@ struct PlaybackControlsView: View {
                     .font(.system(size: 44))
                     .frame(width: 44, height: 44)
                 }
+                .accessibilityLabel(viewModel.isPreparing ? "Cancel audio preparation" : viewModel.isPlaying ? "Pause" : "Play")
+                .disabled(!viewModel.isModelLoaded)
 
                 Spacer()
 
@@ -135,6 +153,7 @@ struct PlaybackControlsView: View {
                         .font(.title3)
                         .frame(width: 44, height: 44)
                 }
+                .accessibilityLabel("Forward 20 seconds")
 
                 Spacer()
 
@@ -145,13 +164,14 @@ struct PlaybackControlsView: View {
                 }
                 .accessibilityLabel("Read again from beginning")
                 .help("Read again from beginning")
+                .disabled(!viewModel.isModelLoaded)
             }
             .foregroundStyle(.primary)
+            .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
         .frame(maxWidth: 460)
-        .frame(maxHeight: 112)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
         .overlay(
             RoundedRectangle(cornerRadius: 20)
@@ -188,6 +208,8 @@ struct PlaybackControlsView: View {
             .frame(width: 56, height: 56)
             .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
         }
+        .accessibilityLabel("Show playback controls")
+        .accessibilityValue(viewModel.isPlaying ? "Playing" : "Paused")
         .frame(maxWidth: .infinity, alignment: .trailing)
         .transition(.asymmetric(
             insertion: .scale(scale: 0.5, anchor: .bottomTrailing).combined(with: .opacity),
@@ -197,31 +219,35 @@ struct PlaybackControlsView: View {
 
     // MARK: - Helpers
 
-    private var currentSpeedLabel: String {
-        speedLabels[speeds.firstIndex(of: viewModel.speed) ?? 1]
-    }
+    private var currentSpeedLabel: String { speedLabel(viewModel.speed) }
 
-    private func cycleSpeed() {
-        let currentIndex = speeds.firstIndex(of: viewModel.speed) ?? 1
-        let nextIndex = (currentIndex + 1) % speeds.count
-        withAnimation(.spring(response: 0.3)) { viewModel.speed = speeds[nextIndex] }
+    private func speedLabel(_ speed: Float) -> String {
+        "\(speed.formatted(.number.precision(.fractionLength(0...2))))×"
     }
 
     private var displayProgress: Double {
-        isDragging ? dragProgress : viewModel.progress
+        min(1, max(0, isDragging ? dragProgress : viewModel.progress))
+    }
+
+    private func seek(to progress: Double) {
+        guard !viewModel.sentences.isEmpty, !viewModel.isLoading else { return }
+        let target = min(viewModel.sentences.count - 1, max(0, Int((progress * Double(viewModel.sentences.count)).rounded())))
+        viewModel.seekToSentence(target)
     }
 
     private static let charsPerSecond: Double = 13
 
     private var estimatedTotal: TimeInterval {
-        let totalChars = viewModel.sentences.reduce(0) { $0 + $1.count }
-        return Double(totalChars) / Self.charsPerSecond / Double(max(viewModel.speed, 0.1))
+        Double(characterOffsets.last ?? 0) / Self.charsPerSecond / Double(max(viewModel.speed, 0.1))
     }
 
     private var estimatedElapsed: TimeInterval {
-        let idx = min(viewModel.currentSentenceIndex, viewModel.sentences.count)
-        let chars = viewModel.sentences.prefix(idx).reduce(0) { $0 + $1.count }
-        return Double(chars) / Self.charsPerSecond / Double(max(viewModel.speed, 0.1))
+        if !isDragging && viewModel.progress >= 1 { return estimatedTotal }
+        let index = isDragging
+            ? min(max(0, viewModel.sentences.count - 1), Int(displayProgress * Double(viewModel.sentences.count)))
+            : viewModel.currentSentenceIndex
+        let boundedIndex = min(max(0, index), characterOffsets.count - 1)
+        return Double(characterOffsets[boundedIndex]) / Self.charsPerSecond / Double(max(viewModel.speed, 0.1))
     }
 
     private var elapsedTimeText: String { formatTime(estimatedElapsed) }
@@ -234,11 +260,12 @@ struct PlaybackControlsView: View {
 
     private func scheduleAutoMinimize() {
         autoMinimizeTask?.cancel()
+        guard viewModel.isPlaying, !isDragging, !voiceOverEnabled, !dynamicTypeSize.isAccessibilitySize else { return }
         autoMinimizeTask = Task {
             try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                if viewModel.isPlaying && isExpanded {
+                if viewModel.isPlaying && isExpanded && !isDragging && !voiceOverEnabled && !dynamicTypeSize.isAccessibilitySize {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { isExpanded = false }
                 }
             }

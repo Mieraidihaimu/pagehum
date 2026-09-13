@@ -69,8 +69,8 @@ struct DesktopPlayerView: View {
                         .foregroundStyle(DesktopStyle.sidebar)
                         .background(DesktopStyle.text, in: Circle())
                     }
-                    .help(viewModel.isPlaying ? "Pause" : "Play")
-                    .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
+                    .help(viewModel.isPreparing ? "Cancel audio preparation" : viewModel.isPlaying ? "Pause" : "Play")
+                    .accessibilityLabel(viewModel.isPreparing ? "Cancel audio preparation" : viewModel.isPlaying ? "Pause" : "Play")
                     .disabled(!viewModel.isModelLoaded || viewModel.sentences.isEmpty || viewModel.isLoading)
                     Button { viewModel.skipForward() } label: {
                         Image(systemName: "goforward.20").font(.system(size: 19)).frame(width: 32, height: 36)
@@ -86,6 +86,7 @@ struct DesktopPlayerView: View {
                 .help("Playback speed")
                 Menu {
                     Button("Restart from beginning", systemImage: "arrow.counterclockwise") { viewModel.restartFromBeginning() }
+                        .disabled(!viewModel.isModelLoaded || viewModel.sentences.isEmpty || viewModel.isLoading)
                 } label: { Image(systemName: "ellipsis") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 20)
                 .accessibilityLabel("Playback options")
@@ -113,7 +114,7 @@ struct DesktopPlayerView: View {
                     seekProgress = value
                     // Keyboard changes do not always enter the dragging lifecycle.
                     if !seeking { seek(to: value) }
-                }), in: 0...1, onEditingChanged: { editing in
+                }), in: 0...1, step: 1 / Double(max(viewModel.sentences.count, 1)), onEditingChanged: { editing in
                     if editing { seekProgress = progress; seeking = true }
                     else { seeking = false; seek(to: seekProgress) }
                 })
@@ -145,7 +146,7 @@ struct DesktopPlayerView: View {
 
     private func seek(to value: Double) {
         guard !viewModel.sentences.isEmpty else { return }
-        viewModel.seekToSentence(min(viewModel.sentences.count - 1, max(0, Int(value * Double(viewModel.sentences.count)))))
+        viewModel.seekToSentence(min(viewModel.sentences.count - 1, max(0, Int((value * Double(viewModel.sentences.count)).rounded()))))
     }
 }
 #endif

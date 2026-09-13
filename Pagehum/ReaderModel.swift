@@ -595,6 +595,7 @@ final class ReaderModel: ObservableObject {
     func seekToSentence(_ index: Int) {
         guard index >= 0 && index < sentences.count else { return }
         let wasPlaying = isPlaying
+        let shouldResume = isPlaying || isPreparing
 
         if wasPlaying {
             accumulateListeningTime()
@@ -610,6 +611,8 @@ final class ReaderModel: ObservableObject {
 
         // A seek while paused collapses to a stopped position, so the next play() does a fresh start.
         isPaused = false
+        isPreparing = false
+        isPlaying = false
         currentSentenceIndex = index
         currentTokenIndex = -1
         currentWordText = ""
@@ -617,14 +620,9 @@ final class ReaderModel: ObservableObject {
         progress = Double(index) / Double(sentences.count)
         saveProgressNow()
 
-        if wasPlaying {
-            isPreparing = true
-            isPlaying = false
-            ensureAudioSessionActive()
-            if !audioEngine.isRunning { try? audioEngine.start() }
-            startPipeline()
-            scheduler.start(from: index)
-        }
+        // Preparation is also a request to play. Restart through play() so a seek
+        // cannot strand the UI in Preparing or bypass audio-engine error handling.
+        if shouldResume { play() }
     }
 
     private func saveToPlaylist(content: ReadingContent, source: ContentSource) {
