@@ -1,7 +1,6 @@
 // Modified for Pagehum: unified application and command-line naming.
 import SwiftUI
 import SwiftData
-import MLX
 
 @main
 struct PagehumApp: App {
@@ -11,9 +10,6 @@ struct PagehumApp: App {
     @State private var navigateToReader = false
 
     init() {
-        GPU.set(cacheLimit: 512 * 1024 * 1024)
-        GPU.set(memoryLimit: 2048 * 1024 * 1024)
-
         let schema = Schema([PlaylistItem.self, ListeningRecord.self])
         do {
             let container = try ModelContainer(for: schema)

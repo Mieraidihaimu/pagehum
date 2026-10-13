@@ -4,32 +4,47 @@ import SwiftData
 struct LibrarySearchControls: View {
     @Binding var query: String
     @Binding var favoritesOnly: Bool
+    var compact = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Search titles, sources, and text", text: $query)
-                    .textFieldStyle(.plain)
-                    .autocorrectionDisabled()
-                    .accessibilityLabel("Search library")
-                if !query.isEmpty {
-                    Button { query = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Clear search")
-                    .help("Clear search")
-                }
+        if compact {
+            HStack(spacing: 12) {
+                searchField
+                favoritesToggle.fixedSize()
             }
-            .padding(12)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
-
-            Toggle(isOn: $favoritesOnly) {
-                Label("Starred only", systemImage: favoritesOnly ? "star.fill" : "star")
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                searchField
+                favoritesToggle
             }
-            .toggleStyle(.button)
         }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Search titles, sources, and text", text: $query)
+                .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+                .accessibilityLabel("Search library")
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+                .help("Clear search")
+            }
+        }
+        .padding(compact ? 8 : 12)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: compact ? 6 : 10))
+    }
+
+    private var favoritesToggle: some View {
+        Toggle(isOn: $favoritesOnly) {
+            Label("Starred only", systemImage: favoritesOnly ? "star.fill" : "star")
+        }
+        .toggleStyle(.button)
     }
 }
 
@@ -57,6 +72,7 @@ struct LibrarySearchEmptyView: View {
 
 struct LibraryFavoriteButton: View {
     let item: PlaylistItem
+    var compact = false
     @Environment(\.modelContext) private var modelContext
     @State private var saveFailed = false
 
@@ -72,7 +88,7 @@ struct LibraryFavoriteButton: View {
         } label: {
             Image(systemName: item.isFavorite ? "star.fill" : "star")
                 .foregroundStyle(item.isFavorite ? Color.yellow : Color.secondary)
-                .frame(width: 44, height: 44)
+                .frame(width: compact ? 28 : 44, height: compact ? 28 : 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

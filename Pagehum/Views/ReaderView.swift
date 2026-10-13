@@ -7,10 +7,9 @@ struct ReaderView: View {
     var showsPlaybackControls = true
     var desktopLayout = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     var body: some View {
-        Group {
+        ZStack(alignment: .bottom) {
             if viewModel.content != nil {
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -21,8 +20,7 @@ struct ReaderView: View {
                                         Text(site.uppercased()).font(.caption).tracking(1.6).foregroundStyle(.secondary)
                                     }
                                     Text(viewModel.content?.title ?? "Reader")
-                                        .font(.largeTitle.weight(.medium)).tracking(-0.8)
-                                        .accessibilityAddTraits(.isHeader)
+                                        .font(.system(size: 36, weight: .medium)).tracking(-0.8)
                                 }
                                 .padding(.bottom, 20)
                             }
@@ -56,54 +54,46 @@ struct ReaderView: View {
                                     )
                                     .id(index)
                                 } else {
-                                    Button { viewModel.seekToSentence(index) } label: {
-                                        SentenceView(
-                                            sentence: sentence,
-                                            index: index,
-                                            currentIndex: viewModel.currentSentenceIndex,
-                                            isPlaying: viewModel.isPlaying,
-                                            currentWord: index == viewModel.currentSentenceIndex ? viewModel.currentWordText : "",
-                                            currentTokenIndex: index == viewModel.currentSentenceIndex ? viewModel.currentTokenIndex : -1,
-                                            textSize: viewModel.textSize
-                                        )
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityLabel(sentence)
-                                    .accessibilityValue(index == viewModel.currentSentenceIndex ? "Current sentence" : "")
-                                    .accessibilityHint("Moves playback to this sentence.")
+                                    SentenceView(
+                                        sentence: sentence,
+                                        index: index,
+                                        currentIndex: viewModel.currentSentenceIndex,
+                                        isPlaying: viewModel.isPlaying,
+                                        currentWord: index == viewModel.currentSentenceIndex ? viewModel.currentWordText : "",
+                                        currentTokenIndex: index == viewModel.currentSentenceIndex ? viewModel.currentTokenIndex : -1,
+                                        textSize: viewModel.textSize
+                                    )
                                     .id(index)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { viewModel.seekToSentence(index) }
                                 }
                             }
                         }
                         .frame(maxWidth: desktopLayout ? 620 : .infinity, alignment: .leading)
                         .padding(.horizontal, 24)
                         .padding(.top, desktopLayout ? 40 : 20)
-                        .padding(.bottom, 24)
+                        .padding(.bottom, showsPlaybackControls ? 140 : 48)
                         .frame(maxWidth: .infinity)
                     }
                     .background(Color.platformGroupedBackground.opacity(0.5))
                     .onAppear {
-                        if !voiceOverEnabled && viewModel.currentSentenceIndex > 0 {
+                        if viewModel.currentSentenceIndex > 0 {
                             proxy.scrollTo(viewModel.currentSentenceIndex, anchor: .center)
                         }
                     }
                     .onChange(of: viewModel.currentSentenceIndex) { _, newIndex in
-                        // Keep VoiceOver's reading position under the listener's control.
-                        guard !voiceOverEnabled else { return }
                         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.5)) {
                             proxy.scrollTo(newIndex, anchor: .center)
                         }
                     }
                 }
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            if showsPlaybackControls, viewModel.content != nil {
-                PlaybackControlsView(viewModel: viewModel)
+
+                if showsPlaybackControls {
+                    PlaybackControlsView(viewModel: viewModel)
                     .padding(.horizontal, 12)
                     .padding(.bottom, 4)
+                    .shadow(color: .black.opacity(0.08), radius: 12, y: -4)
+                }
             }
         }
         .navigationTitle(viewModel.content?.title ?? "Reader")
@@ -124,17 +114,12 @@ struct SentenceView: View {
     let currentWord: String
     let currentTokenIndex: Int
     var textSize: Double = 17
-    @ScaledMetric(relativeTo: .body) private var textScale = 1.0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorSchemeContrast) private var contrast
-
-    private var scaledTextSize: CGFloat { CGFloat(textSize * textScale) }
 
     private var readerFont: Font {
-        .system(size: scaledTextSize, design: .serif)
+        .system(size: CGFloat(textSize), design: .serif)
     }
 
-    private var lineSpacing: CGFloat { scaledTextSize * 0.5 }
+    private var lineSpacing: CGFloat { CGFloat(textSize) * 0.5 }
 
     var body: some View {
         Group {
@@ -147,19 +132,19 @@ struct SentenceView: View {
             }
         }
         .lineSpacing(lineSpacing)
-        .padding(.vertical, scaledTextSize * 0.35)
+        .padding(.vertical, CGFloat(textSize) * 0.35)
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(isCurrent ? Color.accentColor.opacity(0.06) : .clear)
         )
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: currentIndex)
+        .animation(.easeInOut(duration: 0.3), value: currentIndex)
     }
 
     private var isCurrent: Bool { index == currentIndex && isPlaying }
 
     private var textColor: Color {
-        if !isPlaying || contrast == .increased { return .primary }
+        if !isPlaying { return .primary }
         if index == currentIndex { return .primary }
         if index < currentIndex { return .secondary }
         return .primary.opacity(0.8)

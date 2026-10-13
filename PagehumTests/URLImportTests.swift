@@ -25,6 +25,15 @@ struct URLImportTests {
     }
 
     @Test
+    func summaryListsOnlyNonZeroCounts() throws {
+        let failure = URLImportResult.Failure(url: try #require(URL(string: "https://example.com")), message: "Timed out")
+        #expect(URLImportResult(imported: 3).summary == "3 imported")
+        #expect(URLImportResult(skipped: 1).summary == "1 already saved")
+        #expect(URLImportResult(imported: 2, skipped: 1, failures: [failure]).summary == "2 imported · 1 already saved · 1 failed")
+        #expect(URLImportResult().summary == "Nothing imported")
+    }
+
+    @Test
     func importsIndependentlySkipsSavedLinksAndRetriesFailures() async throws {
         let container = try ModelContainer(for: PlaylistItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let context = ModelContext(container)

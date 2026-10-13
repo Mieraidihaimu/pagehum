@@ -1,5 +1,6 @@
 // Modified for Pagehum: unified application and command-line naming.
 import XCTest
+import SpeechCore
 @testable import Pagehum
 
 final class SentenceSegmenterTests: XCTestCase {

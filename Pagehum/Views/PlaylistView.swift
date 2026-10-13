@@ -5,17 +5,33 @@ import SwiftData
 struct PlaylistView: View {
 
     @ObservedObject var viewModel: ReaderModel
+    @ObservedObject private var queue: ListeningQueue
     @Query(sort: \PlaylistItem.dateAdded, order: .reverse) private var allItems: [PlaylistItem]
     @Environment(\.modelContext) private var modelContext
     @State private var selectedItem: PlaylistItem?
     @State private var searchText = ""
     @State private var favoritesOnly = false
+    @State private var selecting = false
+    @State private var selection: Set<PersistentIdentifier> = []
+    @State private var confirmingRemoval = false
+
+    init(viewModel: ReaderModel) {
+        self.viewModel = viewModel
+        queue = viewModel.listeningQueue
+    }
 
     var body: some View {
         let filteredItems = LibraryFilter(query: searchText, favoritesOnly: favoritesOnly).apply(to: allItems)
         let queuedItems = filteredItems.filter { $0.status == PlaylistItem.Status.queued.rawValue && $0.progressPercent < 1 }
         let inProgressItems = filteredItems.filter { $0.status == PlaylistItem.Status.inProgress.rawValue && $0.progressPercent < 1 }
         let completedItems = filteredItems.filter { $0.status == PlaylistItem.Status.completed.rawValue || $0.progressPercent >= 1 }
+        let displayOrder = queuedItems + inProgressItems + completedItems
+        let selectedItems = displayOrder.filter { selection.contains($0.persistentModelID) && !queue.contains($0.persistentModelID) }
+        // The current article stays: its next progress save would touch a deleted model.
+        let removableItems = selectedItems.filter { $0.persistentModelID != viewModel.currentPlaylistItemID }
+        let appending = queue.isActive || (viewModel.progress < 1 && (viewModel.isPlaying || viewModel.isPaused || viewModel.isPreparing))
+        let playTitle: LocalizedStringKey = appending
+            ? "Add \(selectedItems.count) to queue" : "Play ^[\(selectedItems.count) article](inflect: true)"
 
         VStack(spacing: 0) {
             LibrarySearchControls(query: $searchText, favoritesOnly: $favoritesOnly)
@@ -80,6 +96,73 @@ struct PlaylistView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
         #endif
+        .toolbar {
+            if !allItems.isEmpty {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(selecting ? "Cancel" : "Select") {
+                        selecting.toggle()
+                        selection = []
+                    }
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if selecting {
+                VStack(spacing: 10) {
+                    HStack {
+                        Text("\(selectedItems.count) selected").font(.headline)
+                        Spacer()
+                        Button("Select all") {
+                            selection = Set(displayOrder.filter { !queue.contains($0.persistentModelID) }.map(\.persistentModelID))
+                        }
+                    }
+                    HStack(spacing: 12) {
+                        Button(role: .destructive) {
+                            confirmingRemoval = true
+                        } label: {
+                            Label("Remove from library", systemImage: "trash").labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .disabled(removableItems.isEmpty)
+                        .confirmationDialog(
+                            Text(AttributedString(localized: "Remove ^[\(removableItems.count) article](inflect: true) from library?")),
+                            isPresented: $confirmingRemoval,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Remove", role: .destructive) {
+                                for item in removableItems { modelContext.delete(item) }
+                                selection = []
+                                selecting = false
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            if removableItems.count < selectedItems.count {
+                                Text("The current article stays in your library.")
+                            }
+                        }
+                        Button {
+                            queue.enqueue(selectedItems)
+                            selection = []
+                            selecting = false
+                            // A new queue opens its first article; show it with the player.
+                            if !appending { selectedItem = selectedItems.first }
+                        } label: {
+                            Text(playTitle).frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(selectedItems.isEmpty || !viewModel.isModelLoaded || viewModel.isLoading)
+                    }
+                    if !viewModel.isModelLoaded {
+                        Text("Waiting for the voice engine to load")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(16)
+                .background(.bar)
+            }
+        }
         .navigationDestination(item: $selectedItem) { _ in
             if let url = viewModel.content?.source.webURL {
                 WebReaderView(viewModel: viewModel, url: url)
@@ -90,17 +173,35 @@ struct PlaylistView: View {
     }
 
     private func libraryRow(_ item: PlaylistItem) -> some View {
-        HStack(alignment: .top, spacing: 4) {
+        let queued = queue.contains(item.persistentModelID)
+        let selected = selection.contains(item.persistentModelID)
+        return HStack(alignment: .top, spacing: 4) {
+            if selecting {
+                Image(systemName: queued ? "checkmark.circle" : selected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                    .padding(.top, 8).padding(.trailing, 8)
+                    .accessibilityHidden(true)
+            }
             Button {
-                selectedItem = item
-                reloadItem(item)
+                if selecting {
+                    guard !queued else { return }
+                    if selected { selection.remove(item.persistentModelID) } else { selection.insert(item.persistentModelID) }
+                } else {
+                    open(item)
+                }
             } label: {
                 PlaylistRowView(item: item)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            LibraryFavoriteButton(item: item)
+            .accessibilityAddTraits(selecting && selected ? .isSelected : [])
+            if selecting && queued {
+                Text("In queue").font(.caption).foregroundStyle(.secondary).padding(.top, 8)
+            } else if !selecting {
+                LibraryFavoriteButton(item: item)
+            }
         }
     }
 
@@ -110,32 +211,10 @@ struct PlaylistView: View {
         }
     }
 
-    private func reloadItem(_ item: PlaylistItem) {
-        item.lastPlayed = Date()
-        if item.status == PlaylistItem.Status.queued.rawValue {
-            item.status = PlaylistItem.Status.inProgress.rawValue
-        }
-        try? modelContext.save()
-        viewModel.stop()
-
-        let source: ContentSource
-        if item.sourceType == "url", let urlString = item.sourceURL, let url = URL(string: urlString) {
-            source = .url(url)
-        } else {
-            source = .text(item.fullText)
-        }
-
-        viewModel.content = ReadingContent(
-            title: item.title,
-            body: item.fullText,
-            source: source
-        )
-        viewModel.currentPlaylistItemID = item.persistentModelID
-        viewModel.prepareTextPublic(
-            item.fullText,
-            resumeAt: item.lastSentenceIndex,
-            textOffset: item.playbackTextOffset
-        )
+    private func open(_ item: PlaylistItem) {
+        // Viewing the current article keeps its queue intact, matching the Mac library.
+        viewModel.openLibraryItem(item, preservingQueue: viewModel.currentPlaylistItemID == item.persistentModelID)
+        selectedItem = item
     }
 }
 

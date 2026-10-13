@@ -1,31 +1,30 @@
 // Modified for Pagehum: unified application and command-line naming.
 import Foundation
 
-nonisolated enum TechBlogTopic: String, CaseIterable, Codable, Sendable, Identifiable {
-    case ai, backend, scaling, interview
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .ai: "AI"
-        case .backend: "Backend"
-        case .scaling: "Scaling"
-        case .interview: "Interviews"
-        }
-    }
-}
-
 nonisolated enum TechBlogFeed: String, CaseIterable, Codable, Sendable, Identifiable {
     case top, new
     var id: String { rawValue }
     var title: String { self == .top ? "Top stories" : "Newest stories" }
 }
 
+nonisolated enum TechBlogSort: String, CaseIterable, Sendable, Identifiable {
+    case points, comments, newest
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .points: "Points"
+        case .comments: "Comments"
+        case .newest: "Newest"
+        }
+    }
+}
+
 nonisolated struct TechBlogSettings: Codable, Equatable, Sendable {
-    var topics: Set<TechBlogTopic> = Set(TechBlogTopic.allCases)
     var feed: TechBlogFeed = .top
     var storyCount = 100
     var freshnessDays = 3
     var minimumScore = 0
+    var minimumComments = 0
     var importLimit = 10
 
     static let storageKey = "techBlogImportSettings"
@@ -35,6 +34,7 @@ nonisolated struct TechBlogSettings: Codable, Equatable, Sendable {
         value.storyCount = min(500, max(1, storyCount))
         value.freshnessDays = min(7, max(1, freshnessDays))
         value.minimumScore = min(1000, max(0, minimumScore))
+        value.minimumComments = min(1000, max(0, minimumComments))
         value.importLimit = min(50, max(1, importLimit))
         return value
     }
@@ -50,6 +50,20 @@ nonisolated struct TechBlogSettings: Codable, Equatable, Sendable {
     }
 }
 
+nonisolated extension TechBlogSettings {
+    // Keys added in later versions fall back to defaults instead of resetting every preference.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let fallback = Self()
+        feed = try container.decodeIfPresent(TechBlogFeed.self, forKey: .feed) ?? fallback.feed
+        storyCount = try container.decodeIfPresent(Int.self, forKey: .storyCount) ?? fallback.storyCount
+        freshnessDays = try container.decodeIfPresent(Int.self, forKey: .freshnessDays) ?? fallback.freshnessDays
+        minimumScore = try container.decodeIfPresent(Int.self, forKey: .minimumScore) ?? fallback.minimumScore
+        minimumComments = try container.decodeIfPresent(Int.self, forKey: .minimumComments) ?? fallback.minimumComments
+        importLimit = try container.decodeIfPresent(Int.self, forKey: .importLimit) ?? fallback.importLimit
+    }
+}
+
 nonisolated struct HackerNewsItem: Decodable, Sendable {
     let id: Int
     var type: String? = nil
@@ -59,6 +73,7 @@ nonisolated struct HackerNewsItem: Decodable, Sendable {
     var time: TimeInterval? = nil
     var dead: Bool? = nil
     var deleted: Bool? = nil
+    var descendants: Int? = nil
 }
 
 nonisolated struct TechBlogStory: Sendable {
@@ -66,8 +81,13 @@ nonisolated struct TechBlogStory: Sendable {
     let title: String
     let url: URL
     let score: Int
+    let comments: Int
     let submittedAt: Date
-    let topics: Set<TechBlogTopic>
+
+    var site: String {
+        let host = url.host?.lowercased() ?? ""
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
 }
 
 nonisolated struct TechBlogDiscoveryResult: Sendable {
@@ -80,13 +100,8 @@ nonisolated protocol TechBlogDiscovering: Sendable {
 }
 
 nonisolated enum TechBlogDiscoveryError: LocalizedError {
-    case noTopics, unavailable
-    var errorDescription: String? {
-        switch self {
-        case .noTopics: "Choose at least one topic."
-        case .unavailable: "Couldn’t fetch stories from Hacker News. Please try again."
-        }
-    }
+    case unavailable
+    var errorDescription: String? { "Couldn’t fetch stories from Hacker News. Please try again." }
 }
 
 /// Fetches only HN metadata. Article extraction remains in the library importer.
@@ -113,7 +128,6 @@ nonisolated struct TechBlogDiscovery: TechBlogDiscovering {
 
     func discover(settings: TechBlogSettings) async throws -> TechBlogDiscoveryResult {
         let settings = settings.validated
-        guard !settings.topics.isEmpty else { throw TechBlogDiscoveryError.noTopics }
         try Task.checkCancellation()
         let data = try await load(Self.baseURL.appendingPathComponent("\(settings.feed.rawValue)stories.json"))
         let ids = try JSONDecoder().decode([Int].self, from: data)
@@ -159,14 +173,6 @@ nonisolated struct TechBlogDiscovery: TechBlogDiscovering {
         return blockedDomains.contains { host == $0 || host.hasSuffix("." + $0) }
     }
 
-    static func classify(title: String, url: URL) -> Set<TechBlogTopic> {
-        let text = title + " " + (url.absoluteString.removingPercentEncoding ?? url.absoluteString)
-        let range = NSRange(text.startIndex..., in: text)
-        return Set(patterns.compactMap { topic, expressions in
-            expressions.contains { $0.firstMatch(in: text, range: range) != nil } ? topic : nil
-        })
-    }
-
     static func filter(_ items: [HackerNewsItem], settings: TechBlogSettings, now: Date) -> [TechBlogStory] {
         let settings = settings.validated
         let cutoff = now.addingTimeInterval(-Double(settings.freshnessDays) * 86400)
@@ -178,132 +184,44 @@ nonisolated struct TechBlogDiscovery: TechBlogDiscovering {
                   let host = url.host, !host.isEmpty, !isBlocked(url),
                   let time = item.time, time.isFinite,
                   time >= cutoff.timeIntervalSince1970, time <= now.timeIntervalSince1970,
-                  (item.score ?? 0) >= settings.minimumScore else { return nil }
-            let topics = classify(title: title, url: url).intersection(settings.topics)
-            guard !topics.isEmpty else { return nil }
+                  (item.score ?? 0) >= settings.minimumScore,
+                  (item.descendants ?? 0) >= settings.minimumComments else { return nil }
             return TechBlogStory(id: item.id, title: title, url: url, score: item.score ?? 0,
-                                submittedAt: Date(timeIntervalSince1970: time), topics: topics)
+                                comments: item.descendants ?? 0, submittedAt: Date(timeIntervalSince1970: time))
         }.sorted {
             if settings.feed == .top && $0.score != $1.score { return $0.score > $1.score }
             if $0.submittedAt != $1.submittedAt { return $0.submittedAt > $1.submittedAt }
             return $0.id < $1.id
         }
     }
+
+    /// Stories whose links aren't in the library yet, without duplicate submissions, in discovery order.
+    static func unsaved(_ stories: [TechBlogStory], savedKeys: Set<String>) -> [TechBlogStory] {
+        var seen = savedKeys
+        return stories.filter { seen.insert(URLImportParser.key(for: $0.url)).inserted }
+    }
+
+    /// Every search term must appear in the title or site.
+    static func browse(_ stories: [TechBlogStory], query: String, sort: TechBlogSort) -> [TechBlogStory] {
+        let terms = query.split(whereSeparator: \.isWhitespace)
+        return stories.filter { story in
+            terms.allSatisfy { term in
+                [story.title, story.site].contains { $0.range(of: term, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+            }
+        }.sorted { a, b in
+            switch sort {
+            case .points where a.score != b.score: return a.score > b.score
+            case .comments where a.comments != b.comments: return a.comments > b.comments
+            default: break
+            }
+            if a.submittedAt != b.submittedAt { return a.submittedAt > b.submittedAt }
+            return a.id < b.id
+        }
+    }
 }
 
 nonisolated private extension TechBlogDiscovery {
-    // Topic expressions and source exclusions ported from the supplied hn-filter script.
-    static let patterns: [TechBlogTopic: [NSRegularExpression]] = {
-        let source: [TechBlogTopic: [String]] = [
-            .ai: [
-                #"\bai\b"#,
-                #"\bartificial.intelligence\b"#,
-                #"\bllm\b"#,
-                #"\bgpt[-\s]?\d"#,
-                #"\btransformer[s]?\b"#,
-                #"\bdeep\s?learning\b"#,
-                #"\bmachine\s?learning\b"#,
-                #"\bneural\s?net"#,
-                #"\blarge\s?language\s?model"#,
-                #"\bdiffusion\b"#,
-                #"\bfine[- ]?tun"#,
-                #"\breinforcement\s?learning\b"#,
-                #"\bretrieval.augmented"#,
-                #"\bembedding[s]?\b"#,
-                #"\bmultimodal\b"#,
-                #"\bvector\s?database"#,
-                #"\bopen\s?ai\b"#,
-                #"\banthrop"#,
-                #"\bdeepseek\b"#,
-                #"\bgemini\b"#,
-                #"\bclaude\b"#,
-                #"\bcodex\b"#,
-                #"\bqwen\b"#,
-                #"\bmistral\b"#,
-                #"\bstable\s?diffusion\b"#,
-                #"\bmodel[s]?\b.*\btrain"#,
-                #"\btrain.*\bmodel[s]?\b"#,
-                #"\binference\b"#,
-                #"\bpretrain"#,
-                #"\bllm\s?agent"#,
-                #"\bai\s?agent"#,
-                #"\balpha\s?genome\b"#,
-                #"\breasoning\s?prefill"#,
-            ],
-            .backend: [
-                #"\bbackend\b"#,
-                #"\bserver[- ]?side\b"#,
-                #"\bmicroservice"#,
-                #"\bdatabase\b"#,
-                #"\bpostgres"#,
-                #"\bmysql\b"#,
-                #"\bredis\b"#,
-                #"\bkafka\b"#,
-                #"\brabbitmq\b"#,
-                #"\bmessage\s?queue"#,
-                #"\bcontainer[s]?\b"#,
-                #"\bdocker\b"#,
-                #"\bkubernetes\b"#,
-                #"\bk8s\b"#,
-                #"\bgolang\b"#,
-                #"\bjvm\b"#,
-                #"\bnode\.?js\b"#,
-                #"\bgrpc\b"#,
-                #"\bgraphql\b"#,
-                #"\bnosql\b"#,
-                #"\bcaching\b"#,
-                #"\bserverless\b"#,
-                #"\bdevops\b"#,
-                #"\bci[/ ]cd\b"#,
-                #"\bnginx\b"#,
-                #"\breverse\s?proxy\b"#,
-                #"\bobject\s?storage\b"#,
-                #"\bdurable\s?object"#,
-                #"\breact\s?native\b"#,
-                #"\bddos\b"#,
-                #"\bversion\s?control\b"#,
-                #"\brootless\s?container"#,
-                #"\blibzmq\b"#,
-                #"\bvsock\b"#,
-            ],
-            .scaling: [
-                #"\bscal(e|ing|ability)\b"#,
-                #"\bdistributed\s?system"#,
-                #"\bhigh\s?availability\b"#,
-                #"\bload\s?balanc"#,
-                #"\bsharding\b"#,
-                #"\breplication\b"#,
-                #"\bthroughput\b"#,
-                #"\blatency\b"#,
-                #"\brate\s?limit"#,
-                #"\bcircuit\s?breaker"#,
-                #"\bfault\s?toler"#,
-                #"\bresilien"#,
-                #"\bsystem\s?design\b"#,
-                #"\bcapacity\s?plan"#,
-            ],
-            .interview: [
-                #"\binterview\b"#,
-                #"\bcoding\s?(challenge|problem|question)"#,
-                #"\bsystem\s?design\b"#,
-                #"\balgorithm[s]?\b"#,
-                #"\bdata\s?structure"#,
-                #"\bleetcode\b"#,
-                #"\bhackerrank\b"#,
-                #"\binterview\s?prep\b"#,
-                #"\bwhiteboard\b"#,
-                #"\btechnical\s?(screen|interview|round)"#,
-                #"\bpolynomial[s]?\b"#,
-                #"\bdynamic\s?programming\b"#,
-                #"\bbig[- ]?o\b"#,
-                #"\bcard\s?network"#,
-            ],
-        ]
-        return source.mapValues { expressions in
-            expressions.map { try! NSRegularExpression(pattern: $0, options: .caseInsensitive) }
-        }
-    }()
-
+    // Source exclusions ported from the supplied hn-filter script.
     static let blockedDomains: Set<String> = [
         "amazon.com",
         "apple.com",

@@ -1,10 +1,10 @@
 import Foundation
 import NaturalLanguage
 
-nonisolated enum SentenceSegmenter {
+public enum SentenceSegmenter {
     private static let maxSentenceLength = 400
 
-    static func splitIntoSentences(_ text: String) -> [String] {
+    public static func splitIntoSentences(_ text: String) -> [String] {
         let tokenizer = NLTokenizer(unit: .sentence)
         tokenizer.string = text
         var result: [String] = []

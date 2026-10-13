@@ -64,6 +64,19 @@ final class ListeningQueue: ObservableObject {
         upcoming.swapAt(index, index + offset)
     }
 
+    /// List-style reordering; `destination` is an index in the list before the move.
+    func move(fromOffsets source: IndexSet, toOffset destination: Int) {
+        let moving = source.compactMap { upcoming.indices.contains($0) ? upcoming[$0] : nil }
+        var remaining = upcoming.enumerated().filter { !source.contains($0.offset) }.map(\.element)
+        let insertAt = min(remaining.count, max(0, destination - source.filter { $0 < destination }.count))
+        remaining.insert(contentsOf: moving, at: insertAt)
+        upcoming = remaining
+    }
+
+    func remove(atOffsets offsets: IndexSet) {
+        upcoming = upcoming.enumerated().filter { !offsets.contains($0.offset) }.map(\.element)
+    }
+
     func clearUpcoming() { upcoming = [] }
 
     /// End queue ownership without interrupting the currently audible article.

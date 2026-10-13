@@ -7,7 +7,6 @@ struct SettingsView: View {
     @State private var cacheSize = AudioCacheManager.formattedSize()
     @State private var cacheFileCount = AudioCacheManager.fileCount()
     @State private var showClearConfirmation = false
-    @ScaledMetric(relativeTo: .body) private var textScale = 1.0
 
     private let speeds: [Float] = [0.75, 1.0, 1.25, 1.5, 2.0, 2.25, 2.5, 3.0]
     private let speedLabels = ["0.75x", "1x", "1.25x", "1.5x", "2x", "2.25x", "2.5x", "3x"]
@@ -32,11 +31,31 @@ struct SettingsView: View {
             }
 
             Section {
-                Picker("Playback Speed", selection: $viewModel.speed) {
-                    ForEach(Array(zip(speeds, speedLabels)), id: \.0) { speed, label in
-                        Text(label).tag(speed)
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Playback Speed", systemImage: "gauge.with.needle")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 6) {
+                        ForEach(Array(zip(speeds, speedLabels)), id: \.0) { spd, label in
+                            Button {
+                                withAnimation(.spring(response: 0.3)) { viewModel.speed = spd }
+                            } label: {
+                                Text(label)
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 11)
+                                    .background(
+                                        viewModel.speed == spd ? Color.accentColor : Color.tertiaryFill,
+                                        in: RoundedRectangle(cornerRadius: 10)
+                                    )
+                                    .foregroundStyle(viewModel.speed == spd ? .white : .primary)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
+                .padding(.vertical, 4)
             } header: {
                 Text("Playback")
             }
@@ -61,34 +80,22 @@ struct SettingsView: View {
                             Image(systemName: "minus.circle.fill")
                                 .font(.title2)
                                 .symbolRenderingMode(.hierarchical)
-                                .frame(minWidth: 44, minHeight: 44)
-                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
-                        .accessibilityLabel("Decrease text size")
-                        .disabled(viewModel.textSize <= 12)
 
                         Slider(value: $viewModel.textSize, in: 12...32, step: 1)
                             .tint(.accentColor)
-                            .accessibilityLabel("Reader text size")
-                            .accessibilityValue("\(Int(viewModel.textSize)) points")
 
                         Button { viewModel.textSize = min(32, viewModel.textSize + 2) } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
                                 .symbolRenderingMode(.hierarchical)
-                                .frame(minWidth: 44, minHeight: 44)
-                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
-                        .accessibilityLabel("Increase text size")
-                        .disabled(viewModel.textSize >= 32)
                     }
 
                     Text("The quick brown fox jumps over the lazy dog.")
-                        .font(.system(size: CGFloat(viewModel.textSize * textScale), design: .serif))
+                        .font(.system(size: CGFloat(viewModel.textSize), design: .serif))
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.platformGroupedBackground, in: RoundedRectangle(cornerRadius: 12))
@@ -111,9 +118,11 @@ struct SettingsView: View {
                 #if os(iOS)
                 .pickerStyle(.navigationLink)
                 #endif
-                
+                VoiceModelDownloadView(viewModel: viewModel)
             } header: {
                 Text("Voice")
+            } footer: {
+                if let notice = viewModel.speechEngineNotice { Text(notice) }
             }
 
             Section {
@@ -150,7 +159,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 LabeledContent("TTS Engine") {
-                    Text("Kokoro 82M")
+                    Text(viewModel.speechEngineNotice == nil ? "Kokoro 82M" : "System voices")
                         .foregroundStyle(.secondary)
                 }
                 LabeledContent("Audio") {
@@ -185,6 +194,7 @@ struct SettingsView: View {
     // MARK: - Voice helpers
 
     private func voiceDisplayName(_ voice: String) -> String {
+        if let systemName = SystemSpeechEngine.displayName(for: voice) { return systemName }
         let parts = voice.split(separator: "_")
         guard parts.count == 2 else { return voice }
         let name = parts[1].capitalized
@@ -209,7 +219,7 @@ struct SettingsView: View {
     }
 
     private func voiceFlag(_ voice: String) -> String {
-        guard let first = voice.first else { return "" }
+        guard let first = voice.first, SystemSpeechEngine.displayName(for: voice) == nil else { return "\u{1F5E3}" }
         switch first {
         case "a": return "\u{1F1FA}\u{1F1F8}"
         case "b": return "\u{1F1EC}\u{1F1E7}"

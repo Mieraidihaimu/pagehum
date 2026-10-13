@@ -20,6 +20,15 @@ final class PlaylistItem {
     var status: String = "inProgress"
     var isFavorite: Bool = false
 
+    var librarySource: String {
+        if let sourceURL, let host = URL(string: sourceURL)?.host() { return host }
+        return sourceType == "pdf" ? String(localized: "PDF document") : String(localized: "Pasted text")
+    }
+
+    var libraryProgress: Double {
+        status == Status.completed.rawValue ? 1 : min(1, max(0, progressPercent))
+    }
+
     init(title: String, sourceURL: String? = nil, sourceType: String, fullText: String, status: String = Status.inProgress.rawValue) {
         self.title = title
         self.sourceURL = sourceURL

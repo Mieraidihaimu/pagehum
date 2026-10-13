@@ -1,6 +1,10 @@
 // Modified for Pagehum: unified application and command-line naming.
 import SwiftUI
 
+func importLinksTitle(_ count: Int) -> LocalizedStringKey {
+    count == 0 ? "Import links" : "Import ^[\(count) link](inflect: true)"
+}
+
 struct URLImportStatusView: View {
     @ObservedObject var viewModel: ReaderModel
 

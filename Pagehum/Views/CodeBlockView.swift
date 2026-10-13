@@ -20,8 +20,6 @@ struct CodeBlockView: View {
 
     @State private var isExpanded = false
     @State private var didCopy = false
-    @ScaledMetric(relativeTo: .body) private var textScale = 1.0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Longer blocks start collapsed so a 200-line config dump doesn't bury the article.
     private static let collapsedLineLimit = 12
@@ -38,7 +36,7 @@ struct CodeBlockView: View {
     }
 
     private var codeFont: Font {
-        .system(size: max(11, CGFloat(textSize) - 2) * textScale, design: .monospaced)
+        .system(size: max(11, CGFloat(textSize) - 2), design: .monospaced)
     }
 
     var body: some View {
@@ -60,36 +58,34 @@ struct CodeBlockView: View {
                 )
         )
         .padding(.vertical, CGFloat(textSize) * 0.35)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: currentIndex)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isExpanded)
+        .animation(.easeInOut(duration: 0.3), value: currentIndex)
+        .animation(.easeInOut(duration: 0.2), value: isExpanded)
     }
 
     // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 8) {
-            Button(action: onSeek) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Label(block.displayLanguage ?? "Code", systemImage: "chevron.left.forwardslash.chevron.right")
-                        .font(.caption.weight(.semibold))
-                    Text(block.lineCount == 1 ? "1 line" : "\(block.lineCount) lines")
-                        .font(.caption2)
-                }
+            Image(systemName: "chevron.left.forwardslash.chevron.right")
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(isCurrent ? Color.accentColor : .secondary)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(block.spokenAnnouncement)
-            .accessibilityValue(isCurrent ? "Current code block" : "")
-            .accessibilityHint("Moves playback to this code block.")
+
+            Text(block.displayLanguage ?? "Code")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isCurrent ? Color.accentColor : .secondary)
+
+            Text(block.lineCount == 1 ? "1 line" : "\(block.lineCount) lines")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+
+            Spacer(minLength: 8)
 
             Button(action: copy) {
                 Label(didCopy ? "Copied" : "Copy", systemImage: didCopy ? "checkmark" : "doc.on.doc")
                     .labelStyle(.iconOnly)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(didCopy ? Color.green : .secondary)
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -98,6 +94,9 @@ struct CodeBlockView: View {
         .padding(.leading, 12)
         .padding(.trailing, 4)
         .padding(.vertical, 6)
+        // Seek lives on the header so it doesn't fight the code area's horizontal scrolling.
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSeek)
     }
 
     // MARK: - Code
@@ -127,11 +126,9 @@ struct CodeBlockView: View {
             .foregroundStyle(Color.accentColor)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
-            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
     }
 
     // MARK: - Actions

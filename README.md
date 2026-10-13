@@ -25,7 +25,7 @@ Speech is generated on your device using **Kokoro and Apple's MLX framework**. N
 - **Listen to your reading list.** Import a web article, PDF, or pasted text into the app.
 - **Read along.** Use the reader, playback controls, and text highlighting.
 - **Keep a library and queue.** Search saved content and choose what plays next.
-- **Discover tech articles.** Import Hacker News links using topic, age, and score filters.
+- **Listen to Hacker News.** Browse stories by points, comments, and site, or import the top picks in one tap.
 - **Export audio from your Mac.** Feed the CLI text, a file, stdin, or an article URL; get M4A or WAV.
 - **Choose English voices.** The CLI supports American and British English voice styles and lists them with `pagehum voices`.
 
@@ -41,7 +41,7 @@ After extracting the CLI archive, open its `pagehum` directory in Terminal and r
 | iOS app | Physical device with MLX support; app target is iOS 18.6+ |
 | Bundled iOS share extension | Currently targets iOS 26.1; use iOS 26.1+ for the full app and extension build |
 
-MLX speech generation does not run in the iOS Simulator. The iOS distribution build has not yet been validated for this source release.
+MLX speech generation does not run in the iOS Simulator; there the app falls back to Apple's built-in voices.
 
 ```sh
 git clone https://github.com/Mieraidihaimu/pagehum.git
@@ -49,7 +49,7 @@ cd pagehum
 ./scripts/download-models.sh
 ```
 
-The setup script downloads approximately **342 MB** of model and voice assets from a pinned upstream revision and verifies their SHA-256 checksums. Assets stay local and are excluded from Git. Git LFS is not required to clone Pagehum.
+The setup script downloads approximately **342 MB** of model and voice assets from a pinned upstream revision and verifies their SHA-256 checksums. Assets stay local and are excluded from Git. Git LFS is not required to clone Pagehum. Debug builds bundle these assets; Release builds leave them out and offer the same verified download in Settings, using system voices until it finishes.
 
 ### Build the app
 
@@ -90,7 +90,7 @@ Article URL / PDF / text           Text / file / stdin / URL
                   Local playback / audio export
 ```
 
-`Pagehum/` contains the app and reader, `PagehumCLI/` contains export commands, and `SpeechCore/` shares model loading and sentence synthesis between them. `PagehumShare/` handles iOS sharing.
+`Pagehum/` contains the app and reader, `PagehumCLI/` contains export commands, and the `Packages/SpeechCore` Swift package is the only code that depends on Kokoro and MLX; the app reaches it through a small `SpeechEngine` interface. `PagehumShare/` handles iOS sharing.
 
 ## Current limits
 

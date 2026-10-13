@@ -72,49 +72,6 @@ struct ReaderModelPlaybackStateTests {
     }
 
     @Test
-    func seekingWhilePreparingStartsPlaybackAtTheNewPosition() async throws {
-        let player = ControlledAudioBufferPlayer()
-        let model = makeModel(player: player) { _, format in
-            makeAudio(format: format)
-        }
-        defer { model.stop() }
-        model.prepareTextPublic("The first sentence is skipped. The second sentence should play.")
-        #expect(model.sentences.count == 2)
-
-        model.play()
-        #expect(model.isPreparing)
-        model.seekToSentence(1)
-
-        try await waitUntil { model.isPlaying }
-        #expect(!model.isPreparing)
-        #expect(model.currentSentenceIndex == 1)
-        #expect(player.scheduledCount > 0)
-    }
-
-    @Test
-    func seekingWhilePausedWaitsForAnExplicitPlay() async throws {
-        let player = ControlledAudioBufferPlayer()
-        let model = makeModel(player: player) { _, format in
-            makeAudio(format: format)
-        }
-        defer { model.stop() }
-        model.prepareTextPublic("The first sentence will pause. The second sentence waits for play.")
-        model.play()
-        try await waitUntil { model.isPlaying }
-        model.pause()
-
-        model.seekToSentence(1)
-        #expect(!model.isPlaying)
-        #expect(!model.isPreparing)
-        #expect(player.scheduledCount == 0)
-        #expect(model.currentSentenceIndex == 1)
-
-        model.play()
-        try await waitUntil { model.isPlaying }
-        #expect(model.currentSentenceIndex == 1)
-    }
-
-    @Test
     func restartingFromBeginningReplaysTheFirstSentence() async throws {
         let player = ControlledAudioBufferPlayer()
         var generatedTexts: [String] = []

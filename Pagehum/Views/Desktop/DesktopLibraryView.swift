@@ -10,12 +10,14 @@ struct DesktopLibraryView: View {
     var openItem: (PlaylistItem) -> Void
     var addContent: () -> Void
     @Environment(\.modelContext) private var modelContext
-    @State private var itemToDelete: PlaylistItem?
-    @State private var selecting = false
+    @State private var itemsToDelete: [PlaylistItem] = []
     @State private var selection: Set<PersistentIdentifier> = []
+    @State private var confirmingRemoval = false
     @State private var selectedCharacters = 0
     @State private var searchText = ""
     @State private var favoritesOnly = false
+    @State private var statusFilter: PlaylistItem.Status?
+    @State private var sortOrder = [KeyPathComparator(\PlaylistItem.dateAdded, order: .reverse)]
 
     private var appending: Bool { queue.isActive || (viewModel.progress < 1 && (viewModel.isPlaying || viewModel.isPaused || viewModel.isPreparing)) }
 
@@ -24,128 +26,251 @@ struct DesktopLibraryView: View {
     }
 
     var body: some View {
-        let filteredItems = LibraryFilter(query: searchText, favoritesOnly: favoritesOnly).apply(to: items)
-        let inProgress = filteredItems.filter { $0.status == "inProgress" && $0.progressPercent < 1 }
-        let saved = filteredItems.filter { $0.status == "queued" && $0.progressPercent < 1 }
-        let completed = filteredItems.filter { $0.status == "completed" || $0.progressPercent >= 1 }
-        let displayOrder = inProgress + saved + completed
-        let selectedItems = displayOrder.filter { selection.contains($0.persistentModelID) && !isAlreadyQueued($0) }
+        let filteredItems = LibraryFilter(query: searchText, favoritesOnly: favoritesOnly,
+                                          status: statusFilter, sortOrder: sortOrder).apply(to: items)
+        let selectedItems = filteredItems.filter { selection.contains($0.persistentModelID) }
+        let queueableItems = selectedItems.filter { !isAlreadyQueued($0) }
+        let removableItems = selectedItems.filter { $0.persistentModelID != viewModel.currentPlaylistItemID }
+        let pendingRemoval = itemsToDelete.filter { $0.persistentModelID != viewModel.currentPlaylistItemID }
 
-        DesktopPage {
-            HStack(alignment: .top, spacing: 16) {
-                DesktopHeading(title: "Your library", subtitle: selecting ? "Choose articles to listen to, one after another." : "Good reads, ready when you are.")
-                Spacer(minLength: 0)
-                if !items.isEmpty {
-                    Button(selecting ? "Cancel selection" : "Select articles") {
-                        selecting.toggle()
-                        selection = []
-                    }.buttonStyle(DesktopButtonStyle())
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Your library").font(.system(size: 24, weight: .medium))
+                    Spacer(minLength: 0)
+                    Button {
+                        selection = Set(filteredItems.map(\.persistentModelID))
+                    } label: {
+                        Image(systemName: "checkmark.rectangle.stack").frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(filteredItems.isEmpty)
+                    .help("Select all articles")
+                    .accessibilityLabel("Select all articles")
+                }
+                LibrarySearchControls(query: $searchText, favoritesOnly: $favoritesOnly, compact: true)
+                HStack(spacing: 12) {
+                    Picker("Status", selection: $statusFilter) {
+                        Text("All").tag(PlaylistItem.Status?.none)
+                        Text("In progress").tag(PlaylistItem.Status?.some(.inProgress))
+                        Text("Saved").tag(PlaylistItem.Status?.some(.queued))
+                        Text("Completed").tag(PlaylistItem.Status?.some(.completed))
+                    }
+                    .pickerStyle(.segmented).labelsHidden()
+                    .frame(maxWidth: 380)
+                    Spacer(minLength: 0)
+                    Text("^[\(filteredItems.count) article](inflect: true)")
+                        .font(.caption).foregroundStyle(DesktopStyle.secondary)
+                        .fixedSize()
                 }
             }
-            LibrarySearchControls(query: $searchText, favoritesOnly: $favoritesOnly)
-                .padding(.bottom, 24)
+            .padding(.horizontal, 24).padding(.vertical, 20)
+
             if items.isEmpty {
                 ContentUnavailableView {
                     Label("A place for your next listen", systemImage: "books.vertical")
                 } description: { Text("Articles you open or save will appear here.") }
                 actions: { Button("Add your first article", action: addContent).buttonStyle(DesktopButtonStyle(primary: true)) }
-                .frame(maxWidth: .infinity).padding(.vertical, 40)
-            } else if filteredItems.isEmpty {
-                LibrarySearchEmptyView(query: searchText, favoritesOnly: favoritesOnly) {
-                    searchText = ""
-                    favoritesOnly = false
-                }
-                .frame(maxWidth: .infinity).padding(.vertical, 40)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                section("In progress", items: inProgress)
-                section("Saved for later", items: saved)
-                section("Completed", items: completed)
+                GeometryReader { geometry in
+                    articleTable(filteredItems, availableWidth: geometry.size.width)
+                        .overlay {
+                            if filteredItems.isEmpty {
+                                ContentUnavailableView {
+                                    Label("No matching articles", systemImage: "magnifyingglass")
+                                } actions: {
+                                    Button("Clear filters") {
+                                        searchText = ""
+                                        favoritesOnly = false
+                                        statusFilter = nil
+                                    }
+                                }
+                            }
+                        }
+                }
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if selecting {
-                HStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(selectedItems.count) selected").font(.headline)
-                        Text(selectedItems.isEmpty ? "Select one or more articles" : "\(ListeningQueue.durationLabel(characters: selectedCharacters, speed: viewModel.speed)) at \(DesktopStyle.speedLabel(viewModel.speed)) · Library order")
-                            .font(.caption).foregroundStyle(DesktopStyle.secondary)
+            if !selectedItems.isEmpty {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(selectedItems.count) selected").font(.callout.weight(.medium))
+                        if !queueableItems.isEmpty {
+                            Text("\(ListeningQueue.durationLabel(characters: selectedCharacters, speed: viewModel.speed)) at \(DesktopStyle.speedLabel(viewModel.speed))")
+                                .font(.caption).foregroundStyle(DesktopStyle.secondary)
+                        }
                     }
                     Spacer(minLength: 0)
-                    Button("Select all") { selection = Set(displayOrder.filter { !isAlreadyQueued($0) }.map(\.persistentModelID)) }
-                        .buttonStyle(DesktopButtonStyle())
-                    Button(appending ? "Add \(selectedItems.count) to queue" : "Play \(selectedItems.count) articles") {
-                        queue.enqueue(selectedItems)
-                        selection = []
-                        selecting = false
+                    Button {
+                        if let item = selectedItems.first { openItem(item) }
+                    } label: {
+                        Label("Open article", systemImage: "book").labelStyle(.iconOnly)
+                    }
+                    .disabled(selectedItems.count != 1).help("Open selected article")
+                    Button(role: .destructive) {
+                        requestRemoval(selectedItems)
+                    } label: {
+                        Label("Remove from library", systemImage: "trash").labelStyle(.iconOnly)
+                    }
+                    .disabled(removableItems.isEmpty).help("Remove selected articles")
+                    Button(queueTitle(count: queueableItems.count)) {
+                        enqueue(queueableItems)
                     }
                     .buttonStyle(DesktopButtonStyle(primary: true))
-                    .disabled(selectedItems.isEmpty || !viewModel.isModelLoaded || viewModel.isLoading)
-                    .help(viewModel.isModelLoaded ? "Listen in the displayed Library order" : "Waiting for the voice engine to load")
+                    .disabled(queueableItems.isEmpty || !viewModel.isModelLoaded || viewModel.isLoading)
+                    .help(viewModel.isModelLoaded ? "Listen in the displayed sort order" : "Waiting for the voice engine to load")
+                    Button { selection = [] } label: {
+                        Label("Clear selection", systemImage: "xmark").labelStyle(.iconOnly)
+                    }
+                    .help("Clear selection")
                 }
-                .padding(20).background(DesktopStyle.panel)
+                .buttonStyle(.borderless)
+                .padding(.horizontal, 24).padding(.vertical, 12)
+                .background(DesktopStyle.panel)
                 .overlay(alignment: .top) { Rectangle().fill(DesktopStyle.border).frame(height: 1) }
             }
         }
-        .onChange(of: selectedItems.map(\.persistentModelID)) { _, _ in
-            selectedCharacters = selectedItems.reduce(0) { $0 + ListeningQueue.remainingCharacters(in: $1) }
+        .onChange(of: queueableItems.map(\.persistentModelID)) { _, _ in
+            selectedCharacters = queueableItems.reduce(0) { $0 + ListeningQueue.remainingCharacters(in: $1) }
         }
-        .onChange(of: displayOrder.map(\.persistentModelID)) { _, ids in selection.formIntersection(ids) }
-        .onChange(of: queue.upcoming.map(\.id) + [queue.current?.id].compactMap { $0 }) { _, ids in
-            selection.subtract(ids)
-        }
-        .confirmationDialog("Remove from library?", isPresented: Binding(
-            get: { itemToDelete != nil }, set: { if !$0 { itemToDelete = nil } }
-        ), titleVisibility: .visible) {
-            Button("Remove article", role: .destructive) {
-                if let itemToDelete {
-                    queue.remove(itemToDelete.persistentModelID)
-                    selection.remove(itemToDelete.persistentModelID)
-                    modelContext.delete(itemToDelete)
+        .onChange(of: filteredItems.map(\.persistentModelID)) { _, ids in selection.formIntersection(ids) }
+        .confirmationDialog(
+            Text(AttributedString(localized: "Remove ^[\(pendingRemoval.count) article](inflect: true) from library?")),
+            isPresented: $confirmingRemoval,
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) {
+                for item in pendingRemoval {
+                    queue.remove(item.persistentModelID)
+                    selection.remove(item.persistentModelID)
+                    modelContext.delete(item)
                 }
-                itemToDelete = nil
+                itemsToDelete = []
             }
-            Button("Cancel", role: .cancel) { itemToDelete = nil }
-        } message: { Text(itemToDelete?.title ?? "") }
+            Button("Cancel", role: .cancel) { itemsToDelete = [] }
+        } message: {
+            if pendingRemoval.count < itemsToDelete.count {
+                Text("The current article stays in your library.")
+            } else if let item = pendingRemoval.first, pendingRemoval.count == 1 {
+                Text(item.title)
+            }
+        }
     }
 
-    @ViewBuilder private func section(_ title: String, items: [PlaylistItem]) -> some View {
-        if !items.isEmpty {
-            Text(title).font(.callout).foregroundStyle(DesktopStyle.secondary).padding(.bottom, 12)
-            LazyVStack(spacing: 10) {
-                ForEach(items) { item in
-                    HStack(spacing: 4) {
-                        if selecting {
-                            Toggle("Select \(item.title)", isOn: Binding(
-                                get: { selection.contains(item.persistentModelID) },
-                                set: { selected in
-                                    if selected { selection.insert(item.persistentModelID) }
-                                    else { selection.remove(item.persistentModelID) }
-                                }
-                            ))
-                            .labelsHidden().toggleStyle(.checkbox)
-                            .disabled(isAlreadyQueued(item)).padding(.trailing, 8)
-                        }
-                        DesktopArticleRow(item: item, action: {
-                            if selecting {
-                                if selection.contains(item.persistentModelID) { selection.remove(item.persistentModelID) }
-                                else { selection.insert(item.persistentModelID) }
-                            } else { openItem(item) }
-                        }, isSelected: selection.contains(item.persistentModelID), trailingLabel: isAlreadyQueued(item) ? "In queue" : selecting ? "Select" : nil)
-                        .disabled(selecting && isAlreadyQueued(item))
-                        LibraryFavoriteButton(item: item)
-                        if !selecting {
-                        Menu {
-                            Button("Remove from library…", role: .destructive) { itemToDelete = item }
-                                .disabled(item.persistentModelID == viewModel.currentPlaylistItemID)
-                        } label: { Image(systemName: "ellipsis") }
-                        .menuStyle(.borderlessButton).menuIndicator(.hidden)
-                        .frame(width: 28).help("Article options")
-                        .accessibilityLabel("Options for \(item.title)")
-                        }
+    private func articleTable(_ articles: [PlaylistItem], availableWidth: CGFloat) -> some View {
+        let sourceWidth = min(140, max(76, availableWidth * 0.16))
+        let fixedColumnsAndInsets: CGFloat = 104 + 72 + 60 + 100
+        return Table(articles, selection: $selection, sortOrder: $sortOrder) {
+            TableColumn("Title", value: \PlaylistItem.title) { item in
+                HStack(spacing: 8) {
+                    Image(systemName: item.sourceType == "url" ? "globe" : "doc.text")
+                        .foregroundStyle(DesktopStyle.secondary).frame(width: 16)
+                        .accessibilityHidden(true)
+                    Text(item.title).fontWeight(.medium).lineLimit(1).help(item.title)
+                    if item.persistentModelID == viewModel.currentPlaylistItemID {
+                        Image(systemName: "waveform").foregroundStyle(DesktopStyle.accent)
+                            .help("Current article").accessibilityLabel("Current article")
+                    } else if queue.contains(item.persistentModelID) {
+                        Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                            .foregroundStyle(DesktopStyle.secondary)
+                            .help("In queue").accessibilityLabel("In queue")
                     }
                 }
-            }.padding(.bottom, 28)
+                .frame(height: 32)
+            }
+            .width(min: 150, ideal: max(150, availableWidth - sourceWidth - fixedColumnsAndInsets))
+            TableColumn("Source", value: \PlaylistItem.librarySource) { item in
+                Text(item.librarySource).foregroundStyle(DesktopStyle.secondary)
+                    .lineLimit(1).help(item.sourceURL ?? item.librarySource)
+            }
+            .width(min: 76, ideal: sourceWidth, max: 220)
+            TableColumn("Progress", value: \PlaylistItem.libraryProgress) { item in
+                if item.libraryProgress >= 1 {
+                    Label("Completed", systemImage: "checkmark")
+                        .foregroundStyle(DesktopStyle.secondary)
+                } else if item.libraryProgress > 0 {
+                    HStack(spacing: 6) {
+                        ProgressView(value: item.libraryProgress).tint(DesktopStyle.accent)
+                            .frame(width: 42)
+                            .accessibilityHidden(true)
+                        Text(item.libraryProgress, format: .percent.precision(.fractionLength(0)))
+                            .monospacedDigit()
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Listening progress")
+                    .accessibilityValue(item.libraryProgress.formatted(.percent.precision(.fractionLength(0))))
+                } else {
+                    Text(item.status == PlaylistItem.Status.queued.rawValue ? "Saved" : "Not started")
+                        .foregroundStyle(DesktopStyle.secondary)
+                }
+            }
+            .width(104)
+            TableColumn("Added", value: \PlaylistItem.dateAdded) { item in
+                Text(item.dateAdded, format: .dateTime.day().month(.abbreviated))
+                    .foregroundStyle(DesktopStyle.secondary).lineLimit(1)
+                    .help(item.dateAdded.formatted(date: .complete, time: .shortened))
+            }
+            .width(72)
+            TableColumn("Actions") { item in
+                HStack(spacing: 0) {
+                    LibraryFavoriteButton(item: item, compact: true)
+                    Menu {
+                        articleActions([item])
+                    } label: {
+                        Image(systemName: "ellipsis").frame(width: 24, height: 28)
+                    }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                    .help("Article options").accessibilityLabel("Options for \(item.title)")
+                }
+            }
+            .width(60)
         }
+        .font(.system(size: 13))
+        .tableStyle(.inset(alternatesRowBackgrounds: true))
+        .contextMenu(forSelectionType: PersistentIdentifier.self) { identifiers in
+            articleActions(articles.filter { identifiers.contains($0.persistentModelID) })
+        } primaryAction: { identifiers in
+            if identifiers.count == 1, let item = articles.first(where: { identifiers.contains($0.persistentModelID) }) {
+                openItem(item)
+            }
+        }
+        .onDeleteCommand {
+            requestRemoval(articles.filter { selection.contains($0.persistentModelID) })
+        }
+        .onExitCommand { selection = [] }
+        .accessibilityLabel("Library articles")
+    }
+
+    @ViewBuilder private func articleActions(_ articles: [PlaylistItem]) -> some View {
+        if let item = articles.first {
+            if articles.count == 1 {
+                Button("Open article") { openItem(item) }
+            }
+            let queueableItems = articles.filter { !isAlreadyQueued($0) }
+            Button(queueTitle(count: queueableItems.count)) { enqueue(queueableItems) }
+                .disabled(queueableItems.isEmpty || !viewModel.isModelLoaded || viewModel.isLoading)
+            Divider()
+            Button("Remove from library...", role: .destructive) { requestRemoval(articles) }
+                .disabled(articles.allSatisfy { $0.persistentModelID == viewModel.currentPlaylistItemID })
+        }
+    }
+
+    private func queueTitle(count: Int) -> LocalizedStringKey {
+        appending ? "Add \(count) to queue" : "Play ^[\(count) article](inflect: true)"
+    }
+
+    private func enqueue(_ articles: [PlaylistItem]) {
+        let queueableItems = articles.filter { !isAlreadyQueued($0) }
+        guard !queueableItems.isEmpty, viewModel.isModelLoaded, !viewModel.isLoading else { return }
+        queue.enqueue(queueableItems)
+        selection = []
+    }
+
+    private func requestRemoval(_ articles: [PlaylistItem]) {
+        guard articles.contains(where: { $0.persistentModelID != viewModel.currentPlaylistItemID }) else { return }
+        itemsToDelete = articles
+        confirmingRemoval = true
     }
 }
 

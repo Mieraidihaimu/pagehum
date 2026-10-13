@@ -1,15 +1,13 @@
 // Modified for Pagehum: unified application and command-line naming.
 import AVFoundation
-import MLX
 import SwiftUI
 import SwiftData
 #if canImport(UIKit)
 import UIKit
 #endif
-import KokoroSwift
 import Combine
-import MLXUtilsLibrary
 import NaturalLanguage
+import SpeechCore
 #if canImport(MediaPlayer)
 import MediaPlayer
 #endif
@@ -77,11 +75,23 @@ nonisolated private final class ContentLoadContinuationBox<Value>: @unchecked Se
 @MainActor
 final class ReaderModel: ObservableObject {
 
-    private(set) var kokoroTTSEngine: KokoroTTS?
+    /// Kokoro's native rate; every `SpeechEngine` delivers audio in this mono float format.
+    static let sampleRate: Double = 24_000
+
+    private(set) var speechEngine: (any SpeechEngine)?
+    private let speechEngineLoader: () async throws -> any SpeechEngine
+    private let fallbackSpeechEngine: (@MainActor () -> any SpeechEngine)?
+    /// Explains why system voices are in use instead of Kokoro.
+    @Published private(set) var speechEngineNotice: String?
+    private let modelStore: ModelStore
+
+    enum ModelDownloadState: Equatable {
+        case idle, downloading(Double), failed(String)
+    }
+    @Published private(set) var modelDownload: ModelDownloadState = .idle
     let audioEngine: AVAudioEngine!
     let playerNode: AVAudioPlayerNode!
     let timePitch: AVAudioUnitTimePitch!
-    private(set) var voices: [String: MLXArray] = [:]
 
     @Published var isModelLoaded = false
     @Published var voiceNames: [String] = []
@@ -104,6 +114,8 @@ final class ReaderModel: ObservableObject {
     @Published var techBlogSettings = TechBlogSettings.load() {
         didSet { techBlogSettings.save() }
     }
+    @Published private(set) var techBlogStories: [TechBlogStory] = []
+    @Published private(set) var savedTechBlogKeys: Set<String> = []
     var modelContext: ModelContext?
     @Published var currentPlaylistItemID: PersistentIdentifier?
     lazy var listeningQueue = ListeningQueue(model: self)
@@ -189,7 +201,7 @@ final class ReaderModel: ObservableObject {
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     #endif
 
-    private var sampleRate: Double { Double(KokoroTTS.Constants.samplingRate) }
+    private var sampleRate: Double { Self.sampleRate }
     private var audioFormat: AVAudioFormat {
         AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
     }
@@ -212,11 +224,26 @@ final class ReaderModel: ObservableObject {
         schedulerPlayer: AudioBufferPlayer? = nil,
         contentExtractor: ContentExtracting? = nil,
         contentLoadTimeout: Duration = .seconds(45),
-        audioGenerator: ((String, AVAudioFormat) async -> SentenceAudio?)? = nil
+        audioGenerator: ((String, AVAudioFormat) async -> SentenceAudio?)? = nil,
+        speechEngineLoader: (() async throws -> any SpeechEngine)? = nil,
+        fallbackSpeechEngine: (@MainActor () -> any SpeechEngine)? = { SystemSpeechEngine() },
+        modelStore: ModelStore = .standard
     ) {
         self.extractor = contentExtractor ?? TextExtractor()
         self.contentLoadTimeout = contentLoadTimeout
         self.audioGenerator = audioGenerator
+        self.fallbackSpeechEngine = fallbackSpeechEngine
+        self.modelStore = modelStore
+        self.speechEngineLoader = speechEngineLoader ?? {
+            #if targetEnvironment(simulator)
+            throw SpeechSynthesisError.message("Kokoro can’t run in the iOS Simulator")
+            #else
+            guard let directory = modelStore.modelDirectory() else {
+                throw SpeechSynthesisError.message("the voice model hasn’t been downloaded yet")
+            }
+            return try await KokoroSpeechEngine.load(directory: directory)
+            #endif
+        }
         audioEngine = AVAudioEngine()
         playerNode = AVAudioPlayerNode()
         timePitch = AVAudioUnitTimePitch()
@@ -225,7 +252,7 @@ final class ReaderModel: ObservableObject {
         audioEngine.attach(playerNode)
         audioEngine.attach(timePitch)
 
-        let format = AVAudioFormat(standardFormatWithSampleRate: Double(KokoroTTS.Constants.samplingRate), channels: 1)!
+        let format = AVAudioFormat(standardFormatWithSampleRate: Self.sampleRate, channels: 1)!
         audioEngine.connect(playerNode, to: timePitch, format: format)
         audioEngine.connect(timePitch, to: audioEngine.mainMixerNode, format: format)
 
@@ -263,38 +290,66 @@ final class ReaderModel: ObservableObject {
         #endif
 
         if loadModelOnInit {
-            Task { await loadModel() }
+            Task { await loadSpeechEngine() }
         }
     }
 
-    private func loadModel() async {
-        let engine: KokoroTTS
-        let loadedVoices: [String: MLXArray]
+    func loadSpeechEngine() async {
+        let engine: any SpeechEngine
         do {
-            guard let directory = Bundle.main.resourceURL else {
-                throw SpeechSynthesisError.message("Missing model resources.")
-            }
-            (engine, loadedVoices) = try await withCheckedThrowingContinuation { continuation in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    continuation.resume(with: Result { try SpeechSynthesis.load(directory: directory) })
-                }
-            }
+            engine = try await speechEngineLoader()
+            speechEngineNotice = nil
         } catch {
-            errorMessage = error.localizedDescription
-            return
+            guard let fallback = fallbackSpeechEngine?(), !fallback.voices.isEmpty else {
+                errorMessage = error.localizedDescription
+                return
+            }
+            engine = fallback
+            speechEngineNotice = "Natural voices aren’t available (\(error.localizedDescription)). Using system voices."
         }
 
-        kokoroTTSEngine = engine
-        voices = loadedVoices
-        voiceNames = loadedVoices.keys.map { String($0.split(separator: ".")[0]) }.sorted(by: <)
+        speechEngine = engine
+        voiceNames = engine.voices
 
         let storedVoice = UserDefaults.standard.string(forKey: "selectedVoice") ?? ""
         if voiceNames.contains(storedVoice) {
             selectedVoice = storedVoice
+        } else if let preferred = engine.defaultVoice, voiceNames.contains(preferred) {
+            selectedVoice = preferred
         } else {
             selectedVoice = voiceNames.first(where: { $0.hasPrefix("af") }) ?? voiceNames.first ?? ""
         }
         isModelLoaded = true
+    }
+
+    /// True when system voices are in use only because the Kokoro model isn't on this device yet.
+    var canDownloadVoiceModel: Bool {
+        #if targetEnvironment(simulator)
+        false
+        #else
+        speechEngineNotice != nil && modelStore.modelDirectory() == nil
+        #endif
+    }
+
+    var voiceModelDownloadSize: Int64 { modelStore.downloadSize }
+
+    /// Downloads and verifies the model, then switches to Kokoro without interrupting the article.
+    func downloadVoiceModel() async {
+        if case .downloading = modelDownload { return }
+        modelDownload = .downloading(0)
+        do {
+            _ = try await modelStore.download { [weak self] fraction in
+                guard let model = self else { return }
+                Task { @MainActor in
+                    guard case .downloading = model.modelDownload else { return }
+                    model.modelDownload = .downloading(fraction)
+                }
+            }
+            modelDownload = .idle
+            await loadSpeechEngine()
+        } catch {
+            modelDownload = Task.isCancelled ? .idle : .failed(error.localizedDescription)
+        }
     }
 
     // MARK: - Shared URL from Extension
@@ -499,23 +554,15 @@ final class ReaderModel: ObservableObject {
             return
         }
         let settings = techBlogSettings.validated
-        guard !settings.topics.isEmpty else {
-            errorMessage = TechBlogDiscoveryError.noTopics.localizedDescription
-            return
-        }
         isLoading = true
         importProgress = "Finding matching articles on Hacker News…"
         defer { isLoading = false; importProgress = nil }
         do {
             let result = try await discovery.discover(settings: settings)
             try Task.checkCancellation()
-            let existing = try ctx.fetch(FetchDescriptor<PlaylistItem>())
-            var seen = Set(existing.compactMap { item in
-                item.sourceURL.flatMap(URL.init(string:)).map { URLImportParser.key(for: $0) }
-            })
             // Exclude saved articles and duplicate submissions before applying the import cap.
-            let urls = result.stories.map(\.url).filter { seen.insert(URLImportParser.key(for: $0)).inserted }
-            let warning = result.failedItemCount == 0 ? "" : " Couldn’t check \(result.failedItemCount) HN \(result.failedItemCount == 1 ? "story" : "stories"); try again to refresh."
+            let urls = TechBlogDiscovery.unsaved(result.stories, savedKeys: try libraryURLKeys(ctx)).map(\.url)
+            let warning = result.failedItemCount == 0 ? "" : " " + Self.uncheckedStoriesWarning(result.failedItemCount)
             guard !urls.isEmpty else {
                 techBlogMessage = (result.stories.isEmpty
                     ? "No articles matched this scan. Try scanning more stories or widening your filters."
@@ -529,6 +576,60 @@ final class ReaderModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Loads matching stories for the user to choose from; nothing is imported.
+    func loadTechBlogStories(using discovery: any TechBlogDiscovering = TechBlogDiscovery()) async {
+        guard !isLoading else { return }
+        errorMessage = nil
+        importResult = nil
+        techBlogMessage = nil
+        guard let ctx = modelContext else {
+            errorMessage = "The library is not ready. Please try again."
+            return
+        }
+        isLoading = true
+        importProgress = "Loading Hacker News stories…"
+        defer { isLoading = false; importProgress = nil }
+        do {
+            let result = try await discovery.discover(settings: techBlogSettings.validated)
+            try Task.checkCancellation()
+            savedTechBlogKeys = try libraryURLKeys(ctx)
+            techBlogStories = result.stories
+            if result.failedItemCount > 0 { techBlogMessage = Self.uncheckedStoriesWarning(result.failedItemCount) }
+        } catch {
+            // Closing the browser cancels loading; that isn't an error worth showing.
+            if !Task.isCancelled { errorMessage = error.localizedDescription }
+        }
+    }
+
+    func importTechBlogStories(_ stories: [TechBlogStory]) async {
+        guard !isLoading, !stories.isEmpty else { return }
+        errorMessage = nil
+        importResult = nil
+        techBlogMessage = nil
+        _ = await performURLImport(stories.map(\.url))
+        if let ctx = modelContext, let keys = try? libraryURLKeys(ctx) { savedTechBlogKeys = keys }
+    }
+
+    func isInLibrary(_ story: TechBlogStory) -> Bool {
+        savedTechBlogKeys.contains(URLImportParser.key(for: story.url))
+    }
+
+    /// The stories a one-tap import would pick from the loaded list.
+    var suggestedTechBlogStoryIDs: Set<Int> {
+        Set(TechBlogDiscovery.unsaved(techBlogStories, savedKeys: savedTechBlogKeys)
+            .prefix(techBlogSettings.validated.importLimit).map(\.id))
+    }
+
+    private func libraryURLKeys(_ ctx: ModelContext) throws -> Set<String> {
+        Set(try ctx.fetch(FetchDescriptor<PlaylistItem>()).compactMap { item in
+            item.sourceURL.flatMap(URL.init(string:)).map { URLImportParser.key(for: $0) }
+        })
+    }
+
+    private static func uncheckedStoriesWarning(_ count: Int) -> String {
+        "Couldn’t check \(count) HN \(count == 1 ? "story" : "stories"); try again to refresh."
     }
 
     func saveForLater(_ urlString: String) async {
@@ -558,10 +659,7 @@ final class ReaderModel: ObservableObject {
         defer { isLoading = false; importProgress = nil }
         var result = URLImportResult()
         do {
-            let existing = try ctx.fetch(FetchDescriptor<PlaylistItem>())
-            var savedURLs = Set(existing.compactMap { item in
-                item.sourceURL.flatMap(URL.init(string:)).map { URLImportParser.key(for: $0) }
-            })
+            var savedURLs = try libraryURLKeys(ctx)
             for (index, url) in urls.enumerated() {
                 importProgress = "Importing \(index + 1) of \(urls.count)…"
                 let key = URLImportParser.key(for: url)
@@ -595,7 +693,6 @@ final class ReaderModel: ObservableObject {
     func seekToSentence(_ index: Int) {
         guard index >= 0 && index < sentences.count else { return }
         let wasPlaying = isPlaying
-        let shouldResume = isPlaying || isPreparing
 
         if wasPlaying {
             accumulateListeningTime()
@@ -611,8 +708,6 @@ final class ReaderModel: ObservableObject {
 
         // A seek while paused collapses to a stopped position, so the next play() does a fresh start.
         isPaused = false
-        isPreparing = false
-        isPlaying = false
         currentSentenceIndex = index
         currentTokenIndex = -1
         currentWordText = ""
@@ -620,9 +715,14 @@ final class ReaderModel: ObservableObject {
         progress = Double(index) / Double(sentences.count)
         saveProgressNow()
 
-        // Preparation is also a request to play. Restart through play() so a seek
-        // cannot strand the UI in Preparing or bypass audio-engine error handling.
-        if shouldResume { play() }
+        if wasPlaying {
+            isPreparing = true
+            isPlaying = false
+            ensureAudioSessionActive()
+            if !audioEngine.isRunning { try? audioEngine.start() }
+            startPipeline()
+            scheduler.start(from: index)
+        }
     }
 
     private func saveToPlaylist(content: ReadingContent, source: ContentSource) {
@@ -1057,8 +1157,7 @@ final class ReaderModel: ObservableObject {
         generationTask = Task { [weak self] in
             guard let self else { return }
             let format = self.audioFormat
-            let voiceKey = self.selectedVoice + ".npy"
-            let lang: Language = self.selectedVoice.first == "a" ? .enUS : .enGB
+            let voice = self.selectedVoice
 
             var genIndex = self.currentSentenceIndex
             while genIndex < self.sentences.count && !Task.isCancelled {
@@ -1087,12 +1186,7 @@ final class ReaderModel: ObservableObject {
                 if let audioGenerator = self.audioGenerator {
                     audio = await audioGenerator(text, format)
                 } else {
-                    audio = await self.generateSentenceAudio(
-                        for: text,
-                        format: format,
-                        voiceKey: voiceKey,
-                        lang: lang
-                    )
+                    audio = await self.generateSentenceAudio(for: text, format: format, voice: voice)
                 }
                 self.isSynthesisInFlight = false
 
@@ -1209,38 +1303,20 @@ final class ReaderModel: ObservableObject {
 
     // MARK: - Audio generation
 
-    private func generateSentenceAudio(for text: String, format: AVAudioFormat, voiceKey: String, lang: Language) async -> SentenceAudio? {
-        let engine = kokoroTTSEngine
-        let voicesCopy = voices
+    private func generateSentenceAudio(for text: String, format: AVAudioFormat, voice: String) async -> SentenceAudio? {
+        guard let engine = speechEngine else { return nil }
+        let voiceKey = voice + ".npy"
         let cache = AudioDiskCache.shared
-        return await withCheckedContinuation { continuation in
+        // A disk cache hit skips synthesis entirely; file I/O stays off the main thread.
+        let cached = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                // 1. Disk cache hit? (skips Kokoro entirely)
-                if let cached = cache.load(text: text, voiceKey: voiceKey) {
-                    continuation.resume(returning: cached); return
-                }
-
-                guard let engine else { continuation.resume(returning: nil); return }
-                guard let voice = voicesCopy[voiceKey] else { continuation.resume(returning: nil); return }
-
-                do {
-                    let generated = try SpeechSynthesis.generate(
-                        engine: engine, voice: voice, language: lang, text: text, format: format
-                    )
-                    let buffer = generated.buffer
-                    let timings = generated.timings
-                    let result = SentenceAudio(buffer: buffer, tokens: timings.isEmpty ? nil : timings)
-
-                    // 2. Persist for next time — fire-and-forget, never blocks playback.
-                    cache.store(text: text, voiceKey: voiceKey, buffer: buffer, tokens: result.tokens)
-
-                    continuation.resume(returning: result)
-                } catch {
-                    print("Kokoro error: \(error)")
-                    continuation.resume(returning: nil)
-                }
+                continuation.resume(returning: cache.load(text: text, voiceKey: voiceKey))
             }
         }
+        if let cached { return cached }
+        guard let audio = await engine.synthesize(text, voice: voice, format: format) else { return nil }
+        cache.store(text: text, voiceKey: voiceKey, buffer: audio.buffer, tokens: audio.tokens)
+        return audio
     }
 
     // MARK: - Text Splitting

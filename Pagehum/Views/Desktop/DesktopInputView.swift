@@ -8,7 +8,6 @@ struct DesktopInputView: View {
     var continueItem: PlaylistItem?
     var openReader: () -> Void
     var openLibrary: () -> Void
-    var openTechBlogSettings: () -> Void
     var openItem: (PlaylistItem) -> Void
     @State private var input = HomeView.InputTab.url
     @State private var url = ""
@@ -38,13 +37,8 @@ struct DesktopInputView: View {
             .background(DesktopStyle.panel, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(DesktopStyle.border))
 
-            TechBlogQuickImportView(viewModel: viewModel) {
-                Button(action: openTechBlogSettings) {
-                    Label("Import settings", systemImage: "slider.horizontal.3")
-                }
-                .buttonStyle(.borderless)
-            }
-            .padding(.top, 20)
+            TechBlogQuickImportView(viewModel: viewModel)
+                .padding(.top, 20)
 
             VStack(alignment: .leading, spacing: 12) {
                 URLImportStatusView(viewModel: viewModel)
@@ -108,7 +102,7 @@ struct DesktopInputView: View {
             }
             HStack(spacing: 8) {
                 Button { importLinks(url, fromText: false) } label: {
-                    Label("Import \(URLImportParser.urls(in: url).count) links", systemImage: "bookmark")
+                    Label(importLinksTitle(URLImportParser.urls(in: url).count), systemImage: "bookmark")
                 }
                 .buttonStyle(DesktopButtonStyle(primary: true))
                 .disabled(URLImportParser.urls(in: url).isEmpty || viewModel.isLoading)

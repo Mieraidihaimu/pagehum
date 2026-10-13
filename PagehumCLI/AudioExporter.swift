@@ -1,6 +1,7 @@
 // Modified for Pagehum: unified application and command-line naming.
 import AVFoundation
 import Foundation
+import SpeechCore
 
 /// One encoder for the entire narration. The final pathname appears only on success.
 final class AudioExporter {
@@ -23,7 +24,7 @@ final class AudioExporter {
         temporary = output.deletingLastPathComponent()
             .appendingPathComponent(".pagehum-\(UUID().uuidString).\(ext)")
         var settings: [String: Any] = [
-            AVSampleRateKey: SpeechSynthesis.sampleRate,
+            AVSampleRateKey: KokoroSynthesizer.sampleRate,
             AVNumberOfChannelsKey: 1
         ]
         if ext == "m4a" {

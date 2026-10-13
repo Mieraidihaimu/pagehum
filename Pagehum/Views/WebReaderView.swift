@@ -7,8 +7,6 @@ struct WebReaderView: View {
     @ObservedObject var viewModel: ReaderModel
     let url: URL
     var showsPlaybackControls = true
-    @State private var showsTextView = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// What to look for in the live page. For a code block this is a line of the source rather than
     /// the spoken announcement, so the page's own `<pre>` gets highlighted.
@@ -17,40 +15,23 @@ struct WebReaderView: View {
     }
 
     var body: some View {
-        Group {
-            if showsTextView {
-                ReaderView(viewModel: viewModel, showsPlaybackControls: false)
-            } else {
-                WebViewContainer(
-                    url: url,
-                    currentSentence: currentSentence,
-                    isPlaying: viewModel.isPlaying,
-                    reduceMotion: reduceMotion
-                )
-                .id(url)
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
+        ZStack(alignment: .bottom) {
+            WebViewContainer(
+                url: url,
+                currentSentence: currentSentence,
+                isPlaying: viewModel.isPlaying
+            )
+            .id(url)
+            #if os(iOS)
+            .ignoresSafeArea(edges: .bottom)
+            #endif
+
             if showsPlaybackControls {
                 PlaybackControlsView(viewModel: viewModel)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 4)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 4)
+                .shadow(color: .black.opacity(0.08), radius: 12, y: -4)
             }
-        }
-        .safeAreaInset(edge: .top) {
-            HStack {
-                Spacer()
-                Button { showsTextView.toggle() } label: {
-                    Label(showsTextView ? "Web page" : "Text view", systemImage: showsTextView ? "globe" : "doc.text")
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(showsTextView ? "Show original web page" : "Show readable text")
-                .help(showsTextView ? "Show original web page" : "Show readable text with your text size settings")
-            }
-            .background(Color.platformGroupedBackground)
         }
         .navigationTitle(viewModel.content?.title ?? "Reader")
         #if os(iOS)
@@ -64,7 +45,6 @@ private struct WebViewContainer {
     let url: URL
     let currentSentence: String?
     let isPlaying: Bool
-    let reduceMotion: Bool
 
     fileprivate static func createWebView(url: URL, coordinator: Coordinator) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -92,7 +72,7 @@ private struct WebViewContainer {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: [sentence]),
               let jsonString = String(data: jsonData, encoding: .utf8) else { return }
         let inner = String(jsonString.dropFirst(1).dropLast(1))
-        let js = "window.__pagehumHighlight(\(inner), \(reduceMotion ? "true" : "false"));"
+        let js = "window.__pagehumHighlight(\(inner));"
         webView.evaluateJavaScript(js, completionHandler: nil)
     }
 
@@ -153,7 +133,7 @@ private struct WebViewContainer {
                 return null;
             }
 
-            window.__pagehumHighlight = function(sentence, reduceMotion) {
+            window.__pagehumHighlight = function(sentence) {
                 // Clear previous
                 if (currentMark) {
                     currentMark.style.removeProperty('background-color');
@@ -167,7 +147,7 @@ private struct WebViewContainer {
                     currentMark = el;
                     el.style.backgroundColor = 'rgba(0, 122, 255, 0.12)';
                     el.style.borderRadius = '4px';
-                    el.style.transition = reduceMotion ? 'none' : 'background-color 0.3s ease';
+                    el.style.transition = 'background-color 0.3s ease';
                 }
             };
 
