@@ -28,9 +28,8 @@ struct WebReaderView: View {
 
             if showsPlaybackControls {
                 PlaybackControlsView(viewModel: viewModel)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 4)
-                .shadow(color: .black.opacity(0.08), radius: 12, y: -4)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
             }
         }
         .navigationTitle(viewModel.content?.title ?? "Reader")

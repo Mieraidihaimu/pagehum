@@ -137,4 +137,40 @@ struct LibraryFilterTests {
         try saveFavorite(false)
         #expect(try !readFavorite())
     }
+
+    @Test
+    func librarySectionsPartitionInProgressFirstThenUnreadThenCompleted() {
+        let inProgress = PlaylistItem(title: "Reading Now", sourceType: "url", fullText: "Text", status: "inProgress")
+        inProgress.progressPercent = 0.4
+
+        let unreadQueued = PlaylistItem(title: "Queued Article", sourceType: "url", fullText: "Text", status: "queued")
+        unreadQueued.progressPercent = 0
+
+        let completed = PlaylistItem(title: "Done Article", sourceType: "url", fullText: "Text", status: "completed")
+        completed.progressPercent = 1.0
+
+        let finishedByPercent = PlaylistItem(title: "100% Article", sourceType: "text", fullText: "Text", status: "inProgress")
+        finishedByPercent.progressPercent = 1.0
+
+        let allItems = [completed, unreadQueued, inProgress, finishedByPercent]
+
+        let completedItems = allItems.filter { $0.status == PlaylistItem.Status.completed.rawValue || $0.progressPercent >= 1 }
+        let inProgressItems = allItems.filter { item in
+            !completedItems.contains(where: { $0.persistentModelID == item.persistentModelID }) &&
+            item.status == PlaylistItem.Status.inProgress.rawValue &&
+            item.progressPercent < 1
+        }
+        let unreadItems = allItems.filter { item in
+            !completedItems.contains(where: { $0.persistentModelID == item.persistentModelID }) &&
+            !inProgressItems.contains(where: { $0.persistentModelID == item.persistentModelID })
+        }
+
+        #expect(inProgressItems.map(\.title) == ["Reading Now"])
+        #expect(unreadItems.map(\.title) == ["Queued Article"])
+        #expect(completedItems.map(\.title) == ["Done Article", "100% Article"])
+
+        let displayOrder = inProgressItems + unreadItems
+        #expect(displayOrder.map(\.title) == ["Reading Now", "Queued Article"])
+    }
 }
+

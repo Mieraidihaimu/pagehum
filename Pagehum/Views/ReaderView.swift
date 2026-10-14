@@ -72,7 +72,7 @@ struct ReaderView: View {
                         .frame(maxWidth: desktopLayout ? 620 : .infinity, alignment: .leading)
                         .padding(.horizontal, 24)
                         .padding(.top, desktopLayout ? 40 : 20)
-                        .padding(.bottom, showsPlaybackControls ? 140 : 48)
+                        .padding(.bottom, showsPlaybackControls ? 76 : 36)
                         .frame(maxWidth: .infinity)
                     }
                     .background(Color.platformGroupedBackground.opacity(0.5))
@@ -90,9 +90,8 @@ struct ReaderView: View {
 
                 if showsPlaybackControls {
                     PlaybackControlsView(viewModel: viewModel)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 4)
-                    .shadow(color: .black.opacity(0.08), radius: 12, y: -4)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
                 }
             }
         }

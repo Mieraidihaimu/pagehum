@@ -56,8 +56,24 @@
     "%lld" : {
 
     },
+    "%lld articles finished" : {
+
+    },
+    "%lld completed" : {
+
+    },
     "%lld lines" : {
 
+    },
+    "%lld matching (%lld total)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld matching (%2$lld total)"
+          }
+        }
+      }
     },
     "%lld percent" : {
 
@@ -93,7 +109,13 @@
     "%lldpt" : {
 
     },
+    "•" : {
+
+    },
     "^[%lld article](inflect: true)" : {
+
+    },
+    "1 article finished" : {
 
     },
     "1 line" : {
@@ -149,6 +171,9 @@
     "Add content (⌘N)" : {
 
     },
+    "Add to Queue" : {
+
+    },
     "Add to starred" : {
 
     },
@@ -177,6 +202,9 @@
 
     },
     "Article URLs" : {
+
+    },
+    "Articles you finish reading will appear here." : {
 
     },
     "Articles you open or save will appear here." : {
@@ -218,7 +246,10 @@
     "Back 20 seconds" : {
 
     },
-    "Browse stories" : {
+    "Browse" : {
+
+    },
+    "Browse top stories & listen on the go" : {
 
     },
     "Cached audio" : {
@@ -270,6 +301,15 @@
     "Clear" : {
 
     },
+    "Clear All (%lld)" : {
+
+    },
+    "Clear all completed" : {
+
+    },
+    "Clear all completed articles?" : {
+
+    },
     "Clear Audio Cache" : {
       "localizations" : {
         "zh-Hans" : {
@@ -317,6 +357,9 @@
           }
         }
       }
+    },
+    "Completed Articles" : {
+
     },
     "Content" : {
 
@@ -370,6 +413,9 @@
         }
       }
     },
+    "Delete Article" : {
+
+    },
     "Done" : {
 
     },
@@ -377,6 +423,9 @@
 
     },
     "Downloading natural voices…" : {
+
+    },
+    "elapsed" : {
 
     },
     "Empty" : {
@@ -441,6 +490,7 @@
       }
     },
     "Generating" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -550,6 +600,9 @@
     "Library Unavailable" : {
 
     },
+    "Listen Again" : {
+
+    },
     "Listen in the displayed sort order" : {
 
     },
@@ -584,6 +637,12 @@
       }
     },
     "Loading stories…" : {
+
+    },
+    "Mark as Completed" : {
+
+    },
+    "Mark as Unread" : {
 
     },
     "Matching articles are saved to your library, ready to listen." : {
@@ -628,6 +687,12 @@
           }
         }
       }
+    },
+    "No Completed Articles" : {
+
+    },
+    "No completed articles match your filter." : {
+
     },
     "No matching articles" : {
 
@@ -743,9 +808,6 @@
     "PDF document" : {
 
     },
-    "Pick fresh stories to listen to, or grab the top ones in one tap." : {
-
-    },
     "Play" : {
 
     },
@@ -806,6 +868,9 @@
     "Progress" : {
 
     },
+    "Queue" : {
+
+    },
     "Read again from beginning" : {
 
     },
@@ -846,6 +911,7 @@
 
     },
     "Reading Queue" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -856,6 +922,9 @@
       }
     },
     "Refresh" : {
+
+    },
+    "remaining" : {
 
     },
     "Remove" : {
@@ -879,10 +948,16 @@
     "Remove from starred" : {
 
     },
+    "Remove from Starred" : {
+
+    },
     "Remove selected articles" : {
 
     },
     "Restart from beginning" : {
+
+    },
+    "Resume" : {
 
     },
     "Resume →" : {
@@ -912,6 +987,7 @@
 
     },
     "Saved offline" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -982,6 +1058,9 @@
         }
       }
     },
+    "Share Link" : {
+
+    },
     "Show all %lld lines" : {
 
     },
@@ -992,9 +1071,6 @@
 
     },
     "Show playback controls" : {
-
-    },
-    "Skip" : {
 
     },
     "Skip article" : {
@@ -1018,7 +1094,13 @@
     "Source" : {
 
     },
+    "Star" : {
+
+    },
     "Star %@" : {
+
+    },
+    "Star Article" : {
 
     },
     "Starred" : {
@@ -1116,7 +1198,16 @@
         }
       }
     },
+    "This will remove finished articles from your library." : {
+
+    },
     "Title" : {
+
+    },
+    "Toggle elapsed or remaining time" : {
+
+    },
+    "Top Stories" : {
 
     },
     "Total Listening Time" : {
@@ -1143,6 +1234,12 @@
           }
         }
       }
+    },
+    "Unread" : {
+
+    },
+    "Unstar" : {
+
     },
     "Unstar %@" : {
 

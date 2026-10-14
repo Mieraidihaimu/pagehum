@@ -118,56 +118,76 @@ struct TechBlogSettingsLabel: View {
     }
 }
 
-/// Browsing and one-tap import share the preferences from the settings screen.
+/// Streamlined Hacker News quick browse card on front page.
 struct TechBlogQuickImportView: View {
     @ObservedObject var viewModel: ReaderModel
     @State private var showBrowser = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "newspaper")
-                    .font(.title2).foregroundStyle(Color.accentColor)
-                    .frame(width: 44, height: 44)
-                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Hacker News").font(.headline)
-                    Text("Pick fresh stories to listen to, or grab the top ones in one tap.")
-                        .font(.callout).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                showBrowser = true
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.orange.opacity(0.15))
+                            .frame(width: 44, height: 44)
+                        Image(systemName: "newspaper.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.orange)
+                    }
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text("Hacker News")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                            Text("Top Stories")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.orange)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.12), in: Capsule())
+                        }
+                        Text("Browse top stories & listen on the go")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    HStack(spacing: 4) {
+                        Text("Browse")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(Color.accentColor.opacity(0.12), in: Capsule())
                 }
+                .padding(16)
+                .background(techBlogPanelColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                )
             }
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 16) {
-                    browseButton
-                    TechBlogImportButton(viewModel: viewModel, prominent: false)
-                }
-                VStack(alignment: .leading, spacing: 14) {
-                    browseButton
-                    TechBlogImportButton(viewModel: viewModel, prominent: false)
-                }
-            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.isLoading)
+
             if let message = viewModel.techBlogMessage {
-                Text(message).font(.callout).foregroundStyle(.secondary)
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(techBlogPanelColor, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.accentColor.opacity(0.18)))
         .sheet(isPresented: $showBrowser) { TechBlogBrowseView(viewModel: viewModel) }
-    }
-
-    private var browseButton: some View {
-        Button { showBrowser = true } label: {
-            Label("Browse stories", systemImage: "list.bullet")
-        }
-        #if os(macOS)
-        .buttonStyle(DesktopButtonStyle(primary: true))
-        #else
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        #endif
-        .disabled(viewModel.isLoading)
     }
 }
 

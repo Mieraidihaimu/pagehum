@@ -22,10 +22,17 @@ struct PlaylistView: View {
 
     var body: some View {
         let filteredItems = LibraryFilter(query: searchText, favoritesOnly: favoritesOnly).apply(to: allItems)
-        let queuedItems = filteredItems.filter { $0.status == PlaylistItem.Status.queued.rawValue && $0.progressPercent < 1 }
-        let inProgressItems = filteredItems.filter { $0.status == PlaylistItem.Status.inProgress.rawValue && $0.progressPercent < 1 }
         let completedItems = filteredItems.filter { $0.status == PlaylistItem.Status.completed.rawValue || $0.progressPercent >= 1 }
-        let displayOrder = queuedItems + inProgressItems + completedItems
+        let inProgressItems = filteredItems.filter { item in
+            !completedItems.contains(where: { $0.persistentModelID == item.persistentModelID }) &&
+            item.status == PlaylistItem.Status.inProgress.rawValue &&
+            item.progressPercent < 1
+        }
+        let unreadItems = filteredItems.filter { item in
+            !completedItems.contains(where: { $0.persistentModelID == item.persistentModelID }) &&
+            !inProgressItems.contains(where: { $0.persistentModelID == item.persistentModelID })
+        }
+        let displayOrder = inProgressItems + unreadItems
         let selectedItems = displayOrder.filter { selection.contains($0.persistentModelID) && !queue.contains($0.persistentModelID) }
         // The current article stays: its next progress save would touch a deleted model.
         let removableItems = selectedItems.filter { $0.persistentModelID != viewModel.currentPlaylistItemID }
@@ -50,25 +57,12 @@ struct PlaylistView: View {
                 }
             } else {
                 List {
-                    if !queuedItems.isEmpty {
-                        Section {
-                            ForEach(queuedItems) { item in
-                                libraryRow(item)
-                                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                                    .listRowSeparator(.hidden)
-                            }
-                            .onDelete { offsets in deleteItems(from: queuedItems, at: offsets) }
-                        } header: {
-                            Label("Reading Queue", systemImage: "bookmark.fill")
-                        }
-                    }
-
+                    // 1. In Progress first
                     if !inProgressItems.isEmpty {
                         Section {
                             ForEach(inProgressItems) { item in
                                 libraryRow(item)
                                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                                    .listRowSeparator(.hidden)
                             }
                             .onDelete { offsets in deleteItems(from: inProgressItems, at: offsets) }
                         } header: {
@@ -76,20 +70,42 @@ struct PlaylistView: View {
                         }
                     }
 
-                    if !completedItems.isEmpty {
+                    // 2. Unread second
+                    if !unreadItems.isEmpty {
                         Section {
-                            ForEach(completedItems) { item in
+                            ForEach(unreadItems) { item in
                                 libraryRow(item)
                                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                                    .listRowSeparator(.hidden)
                             }
-                            .onDelete { offsets in deleteItems(from: completedItems, at: offsets) }
+                            .onDelete { offsets in deleteItems(from: unreadItems, at: offsets) }
+                        } header: {
+                            Label("Unread", systemImage: "tray")
+                        }
+                    }
+
+                    // 3. Completed in a summary row which can be clicked to see the list of completed
+                    if !completedItems.isEmpty && !selecting {
+                        Section {
+                            NavigationLink {
+                                CompletedArticlesView(viewModel: viewModel, initialSearchText: searchText)
+                            } label: {
+                                CompletedSummaryRow(
+                                    completedCount: completedItems.count,
+                                    totalCompletedCount: allItems.filter { $0.status == PlaylistItem.Status.completed.rawValue || $0.progressPercent >= 1 }.count,
+                                    isFiltered: !searchText.isEmpty || favoritesOnly
+                                )
+                            }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                         } header: {
                             Label("Completed", systemImage: "checkmark.circle")
                         }
                     }
                 }
+                #if os(iOS)
+                .listStyle(.insetGrouped)
+                #else
                 .listStyle(.plain)
+                #endif
             }
         }
         .navigationTitle("Library")
@@ -97,7 +113,7 @@ struct PlaylistView: View {
         .navigationBarTitleDisplayMode(.large)
         #endif
         .toolbar {
-            if !allItems.isEmpty {
+            if !displayOrder.isEmpty {
                 ToolbarItem(placement: .primaryAction) {
                     Button(selecting ? "Cancel" : "Select") {
                         selecting.toggle()
@@ -175,12 +191,15 @@ struct PlaylistView: View {
     private func libraryRow(_ item: PlaylistItem) -> some View {
         let queued = queue.contains(item.persistentModelID)
         let selected = selection.contains(item.persistentModelID)
-        return HStack(alignment: .top, spacing: 4) {
+        let isCurrent = viewModel.currentPlaylistItemID == item.persistentModelID
+        let isPlaying = isCurrent && (viewModel.isPlaying || viewModel.isPreparing)
+
+        return HStack(alignment: .center, spacing: 4) {
             if selecting {
                 Image(systemName: queued ? "checkmark.circle" : selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundStyle(selected ? Color.accentColor : Color.secondary)
-                    .padding(.top, 8).padding(.trailing, 8)
+                    .padding(.trailing, 8)
                     .accessibilityHidden(true)
             }
             Button {
@@ -191,30 +210,335 @@ struct PlaylistView: View {
                     open(item)
                 }
             } label: {
-                PlaylistRowView(item: item)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                PlaylistRowView(
+                    item: item,
+                    isPlaying: isPlaying,
+                    isInQueue: queued && !selecting
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityAddTraits(selecting && selected ? .isSelected : [])
+
             if selecting && queued {
-                Text("In queue").font(.caption).foregroundStyle(.secondary).padding(.top, 8)
+                Text("In queue")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color(.tertiarySystemFill), in: Capsule())
             } else if !selecting {
-                LibraryFavoriteButton(item: item)
+                LibraryFavoriteButton(item: item, compact: true)
             }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button {
+                item.isFavorite.toggle()
+                try? modelContext.save()
+            } label: {
+                Label(item.isFavorite ? "Unstar" : "Star", systemImage: item.isFavorite ? "star.slash" : "star.fill")
+            }
+            .tint(.yellow)
+        }
+        .contextMenu {
+            Button {
+                open(item)
+            } label: {
+                Label(item.progressPercent > 0 ? "Resume" : "Play", systemImage: "play.fill")
+            }
+
+            if !queued && item.progressPercent < 1 {
+                Button {
+                    queue.enqueue([item])
+                } label: {
+                    Label("Add to Queue", systemImage: "text.badge.plus")
+                }
+            }
+
+            Button {
+                item.isFavorite.toggle()
+                try? modelContext.save()
+            } label: {
+                Label(item.isFavorite ? "Remove from Starred" : "Star Article", systemImage: item.isFavorite ? "star.slash" : "star")
+            }
+
+            Divider()
+
+            if item.status == PlaylistItem.Status.completed.rawValue || item.progressPercent >= 1 {
+                Button {
+                    item.status = PlaylistItem.Status.inProgress.rawValue
+                    item.progressPercent = 0
+                    item.lastSentenceIndex = 0
+                    try? modelContext.save()
+                } label: {
+                    Label("Mark as Unread", systemImage: "arrow.counterclockwise")
+                }
+            } else {
+                Button {
+                    item.status = PlaylistItem.Status.completed.rawValue
+                    item.progressPercent = 1.0
+                    try? modelContext.save()
+                } label: {
+                    Label("Mark as Completed", systemImage: "checkmark.circle")
+                }
+            }
+
+            if let urlString = item.sourceURL, let url = URL(string: urlString) {
+                ShareLink(item: url) {
+                    Label("Share Link", systemImage: "square.and.arrow.up")
+                }
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                if item.persistentModelID != viewModel.currentPlaylistItemID {
+                    modelContext.delete(item)
+                }
+            } label: {
+                Label("Delete Article", systemImage: "trash")
+            }
+            .disabled(item.persistentModelID == viewModel.currentPlaylistItemID)
         }
     }
 
     private func deleteItems(from sectionItems: [PlaylistItem], at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(sectionItems[index])
+            let item = sectionItems[index]
+            if item.persistentModelID != viewModel.currentPlaylistItemID {
+                modelContext.delete(item)
+            }
         }
     }
 
     private func open(_ item: PlaylistItem) {
-        // Viewing the current article keeps its queue intact, matching the Mac library.
         viewModel.openLibraryItem(item, preservingQueue: viewModel.currentPlaylistItemID == item.persistentModelID)
         selectedItem = item
+    }
+}
+
+// MARK: - Completed Summary Row
+
+struct CompletedSummaryRow: View {
+    let completedCount: Int
+    let totalCompletedCount: Int
+    var isFiltered: Bool = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.green.opacity(0.12))
+                    .frame(width: 32, height: 32)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.green)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Completed Articles")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                if isFiltered && completedCount != totalCompletedCount {
+                    Text("\(completedCount) matching (\(totalCompletedCount) total)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(completedCount == 1 ? "1 article finished" : "\(completedCount) articles finished")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            Text("\(completedCount)")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(Color(.tertiarySystemFill), in: Capsule())
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Completed Articles View
+
+struct CompletedArticlesView: View {
+    @ObservedObject var viewModel: ReaderModel
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \PlaylistItem.lastPlayed, order: .reverse) private var allItems: [PlaylistItem]
+    @State private var searchText: String
+    @State private var favoritesOnly = false
+    @State private var selectedItem: PlaylistItem?
+    @State private var confirmingClearAll = false
+
+    init(viewModel: ReaderModel, initialSearchText: String = "") {
+        self.viewModel = viewModel
+        _searchText = State(initialValue: initialSearchText)
+    }
+
+    var completedItems: [PlaylistItem] {
+        let filtered = LibraryFilter(query: searchText, favoritesOnly: favoritesOnly).apply(to: allItems)
+        return filtered.filter { $0.status == PlaylistItem.Status.completed.rawValue || $0.progressPercent >= 1 }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if allItems.contains(where: { $0.status == PlaylistItem.Status.completed.rawValue || $0.progressPercent >= 1 }) {
+                LibrarySearchControls(query: $searchText, favoritesOnly: $favoritesOnly)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+            }
+
+            if completedItems.isEmpty {
+                ContentUnavailableView(
+                    "No Completed Articles",
+                    systemImage: "checkmark.circle",
+                    description: Text(searchText.isEmpty && !favoritesOnly
+                        ? "Articles you finish reading will appear here."
+                        : "No completed articles match your filter.")
+                )
+            } else {
+                List {
+                    Section {
+                        ForEach(completedItems) { item in
+                            completedRow(item)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        }
+                        .onDelete(perform: deleteCompletedItems)
+                    } header: {
+                        Text("\(completedItems.count) completed")
+                    }
+                }
+                #if os(iOS)
+                .listStyle(.insetGrouped)
+                #else
+                .listStyle(.plain)
+                #endif
+            }
+        }
+        .navigationTitle("Completed")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar {
+            if !completedItems.isEmpty {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(role: .destructive) {
+                        confirmingClearAll = true
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .accessibilityLabel("Clear all completed")
+                    .confirmationDialog(
+                        "Clear all completed articles?",
+                        isPresented: $confirmingClearAll,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Clear All (\(completedItems.count))", role: .destructive) {
+                            for item in completedItems {
+                                if item.persistentModelID != viewModel.currentPlaylistItemID {
+                                    modelContext.delete(item)
+                                }
+                            }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("This will remove finished articles from your library.")
+                    }
+                }
+            }
+        }
+        .navigationDestination(item: $selectedItem) { _ in
+            if let url = viewModel.content?.source.webURL {
+                WebReaderView(viewModel: viewModel, url: url)
+            } else {
+                ReaderView(viewModel: viewModel)
+            }
+        }
+    }
+
+    private func completedRow(_ item: PlaylistItem) -> some View {
+        HStack(alignment: .center, spacing: 4) {
+            Button {
+                viewModel.openLibraryItem(item, preservingQueue: false)
+                selectedItem = item
+            } label: {
+                PlaylistRowView(
+                    item: item,
+                    isPlaying: viewModel.currentPlaylistItemID == item.persistentModelID && (viewModel.isPlaying || viewModel.isPreparing)
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            LibraryFavoriteButton(item: item, compact: true)
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button {
+                item.isFavorite.toggle()
+                try? modelContext.save()
+            } label: {
+                Label(item.isFavorite ? "Unstar" : "Star", systemImage: item.isFavorite ? "star.slash" : "star.fill")
+            }
+            .tint(.yellow)
+        }
+        .contextMenu {
+            Button {
+                viewModel.openLibraryItem(item, preservingQueue: false)
+                selectedItem = item
+            } label: {
+                Label("Listen Again", systemImage: "play.fill")
+            }
+
+            Button {
+                item.status = PlaylistItem.Status.inProgress.rawValue
+                item.progressPercent = 0
+                item.lastSentenceIndex = 0
+                try? modelContext.save()
+            } label: {
+                Label("Mark as Unread", systemImage: "arrow.counterclockwise")
+            }
+
+            Button {
+                item.isFavorite.toggle()
+                try? modelContext.save()
+            } label: {
+                Label(item.isFavorite ? "Remove from Starred" : "Star Article", systemImage: item.isFavorite ? "star.slash" : "star")
+            }
+
+            if let urlString = item.sourceURL, let url = URL(string: urlString) {
+                ShareLink(item: url) {
+                    Label("Share Link", systemImage: "square.and.arrow.up")
+                }
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                if item.persistentModelID != viewModel.currentPlaylistItemID {
+                    modelContext.delete(item)
+                }
+            } label: {
+                Label("Delete Article", systemImage: "trash")
+            }
+            .disabled(item.persistentModelID == viewModel.currentPlaylistItemID)
+        }
+    }
+
+    private func deleteCompletedItems(at offsets: IndexSet) {
+        for index in offsets {
+            let item = completedItems[index]
+            if item.persistentModelID != viewModel.currentPlaylistItemID {
+                modelContext.delete(item)
+            }
+        }
     }
 }
 
@@ -222,74 +546,108 @@ struct PlaylistView: View {
 
 struct PlaylistRowView: View {
     let item: PlaylistItem
+    var isPlaying: Bool = false
+    var isInQueue: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(badgeColor.opacity(0.12))
-                        .frame(width: 36, height: 36)
-                    Image(systemName: badgeIcon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(badgeColor)
-                }
+        HStack(alignment: .center, spacing: 12) {
+            // Source icon badge
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(badgeColor.opacity(0.12))
+                    .frame(width: 32, height: 32)
+                Image(systemName: badgeIcon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(badgeColor)
+            }
 
-                VStack(alignment: .leading, spacing: 3) {
+            // Title + concise metadata
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
                     Text(item.title)
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
 
-                    HStack(spacing: 6) {
-                        Text(item.lastPlayed, style: .relative)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            + Text(" ago")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-
-                        if item.status == PlaylistItem.Status.queued.rawValue {
-                            Label("Saved offline", systemImage: "arrow.down.circle.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.green)
-                        }
+                    if isPlaying {
+                        Image(systemName: "waveform")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(Color.accentColor)
                     }
                 }
 
-                Spacer(minLength: 0)
+                HStack(spacing: 5) {
+                    Text(item.librarySource)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
-                if item.progressPercent >= 1.0 {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                        .font(.body)
-                }
-            }
+                    if isInQueue {
+                        Text("•")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
 
-            Text(item.textPreview)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .padding(.leading, 48)
-
-            if item.progressPercent > 0 && item.progressPercent < 1.0 {
-                HStack(spacing: 8) {
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(.quaternary).frame(height: 3)
-                            Capsule().fill(Color.accentColor).frame(width: geo.size.width * item.progressPercent, height: 3)
-                        }
+                        Label("In queue", systemImage: "text.badge.plus")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
-                    .frame(height: 3)
 
-                    Text("\(Int(item.progressPercent * 100))%")
-                        .font(.caption2.monospacedDigit().weight(.medium))
+                    if item.progressPercent > 0 && item.progressPercent < 1.0 {
+                        Text("•")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+
+                        HStack(spacing: 4) {
+                            Capsule()
+                                .fill(Color.secondary.opacity(0.2))
+                                .frame(width: 32, height: 4)
+                                .overlay(alignment: .leading) {
+                                    Capsule()
+                                        .fill(Color.accentColor)
+                                        .frame(width: 32 * max(0.08, min(1.0, item.progressPercent)), height: 4)
+                                }
+
+                            Text("\(Int(item.progressPercent * 100))%")
+                                .font(.caption2.monospacedDigit().weight(.medium))
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    } else if item.status == PlaylistItem.Status.queued.rawValue {
+                        Text("•")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+
+                        Label("Saved", systemImage: "arrow.down.circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                    } else if item.progressPercent >= 1.0 || item.status == PlaylistItem.Status.completed.rawValue {
+                        Text("•")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+
+                        Label("Completed", systemImage: "checkmark.circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                    }
+
+                    Text("•")
+                        .font(.caption2)
                         .foregroundStyle(.tertiary)
-                        .frame(width: 32, alignment: .trailing)
+
+                    let timeDate = (item.progressPercent > 0 || item.status == PlaylistItem.Status.completed.rawValue) ? item.lastPlayed : item.dateAdded
+                    Text(timeDate, style: .relative)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        + Text(" ago")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
-                .padding(.leading, 48)
+                .lineLimit(1)
             }
+
+            Spacer(minLength: 4)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 3)
     }
 
     private var badgeIcon: String {

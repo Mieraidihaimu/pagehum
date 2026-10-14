@@ -473,6 +473,7 @@
 			buildSettings = {
 				ARCHS = arm64;
 				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Manual;
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = B25LW5K7BX;
 				ENABLE_APP_SANDBOX = NO;
@@ -779,7 +780,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = B25LW5K7BX;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
@@ -801,7 +802,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = B25LW5K7BX;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
@@ -823,6 +824,7 @@
 			buildSettings = {
 				ARCHS = arm64;
 				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Manual;
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = B25LW5K7BX;
 				ENABLE_APP_SANDBOX = NO;

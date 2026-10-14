@@ -20,46 +20,49 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 32) {
-                Spacer(minLength: 40)
-
-                // Hero
-                VStack(spacing: 12) {
+            VStack(spacing: 20) {
+                // Minimized Brand Header
+                HStack(spacing: 12) {
                     ZStack {
-                        Circle()
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [.accentColor.opacity(0.15), .accentColor.opacity(0.05)],
+                                    colors: [Color.accentColor.opacity(0.18), Color.accentColor.opacity(0.08)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 120, height: 120)
-                        Image(systemName: "waveform.circle.fill")
-                            .font(.system(size: 64))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "waveform")
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundStyle(Color.accentColor)
-                            .symbolRenderingMode(.hierarchical)
                     }
 
-                    Text("Pagehum")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Pagehum")
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
 
-                    if viewModel.isModelLoaded {
-                        Text("Read anything aloud")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            Text("Loading model…")
-                                .font(.subheadline)
+                        if viewModel.isModelLoaded {
+                            Text("Read anything aloud")
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
+                        } else {
+                            HStack(spacing: 4) {
+                                ProgressView().controlSize(.mini)
+                                Text("Loading model…")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
+
+                    Spacer()
                 }
+                .padding(.horizontal, 4)
+                .padding(.top, 4)
 
                 // Input selector
-                VStack(spacing: 20) {
+                VStack(spacing: 16) {
                     Picker("Input", selection: $selectedTab) {
                         ForEach(InputTab.allCases, id: \.self) { tab in
                             Text(tab.rawValue).tag(tab)
@@ -77,18 +80,21 @@ struct HomeView: View {
                     }
                     .disabled(viewModel.isLoading)
                 }
-                .padding(20)
-                .background(.background, in: RoundedRectangle(cornerRadius: 20))
-                .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+                .padding(18)
+                .background(Color.secondaryGroupedBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
 
                 TechBlogQuickImportView(viewModel: viewModel)
 
                 URLImportStatusView(viewModel: viewModel)
                     .frame(maxWidth: .infinity, alignment: .leading)
-
-                Spacer(minLength: 40)
             }
             .padding(.horizontal, 20)
+            .padding(.vertical, 8)
         }
         .background(Color.platformGroupedBackground)
         .navigationTitle("")
