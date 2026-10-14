@@ -1,6 +1,6 @@
 import Foundation
 
-enum URLImportParser {
+nonisolated enum URLImportParser {
     /// Commas and whitespace delimit links. Detection also accepts links in pasted prose.
     static func urls(in text: String) -> [URL] {
         let separated = text.replacingOccurrences(of: ",", with: " ")
@@ -43,6 +43,11 @@ struct URLImportResult {
     var failures: [Failure] = []
 
     var summary: String {
-        "\(imported) imported · \(skipped) already saved · \(failures.count) failed"
+        let parts = [
+            imported > 0 ? "\(imported) imported" : nil,
+            skipped > 0 ? "\(skipped) already saved" : nil,
+            failures.isEmpty ? nil : "\(failures.count) failed",
+        ].compactMap { $0 }
+        return parts.isEmpty ? "Nothing imported" : parts.joined(separator: " · ")
     }
 }

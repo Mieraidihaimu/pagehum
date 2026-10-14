@@ -45,7 +45,7 @@ struct DesktopRootView: View {
                     // Keep form drafts alive while the user visits another screen.
                     DesktopInputView(viewModel: viewModel, continueItem: continueItem,
                                      openReader: { page = .reader }, openLibrary: { page = .library },
-                                     openTechBlogSettings: openTechBlogSettings, openItem: open)
+                                     openItem: open)
                         .opacity(page == .home ? 1 : 0)
                         .allowsHitTesting(page == .home)
                         .disabled(page != .home)
@@ -76,7 +76,6 @@ struct DesktopRootView: View {
         .background(DesktopStyle.canvas)
         .foregroundStyle(DesktopStyle.text)
         .tint(DesktopStyle.accent)
-        .preferredColorScheme(.dark)
         .onChange(of: navigateToReader) { _, requested in
             if requested { page = .reader; navigateToReader = false }
         }
@@ -139,7 +138,7 @@ struct DesktopRootView: View {
                     Label("Settings", systemImage: "chevron.left")
                 }
                 .buttonStyle(.borderless)
-                Text("/ Tech blog imports").font(.system(size: 13)).foregroundStyle(DesktopStyle.secondary)
+                Text("/ Hacker News").font(.system(size: 13)).foregroundStyle(DesktopStyle.secondary)
             } else {
                 Text(page.rawValue).font(.system(size: 13)).foregroundStyle(DesktopStyle.secondary)
             }

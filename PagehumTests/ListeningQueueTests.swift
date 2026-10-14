@@ -68,6 +68,22 @@ struct ListeningQueueTests {
     }
 
     @Test
+    func listEditingMovesAndRemovesUpcomingByOffsets() async throws {
+        let fixture = try QueueFixture()
+        defer { fixture.cleanup() }
+        let items = try ["First", "Second", "Third", "Fourth"].map { try fixture.add($0) }
+        fixture.queue.enqueue(items)
+        try await fixture.wait { fixture.model.isPlaying }
+        fixture.queue.move(fromOffsets: IndexSet(integer: 2), toOffset: 0)
+        #expect(fixture.queue.upcoming.map(\.title) == ["Fourth", "Second", "Third"])
+        fixture.queue.move(fromOffsets: IndexSet(integer: 0), toOffset: 3)
+        #expect(fixture.queue.upcoming.map(\.title) == ["Second", "Third", "Fourth"])
+        fixture.queue.remove(atOffsets: IndexSet(integer: 1))
+        #expect(fixture.queue.upcoming.map(\.title) == ["Second", "Fourth"])
+        #expect(try fixture.context.fetchCount(FetchDescriptor<PlaylistItem>()) == 4)
+    }
+
+    @Test
     func generationFailurePausesQueueAndRetryContinuesFromSavedPosition() async throws {
         var shouldFail = true
         let fixture = try QueueFixture { text in !(shouldFail && text.contains("Broken")) }

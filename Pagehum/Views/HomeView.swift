@@ -81,13 +81,7 @@ struct HomeView: View {
                 .background(.background, in: RoundedRectangle(cornerRadius: 20))
                 .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
 
-                TechBlogQuickImportView(viewModel: viewModel) {
-                    NavigationLink {
-                        TechBlogImportSettingsView(viewModel: viewModel)
-                    } label: {
-                        Label("Import settings", systemImage: "slider.horizontal.3")
-                    }
-                }
+                TechBlogQuickImportView(viewModel: viewModel)
 
                 URLImportStatusView(viewModel: viewModel)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -110,6 +104,7 @@ struct HomeView: View {
                     Image(systemName: "books.vertical")
                         .symbolRenderingMode(.hierarchical)
                 }
+                .accessibilityLabel("Library")
             }
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
@@ -118,6 +113,7 @@ struct HomeView: View {
                     Image(systemName: "gearshape")
                         .symbolRenderingMode(.hierarchical)
                 }
+                .accessibilityLabel("Settings")
             }
             #else
             ToolbarItem(placement: .navigation) {
@@ -127,6 +123,7 @@ struct HomeView: View {
                     Image(systemName: "books.vertical")
                         .symbolRenderingMode(.hierarchical)
                 }
+                .accessibilityLabel("Library")
             }
             ToolbarItem(placement: .automatic) {
                 NavigationLink {
@@ -135,6 +132,7 @@ struct HomeView: View {
                     Image(systemName: "gearshape")
                         .symbolRenderingMode(.hierarchical)
                 }
+                .accessibilityLabel("Settings")
             }
             #endif
         }
@@ -212,7 +210,7 @@ struct HomeView: View {
 
             Text("Separate links with spaces, new lines, or commas.")
                 .font(.caption).foregroundStyle(.secondary)
-            actionButton("Import \(URLImportParser.urls(in: urlString).count) links", icon: "bookmark.fill") {
+            actionButton(importLinksTitle(URLImportParser.urls(in: urlString).count), icon: "bookmark.fill") {
                 importLinks(urlString, fromText: false)
             }
             .disabled(URLImportParser.urls(in: urlString).isEmpty)
@@ -269,7 +267,7 @@ struct HomeView: View {
                 }
 
             if !URLImportParser.urls(in: pastedText).isEmpty {
-                actionButton("Import \(URLImportParser.urls(in: pastedText).count) links", icon: "bookmark.fill") {
+                actionButton(importLinksTitle(URLImportParser.urls(in: pastedText).count), icon: "bookmark.fill") {
                     importLinks(pastedText, fromText: true)
                 }
             }
@@ -278,7 +276,7 @@ struct HomeView: View {
         }
     }
 
-    private func actionButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+    private func actionButton(_ title: LocalizedStringKey, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 if viewModel.isLoading {

@@ -4,10 +4,17 @@ import SwiftUI
 struct PlaybackControlsView: View {
 
     @ObservedObject var viewModel: ReaderModel
+    @ObservedObject private var queue: ListeningQueue
     @State private var isExpanded = true
     @State private var autoMinimizeTask: Task<Void, Never>?
     @State private var isDragging = false
     @State private var dragProgress: Double = 0
+    @State private var showQueue = false
+
+    init(viewModel: ReaderModel) {
+        self.viewModel = viewModel
+        queue = viewModel.listeningQueue
+    }
 
     private let speeds: [Float] = [0.75, 1.0, 1.25, 1.5, 2.0, 2.25, 2.5, 3.0]
     private let speedLabels = ["0.75x", "1x", "1.25x", "1.5x", "2x", "2.25x", "2.5x", "3x"]
@@ -31,6 +38,9 @@ struct PlaybackControlsView: View {
 
     private var expandedView: some View {
         VStack(spacing: 8) {
+            #if os(iOS)
+            if queue.isActive { queueStrip.padding(.top, 10) }
+            #endif
             VStack(spacing: 2) {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -103,6 +113,8 @@ struct PlaybackControlsView: View {
                         .padding(.vertical, 5)
                         .background(.fill.tertiary, in: Capsule())
                 }
+                .accessibilityLabel("Playback speed")
+                .accessibilityValue(currentSpeedLabel)
 
                 Spacer()
 
@@ -111,6 +123,7 @@ struct PlaybackControlsView: View {
                         .font(.title3)
                         .frame(width: 44, height: 44)
                 }
+                .accessibilityLabel("Back 20 seconds")
 
                 Spacer()
 
@@ -127,6 +140,7 @@ struct PlaybackControlsView: View {
                     .font(.system(size: 44))
                     .frame(width: 44, height: 44)
                 }
+                .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
 
                 Spacer()
 
@@ -135,6 +149,7 @@ struct PlaybackControlsView: View {
                         .font(.title3)
                         .frame(width: 44, height: 44)
                 }
+                .accessibilityLabel("Forward 20 seconds")
 
                 Spacer()
 
@@ -151,12 +166,15 @@ struct PlaybackControlsView: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 12)
         .frame(maxWidth: 460)
-        .frame(maxHeight: 112)
+        .frame(maxHeight: queue.isActive ? 150 : 112)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
         .overlay(
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(.separator.opacity(0.3), lineWidth: 0.5)
         )
+        #if os(iOS)
+        .sheet(isPresented: $showQueue) { ListeningQueueSheet(viewModel: viewModel, queue: queue) }
+        #endif
         .transition(.asymmetric(
             insertion: .scale(scale: 0.8, anchor: .bottomTrailing).combined(with: .opacity),
             removal: .scale(scale: 0.8, anchor: .bottomTrailing).combined(with: .opacity)
@@ -188,6 +206,8 @@ struct PlaybackControlsView: View {
             .frame(width: 56, height: 56)
             .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
         }
+        .accessibilityLabel("Show playback controls")
+        .accessibilityValue(viewModel.isPlaying ? "Playing" : "Paused")
         .frame(maxWidth: .infinity, alignment: .trailing)
         .transition(.asymmetric(
             insertion: .scale(scale: 0.5, anchor: .bottomTrailing).combined(with: .opacity),
@@ -196,6 +216,33 @@ struct PlaybackControlsView: View {
     }
 
     // MARK: - Helpers
+
+    @ViewBuilder private var queueStrip: some View {
+        if let failure = queue.failure {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.circle").foregroundStyle(.orange)
+                Text(failure).lineLimit(2)
+                Spacer(minLength: 0)
+                Button("Retry") { queue.retry() }
+                    .disabled(!viewModel.isModelLoaded || viewModel.isLoading)
+                Button("Skip") { queue.skip() }
+            }
+            .font(.caption.weight(.semibold))
+        } else {
+            HStack(spacing: 12) {
+                Button { showQueue = true } label: {
+                    Label("Up next · \(queue.upcoming.count)", systemImage: "list.bullet")
+                }
+                Spacer()
+                Button { queue.skip() } label: {
+                    Label("Next article", systemImage: "forward.end")
+                }
+                .disabled(viewModel.isLoading)
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Color.accentColor)
+        }
+    }
 
     private var currentSpeedLabel: String {
         speedLabels[speeds.firstIndex(of: viewModel.speed) ?? 1]

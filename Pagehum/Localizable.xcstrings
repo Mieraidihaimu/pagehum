@@ -20,7 +20,7 @@
     "·" : {
 
     },
-    "/ Tech blog imports" : {
+    "/ Hacker News" : {
 
     },
     "%@ · %@" : {
@@ -43,12 +43,12 @@
         }
       }
     },
-    "%@ at %@ · Library order" : {
+    "%@ at %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "%1$@ at %2$@ · Library order"
+            "value" : "%1$@ at %2$@"
           }
         }
       }
@@ -93,6 +93,9 @@
     "%lldpt" : {
 
     },
+    "^[%lld article](inflect: true)" : {
+
+    },
     "1 line" : {
 
     },
@@ -131,6 +134,9 @@
     "About Pagehum" : {
 
     },
+    "Actions" : {
+
+    },
     "Activity" : {
 
     },
@@ -149,7 +155,16 @@
     "Add your first article" : {
 
     },
+    "Added" : {
+
+    },
     "Adjust anytime in the player." : {
+
+    },
+    "All" : {
+
+    },
+    "Any" : {
 
     },
     "Any score" : {
@@ -203,6 +218,9 @@
     "Back 20 seconds" : {
 
     },
+    "Browse stories" : {
+
+    },
     "Cached audio" : {
 
     },
@@ -226,9 +244,6 @@
         }
       }
     },
-    "Cancel selection" : {
-
-    },
     "Cannot access file" : {
       "localizations" : {
         "zh-Hans" : {
@@ -238,15 +253,6 @@
           }
         }
       }
-    },
-    "Choose at least one topic in import settings to get started." : {
-
-    },
-    "Choose at least one topic to import articles." : {
-
-    },
-    "Choose at least one topic." : {
-
     },
     "Choose PDF" : {
       "localizations" : {
@@ -261,7 +267,7 @@
     "Choose PDF…" : {
 
     },
-    "Choose what interests you. Matching articles are saved to your library, ready to listen." : {
+    "Clear" : {
 
     },
     "Clear Audio Cache" : {
@@ -294,6 +300,9 @@
 
     },
     "Clear search" : {
+
+    },
+    "Clear selection" : {
 
     },
     "Clear upcoming" : {
@@ -333,6 +342,9 @@
     "Couldn’t clear cache" : {
 
     },
+    "Couldn’t load stories" : {
+
+    },
     "Couldn’t save favorite" : {
 
     },
@@ -358,10 +370,13 @@
         }
       }
     },
-    "Discover tech blogs" : {
+    "Done" : {
 
     },
-    "Done" : {
+    "Download natural voices (%@)" : {
+
+    },
+    "Downloading natural voices…" : {
 
     },
     "Empty" : {
@@ -406,10 +421,10 @@
         }
       }
     },
-    "Forward 20 seconds" : {
+    "Filters" : {
 
     },
-    "Fresh finds from Hacker News, saved to your library." : {
+    "Forward 20 seconds" : {
 
     },
     "Freshness is based on the Hacker News submission date. The article itself may be older." : {
@@ -435,6 +450,9 @@
         }
       }
     },
+    "Hacker News" : {
+
+    },
     "https://example.com/article" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -449,13 +467,22 @@
     "Import %lld links" : {
 
     },
-    "Import latest articles" : {
+    "Import ^[%lld article](inflect: true)" : {
+
+    },
+    "Import ^[%lld link](inflect: true)" : {
 
     },
     "Import limits" : {
 
     },
-    "Import settings" : {
+    "Import links" : {
+
+    },
+    "Import top %lld" : {
+
+    },
+    "In progress" : {
 
     },
     "In Progress" : {
@@ -467,6 +494,9 @@
           }
         }
       }
+    },
+    "In queue" : {
+
     },
     "Input" : {
       "localizations" : {
@@ -514,10 +544,13 @@
         }
       }
     },
+    "Library articles" : {
+
+    },
     "Library Unavailable" : {
 
     },
-    "Listen in the displayed Library order" : {
+    "Listen in the displayed sort order" : {
 
     },
     "Listening progress" : {
@@ -550,10 +583,16 @@
         }
       }
     },
-    "Match any selected topic in story titles and URLs." : {
+    "Loading stories…" : {
+
+    },
+    "Matching articles are saved to your library, ready to listen." : {
 
     },
     "Maximum articles" : {
+
+    },
+    "Minimum comments" : {
 
     },
     "Minimum HN score" : {
@@ -596,6 +635,9 @@
     "No matching starred articles" : {
 
     },
+    "No matching stories" : {
+
+    },
     "No readable text could be extracted from this page." : {
       "localizations" : {
         "zh-Hans" : {
@@ -610,6 +652,9 @@
 
     },
     "Not starred" : {
+
+    },
+    "Not started" : {
 
     },
     "OK" : {
@@ -631,7 +676,13 @@
     "Open an article, a PDF, or a piece of text." : {
 
     },
+    "Open article" : {
+
+    },
     "Open page" : {
+
+    },
+    "Open selected article" : {
 
     },
     "Opening article…" : {
@@ -639,6 +690,16 @@
     },
     "Options for %@" : {
 
+    },
+    "Pagehum" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pagehum"
+          }
+        }
+      }
     },
     "Paste article links" : {
 
@@ -660,6 +721,9 @@
     "Paste text or article links here…" : {
 
     },
+    "Pasted text" : {
+
+    },
     "Pasted Text" : {
       "localizations" : {
         "zh-Hans" : {
@@ -673,13 +737,22 @@
     "Pause" : {
 
     },
+    "Paused" : {
+
+    },
+    "PDF document" : {
+
+    },
+    "Pick fresh stories to listen to, or grab the top ones in one tap." : {
+
+    },
     "Play" : {
 
     },
     "Play / Pause" : {
 
     },
-    "Play %lld articles" : {
+    "Play ^[%lld article](inflect: true)" : {
 
     },
     "Playback" : {
@@ -708,6 +781,9 @@
         }
       }
     },
+    "Playing" : {
+
+    },
     "Please enter some text" : {
       "localizations" : {
         "zh-Hans" : {
@@ -725,6 +801,9 @@
 
     },
     "Preparing" : {
+
+    },
+    "Progress" : {
 
     },
     "Read again from beginning" : {
@@ -776,22 +855,31 @@
         }
       }
     },
+    "Refresh" : {
+
+    },
+    "Remove" : {
+
+    },
     "Remove %@ from queue" : {
 
     },
-    "Remove article" : {
+    "Remove ^[%lld article](inflect: true) from library?" : {
 
     },
-    "Remove from library?" : {
+    "Remove from library" : {
 
     },
-    "Remove from library…" : {
+    "Remove from library..." : {
 
     },
     "Remove from queue; keep in Library" : {
 
     },
     "Remove from starred" : {
+
+    },
+    "Remove selected articles" : {
 
     },
     "Restart from beginning" : {
@@ -817,7 +905,7 @@
         }
       }
     },
-    "Saved for later" : {
+    "Saved" : {
 
     },
     "Saved links are skipped. Scanning more stories may take longer." : {
@@ -846,10 +934,13 @@
     "Search library" : {
 
     },
+    "Search titles and sites" : {
+
+    },
     "Search titles, sources, and text" : {
 
     },
-    "Select %@" : {
+    "Select" : {
 
     },
     "Select a document from Files" : {
@@ -865,10 +956,7 @@
     "Select all" : {
 
     },
-    "Select articles" : {
-
-    },
-    "Select one or more articles" : {
+    "Select all articles" : {
 
     },
     "Selected Voice" : {
@@ -903,6 +991,12 @@
     "Show less" : {
 
     },
+    "Show playback controls" : {
+
+    },
+    "Skip" : {
+
+    },
     "Skip article" : {
 
     },
@@ -918,15 +1012,11 @@
     "Sometimes all an idea needs is a little room to breathe." : {
 
     },
-    "Pagehum" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pagehum"
-          }
-        }
-      }
+    "Sort by" : {
+
+    },
+    "Source" : {
+
     },
     "Star %@" : {
 
@@ -935,6 +1025,9 @@
 
     },
     "Starred only" : {
+
+    },
+    "Status" : {
 
     },
     "Storage" : {
@@ -956,13 +1049,16 @@
     "Story filters" : {
 
     },
+    "Story filters and import limits" : {
+
+    },
     "Submitted within" : {
 
     },
-    "Tap the star beside an article to find it here." : {
+    "System voices" : {
 
     },
-    "Tech Blog Imports" : {
+    "Tap the star beside an article to find it here." : {
 
     },
     "Text" : {
@@ -991,6 +1087,9 @@
     "Text to read aloud" : {
 
     },
+    "The current article stays in your library." : {
+
+    },
     "The quick brown fox jumps over the lazy dog." : {
       "localizations" : {
         "zh-Hans" : {
@@ -1017,16 +1116,19 @@
         }
       }
     },
-    "Topics" : {
-
-    },
-    "Topics, story filters, and import limits" : {
+    "Title" : {
 
     },
     "Total Listening Time" : {
 
     },
     "Try a different title, source, or phrase." : {
+
+    },
+    "Try a longer time window or lower minimums in import settings." : {
+
+    },
+    "Try again" : {
 
     },
     "Try different words or turn off Starred only." : {
@@ -1051,9 +1153,6 @@
     "Up next · %lld" : {
 
     },
-    "Up to %lld articles per import" : {
-
-    },
     "URL" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1063,6 +1162,9 @@
           }
         }
       }
+    },
+    "Using system voices. Download natural voices for clearer, more human speech." : {
+
     },
     "Version" : {
       "localizations" : {
@@ -1102,6 +1204,9 @@
           }
         }
       }
+    },
+    "Your library" : {
+
     },
     "Your next good read starts here." : {
 

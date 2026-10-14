@@ -118,9 +118,11 @@ struct SettingsView: View {
                 #if os(iOS)
                 .pickerStyle(.navigationLink)
                 #endif
-                
+                VoiceModelDownloadView(viewModel: viewModel)
             } header: {
                 Text("Voice")
+            } footer: {
+                if let notice = viewModel.speechEngineNotice { Text(notice) }
             }
 
             Section {
@@ -157,7 +159,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 LabeledContent("TTS Engine") {
-                    Text("Kokoro 82M")
+                    Text(viewModel.speechEngineNotice == nil ? "Kokoro 82M" : "System voices")
                         .foregroundStyle(.secondary)
                 }
                 LabeledContent("Audio") {
@@ -192,6 +194,7 @@ struct SettingsView: View {
     // MARK: - Voice helpers
 
     private func voiceDisplayName(_ voice: String) -> String {
+        if let systemName = SystemSpeechEngine.displayName(for: voice) { return systemName }
         let parts = voice.split(separator: "_")
         guard parts.count == 2 else { return voice }
         let name = parts[1].capitalized
@@ -216,7 +219,7 @@ struct SettingsView: View {
     }
 
     private func voiceFlag(_ voice: String) -> String {
-        guard let first = voice.first else { return "" }
+        guard let first = voice.first, SystemSpeechEngine.displayName(for: voice) == nil else { return "\u{1F5E3}" }
         switch first {
         case "a": return "\u{1F1FA}\u{1F1F8}"
         case "b": return "\u{1F1EC}\u{1F1E7}"

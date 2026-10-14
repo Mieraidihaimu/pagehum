@@ -8,11 +8,7 @@ struct TechBlogDiscoveryTests {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
     @Test
-    func classifiesOriginalTopicsAndMatchesDomainBoundaries() throws {
-        let url = try #require(URL(string: "https://engineering.example.com/system%20design"))
-        #expect(TechBlogDiscovery.classify(title: "Postgres replication for LLM inference", url: url)
-            == [.ai, .backend, .scaling, .interview])
-        #expect(TechBlogDiscovery.classify(title: "A chair for the garden", url: URL(string: "https://example.com")!).isEmpty)
+    func matchesBlockedDomainBoundaries() {
         for host in ["youtube.com", "www.youtube.com", "chillphysicsenjoyer.substack.com", "news.bbc.com"] {
             #expect(TechBlogDiscovery.isBlocked(URL(string: "https://\(host)/ai")!))
         }
@@ -34,32 +30,71 @@ struct TechBlogDiscoveryTests {
         var invalid = item(8); invalid.url = "file:///ai"
         var undated = item(9); undated.time = nil
         var future = item(10); future.time = now.addingTimeInterval(60).timeIntervalSince1970
-        var irrelevant = item(11); irrelevant.title = "Gardening"
-        let items = [newer, good, stale, dead, deleted, job, blocked, invalid, undated, future, irrelevant]
+        var offTopic = item(11); offTopic.title = "Gardening"
+        let items = [newer, good, stale, dead, deleted, job, blocked, invalid, undated, future, offTopic]
         var settings = TechBlogSettings()
-        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == [1, 2])
+        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == [1, 11, 2])
         settings.feed = .new
-        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == [2, 1])
+        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == [2, 1, 11])
         settings.minimumScore = 50
-        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == [1])
-        settings.topics = [.interview]
-        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).isEmpty)
-        settings.topics = []
-        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).isEmpty)
+        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == [1, 11])
     }
 
     @Test
-    func persistsFiltersIncludingEmptySelectionAndRecoversCorruptData() throws {
+    func filtersByMinimumCommentsAndKeepsCommentCounts() {
+        let quiet = item(1)
+        let busy = item(2, comments: 40)
+        var settings = TechBlogSettings()
+        #expect(TechBlogDiscovery.filter([quiet, busy], settings: settings, now: now).map(\.comments) == [0, 40])
+        settings.minimumComments = 10
+        #expect(TechBlogDiscovery.filter([quiet, busy], settings: settings, now: now).map(\.id) == [2])
+    }
+
+    @Test
+    func browsesBySortAndMatchesEveryTermInTitlesOrSites() {
+        let stories = [
+            story(1, "Postgres internals", "https://www.example.com/a", score: 80, comments: 5, age: 3600),
+            story(2, "Rust in production", "https://github.com/b", score: 20, comments: 90, age: 60),
+            story(3, "Gardening", "https://blog.rust-lang.org/c", score: 50, comments: 10, age: 7200),
+        ]
+        #expect(stories[0].site == "example.com")
+        #expect(TechBlogDiscovery.browse(stories, query: "", sort: .points).map(\.id) == [1, 3, 2])
+        #expect(TechBlogDiscovery.browse(stories, query: "", sort: .comments).map(\.id) == [2, 3, 1])
+        #expect(TechBlogDiscovery.browse(stories, query: "", sort: .newest).map(\.id) == [2, 1, 3])
+        #expect(TechBlogDiscovery.browse(stories, query: "RUST", sort: .points).map(\.id) == [3, 2])
+        #expect(TechBlogDiscovery.browse(stories, query: "example postgres", sort: .points).map(\.id) == [1])
+        #expect(TechBlogDiscovery.browse(stories, query: "example rust", sort: .points).isEmpty)
+    }
+
+    @Test
+    func unsavedSkipsLibraryLinksAndDuplicateSubmissionsInOrder() throws {
+        let stories = [
+            story(1, "Saved", "https://example.com/saved"),
+            story(2, "First", "https://example.com/first"),
+            story(3, "First again", "https://EXAMPLE.com/first#comments"),
+            story(4, "Second", "https://example.com/second"),
+        ]
+        let saved: Set = [URLImportParser.key(for: try #require(URL(string: "https://example.com/saved")))]
+        #expect(TechBlogDiscovery.unsaved(stories, savedKeys: saved).map(\.id) == [2, 4])
+    }
+
+    @Test
+    func persistsFiltersAndRecoversLegacyAndCorruptData() throws {
         let suite = "TechBlogSettingsTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         #expect(TechBlogSettings.load(from: defaults) == TechBlogSettings())
         var settings = TechBlogSettings()
-        settings.topics = []
         settings.feed = .new
         settings.minimumScore = 70
+        settings.minimumComments = 20
         settings.importLimit = 5
         settings.save(to: defaults)
+        #expect(TechBlogSettings.load(from: defaults) == settings)
+        // Saved before topic filters were removed and comment filters were added.
+        let legacy = #"{"topics":["ai"],"feed":"new","storyCount":100,"freshnessDays":3,"minimumScore":70,"importLimit":5}"#
+        defaults.set(Data(legacy.utf8), forKey: TechBlogSettings.storageKey)
+        settings.minimumComments = 0
         #expect(TechBlogSettings.load(from: defaults) == settings)
         defaults.set(Data("bad json".utf8), forKey: TechBlogSettings.storageKey)
         #expect(TechBlogSettings.load(from: defaults) == TechBlogSettings())
@@ -75,6 +110,7 @@ struct TechBlogDiscoveryTests {
         let service = TechBlogDiscovery(load: { try await fixture.load($0) }, now: { now })
         let result = try await service.discover(settings: settings)
         #expect(result.stories.count == 11)
+        #expect(result.stories.allSatisfy { $0.comments == 7 })
         #expect(result.failedItemCount == 1)
         let paths = await fixture.paths
         #expect(paths.first == "/v0/newstories.json")
@@ -99,16 +135,17 @@ struct TechBlogDiscoveryTests {
         await #expect(throws: CancellationError.self) {
             try await cancelled.discover(settings: TechBlogSettings())
         }
-        var settings = TechBlogSettings()
-        settings.topics = []
-        await #expect(throws: TechBlogDiscoveryError.self) {
-            try await failing.discover(settings: settings)
-        }
     }
 
-    private func item(_ id: Int, score: Int = 50) -> HackerNewsItem {
+    private func item(_ id: Int, score: Int = 50, comments: Int? = nil) -> HackerNewsItem {
         HackerNewsItem(id: id, type: "story", title: "Postgres internals", url: "https://example.com/\(id)",
-                       score: score, time: now.timeIntervalSince1970 - 60)
+                       score: score, time: now.timeIntervalSince1970 - 60, descendants: comments)
+    }
+
+    private func story(_ id: Int, _ title: String, _ link: String, score: Int = 50, comments: Int = 0,
+                       age: TimeInterval = 60) -> TechBlogStory {
+        TechBlogStory(id: id, title: title, url: URL(string: link)!, score: score, comments: comments,
+                      submittedAt: now.addingTimeInterval(-age))
     }
 }
 
@@ -127,7 +164,7 @@ private actor DiscoveryFixture {
         let id = Int(url.deletingPathExtension().lastPathComponent)!
         if id == 2 { throw URLError(.timedOut) }
         return Data("""
-        {"id":\(id),"type":"story","title":"LLM inference","url":"https://example.com/\(id)","score":50,"time":1799999990}
+        {"id":\(id),"type":"story","title":"LLM inference","url":"https://example.com/\(id)","score":50,"time":1799999990,"descendants":7}
         """.utf8)
     }
 }
@@ -164,6 +201,34 @@ struct TechBlogImportTests {
         await model.importLatestTechBlogs(using: FixedDiscovery(paths: []))
         #expect(model.techBlogMessage?.contains("No articles matched") == true)
     }
+
+    @Test
+    func browsingSuggestsOneTapPicksAndImportsOnlyChosenStories() async throws {
+        let container = try ModelContainer(for: PlaylistItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = ModelContext(container)
+        let extractor = TechBlogTestExtractor()
+        let model = ReaderModel(loadModelOnInit: false, contentExtractor: extractor)
+        model.modelContext = context
+        let savedSettings = UserDefaults.standard.data(forKey: TechBlogSettings.storageKey)
+        defer { UserDefaults.standard.set(savedSettings, forKey: TechBlogSettings.storageKey) }
+        model.techBlogSettings = TechBlogSettings()
+        model.techBlogSettings.importLimit = 2
+        context.insert(PlaylistItem(title: "Saved", sourceURL: "https://example.com/saved", sourceType: "url", fullText: "Saved."))
+        try context.save()
+
+        await model.loadTechBlogStories(using: FixedDiscovery(paths: ["saved", "first", "first#duplicate", "second", "third"]))
+        #expect(model.techBlogStories.count == 5)
+        #expect(model.suggestedTechBlogStoryIDs == [1, 3])
+        #expect(model.isInLibrary(model.techBlogStories[0]))
+        #expect(extractor.paths.isEmpty)
+        #expect(model.techBlogMessage?.contains("Couldn’t check 1 HN story") == true)
+
+        await model.importTechBlogStories([model.techBlogStories[4]])
+        #expect(extractor.paths == ["/third"])
+        #expect(model.isInLibrary(model.techBlogStories[4]))
+        #expect(model.suggestedTechBlogStoryIDs == [1, 3])
+        #expect(!model.isLoading)
+    }
 }
 
 nonisolated private struct FixedDiscovery: TechBlogDiscovering {
@@ -171,7 +236,7 @@ nonisolated private struct FixedDiscovery: TechBlogDiscovering {
     func discover(settings: TechBlogSettings) async throws -> TechBlogDiscoveryResult {
         TechBlogDiscoveryResult(stories: paths.enumerated().map { index, path in
             TechBlogStory(id: index, title: "LLM", url: URL(string: "https://example.com/\(path)")!,
-                         score: 50, submittedAt: Date(), topics: [.ai])
+                         score: 50, comments: 0, submittedAt: Date())
         }, failedItemCount: 1)
     }
 }

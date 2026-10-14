@@ -5,11 +5,21 @@ import Foundation
 struct LibraryFilter {
     var query = ""
     var favoritesOnly = false
+    var status: PlaylistItem.Status?
+    var sortOrder: [KeyPathComparator<PlaylistItem>] = []
 
     func apply(to items: [PlaylistItem]) -> [PlaylistItem] {
         let terms = query.split(whereSeparator: \.isWhitespace).map(String.init)
-        return items.filter { item in
+        let filteredItems = items.filter { item in
             guard !favoritesOnly || item.isFavorite else { return false }
+            if let status {
+                let completed = item.status == PlaylistItem.Status.completed.rawValue || item.progressPercent >= 1
+                if status == .completed {
+                    guard completed else { return false }
+                } else {
+                    guard !completed && item.status == status.rawValue else { return false }
+                }
+            }
             guard !terms.isEmpty else { return true }
             let fields = [item.title, item.sourceURL ?? "", ArticleSegmenter.strippingMarkers(item.fullText)]
             return terms.allSatisfy { term in
@@ -18,5 +28,6 @@ struct LibraryFilter {
                 }
             }
         }
+        return sortOrder.isEmpty ? filteredItems : filteredItems.sorted(using: sortOrder)
     }
 }

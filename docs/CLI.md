@@ -63,10 +63,10 @@ URL extraction reuses the app's WebKit/Readability pipeline and requires a norma
 
 ## Implementation
 
-- `SpeechCore/`: shared source files compiled into both the app and CLI, containing model loading, synthesis, and sentence segmentation. Model work runs on GCD, avoiding MLX work on Swift's cooperative executor.
+- `Packages/SpeechCore`: local Swift package shared by the app and CLI, containing model loading, synthesis (`KokoroSynthesizer`), and sentence segmentation. It is the only module that imports Kokoro or MLX. Model work runs on GCD, avoiding MLX work on Swift's cooperative executor.
 - `PagehumCLI/`: Argument Parser commands and the streaming audio exporter.
 - The CLI also compiles the existing reader document/extraction sources, with its own resource bundle.
-- The app retains its playback/cache behavior and calls the shared synthesis functions.
+- The app retains its playback/cache behavior and reaches Kokoro through its `SpeechEngine` adapter.
 
 ## Verification
 

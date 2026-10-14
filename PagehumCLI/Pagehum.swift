@@ -3,7 +3,7 @@ import AppKit
 import ArgumentParser
 import AVFoundation
 import Foundation
-import KokoroSwift
+import SpeechCore
 
 @main
 struct Pagehum: AsyncParsableCommand {
@@ -69,9 +69,8 @@ struct Voices: AsyncParsableCommand {
     mutating func run() async throws {
         let directory = try assets.directory()
         let names = try await onSynthesisQueue {
-            let (_, voices) = try SpeechSynthesis.load(directory: directory)
-            return voices.keys.map { String($0.split(separator: ".")[0]) }
-                .filter { $0.hasPrefix("a") || $0.hasPrefix("b") }.sorted()
+            try KokoroSynthesizer.load(directory: directory).voices
+                .filter { $0.hasPrefix("a") || $0.hasPrefix("b") }
         }
         names.forEach { print($0) }
     }
@@ -163,20 +162,18 @@ struct Generate: AsyncParsableCommand {
         let selectedVoice = voice, bitRate = quality.bitRate, overwrite = force
         report("Loading Kokoro; \(chunks.count) speech chunks…")
         let duration = try await onSynthesisQueue {
-            let (engine, voices) = try SpeechSynthesis.load(directory: directory)
-            guard let style = voices[selectedVoice + ".npy"] else {
+            let synthesizer = try KokoroSynthesizer.load(directory: directory)
+            guard synthesizer.voices.contains(selectedVoice) else {
                 throw ValidationError("Unknown voice '\(selectedVoice)'. Run 'pagehum voices'.")
             }
-            let language: Language = selectedVoice.hasPrefix("b") ? .enGB : .enUS
-            guard let format = AVAudioFormat(standardFormatWithSampleRate: SpeechSynthesis.sampleRate, channels: 1) else {
+            guard let format = AVAudioFormat(standardFormatWithSampleRate: KokoroSynthesizer.sampleRate, channels: 1) else {
                 throw SpeechSynthesisError.message("Cannot create the speech audio format.")
             }
             let writer = try AudioExporter(output: outputURL, bitRate: bitRate, overwrite: overwrite)
             for (index, chunk) in chunks.enumerated() {
                 do {
                     try autoreleasepool {
-                        let audio = try SpeechSynthesis.generate(engine: engine, voice: style, language: language,
-                                                                 text: chunk, format: format)
+                        let audio = try synthesizer.generate(text: chunk, voice: selectedVoice, format: format)
                         try writer.append(audio.buffer)
                     }
                 } catch {
@@ -185,7 +182,7 @@ struct Generate: AsyncParsableCommand {
                 report("Generated \(index + 1)/\(chunks.count)")
             }
             try writer.finish()
-            return Double(writer.frameCount) / SpeechSynthesis.sampleRate
+            return Double(writer.frameCount) / KokoroSynthesizer.sampleRate
         }
         report(String(format: "Saved %.1f seconds of audio.", duration))
         print(outputURL.path)

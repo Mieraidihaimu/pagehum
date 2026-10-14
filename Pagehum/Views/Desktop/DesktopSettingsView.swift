@@ -39,11 +39,19 @@ struct DesktopSettingsView: View {
                 }.labelsHidden().frame(width: 100)
             }
             row {
-                Text("Voice")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Voice")
+                    if let notice = viewModel.speechEngineNotice {
+                        Text(notice).font(.caption).foregroundStyle(DesktopStyle.secondary)
+                    }
+                }
                 Spacer()
                 Picker("Voice", selection: $viewModel.selectedVoice) {
                     ForEach(viewModel.voiceNames, id: \.self) { voice in Text(DesktopStyle.voiceLabel(voice)).tag(voice) }
                 }.labelsHidden().frame(maxWidth: 260)
+            }
+            if viewModel.canDownloadVoiceModel {
+                row { VoiceModelDownloadView(viewModel: viewModel) }
             }
             sectionTitle("Reader")
             row {
@@ -77,7 +85,7 @@ struct DesktopSettingsView: View {
             DisclosureGroup("About Pagehum") {
                 VStack(spacing: 12) {
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                    LabeledContent("Voice engine", value: "Kokoro 82M")
+                    LabeledContent("Voice engine", value: viewModel.speechEngineNotice == nil ? "Kokoro 82M" : "System voices")
                     LabeledContent("Audio", value: "24 kHz, mono")
                 }.font(.callout).padding(.vertical, 12)
             }.foregroundStyle(DesktopStyle.secondary).padding(.top, 20)

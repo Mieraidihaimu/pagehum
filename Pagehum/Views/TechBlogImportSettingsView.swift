@@ -8,7 +8,7 @@ struct TechBlogImportSettingsView: View {
     var body: some View {
         #if os(macOS)
         DesktopPage(width: 640) {
-            DesktopHeading(title: "Tech blog imports", subtitle: "Find your next listen on Hacker News.")
+            DesktopHeading(title: "Hacker News", subtitle: "Filters for browsing stories and one-tap imports.")
             settingsContent
         }
         #else
@@ -16,39 +16,15 @@ struct TechBlogImportSettingsView: View {
             settingsContent.padding(20)
         }
         .background(Color.platformGroupedBackground)
-        .navigationTitle("Tech Blog Imports")
+        .navigationTitle("Hacker News")
         .navigationBarTitleDisplayMode(.inline)
         #endif
     }
 
     private var settingsContent: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("Choose what interests you. Matching articles are saved to your library, ready to listen.")
+            Text("Matching articles are saved to your library, ready to listen.")
                 .font(.callout).foregroundStyle(.secondary)
-
-            settingsSection("Topics", subtitle: "Match any selected topic in story titles and URLs.") {
-                ForEach(TechBlogTopic.allCases) { topic in
-                    if topic != TechBlogTopic.allCases.first { Divider() }
-                    Toggle(isOn: Binding(
-                        get: { viewModel.techBlogSettings.topics.contains(topic) },
-                        set: { enabled in
-                            if enabled { viewModel.techBlogSettings.topics.insert(topic) }
-                            else { viewModel.techBlogSettings.topics.remove(topic) }
-                        }
-                    )) {
-                        Label {
-                            Text(topic.title)
-                        } icon: {
-                            Image(systemName: topic.symbol).frame(width: 22)
-                        }
-                            .font(.body)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .toggleStyle(.switch)
-                    .padding(.vertical, 4)
-                }
-            }
-            .disabled(viewModel.isLoading)
 
             settingsSection("Story filters", subtitle: "Freshness is based on the Hacker News submission date. The article itself may be older.") {
                 LabeledContent("Stories") {
@@ -71,6 +47,13 @@ struct TechBlogImportSettingsView: View {
                             .monospacedDigit().foregroundStyle(.secondary)
                     }
                 }
+                Divider()
+                Stepper(value: $viewModel.techBlogSettings.minimumComments, in: 0...1000, step: 10) {
+                    LabeledContent("Minimum comments") {
+                        Text(viewModel.techBlogSettings.minimumComments == 0 ? "Any" : "\(viewModel.techBlogSettings.minimumComments)")
+                            .monospacedDigit().foregroundStyle(.secondary)
+                    }
+                }
             }
             .disabled(viewModel.isLoading)
 
@@ -90,10 +73,6 @@ struct TechBlogImportSettingsView: View {
             .disabled(viewModel.isLoading)
 
             VStack(alignment: .leading, spacing: 12) {
-                if viewModel.techBlogSettings.topics.isEmpty {
-                    Label("Choose at least one topic to import articles.", systemImage: "info.circle")
-                        .font(.callout).foregroundStyle(.secondary)
-                }
                 TechBlogImportButton(viewModel: viewModel)
                 Text("Preferences save automatically and apply to imports from Add Content.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -130,8 +109,8 @@ struct TechBlogSettingsLabel: View {
                 .frame(width: 40, height: 40)
                 .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 4) {
-                Text("Tech Blog Imports").foregroundStyle(.primary)
-                Text("Topics, story filters, and import limits")
+                Text("Hacker News").foregroundStyle(.primary)
+                Text("Story filters and import limits")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -139,15 +118,10 @@ struct TechBlogSettingsLabel: View {
     }
 }
 
-/// One-tap discovery uses the same saved preferences as the settings screen.
-struct TechBlogQuickImportView<SettingsLink: View>: View {
+/// Browsing and one-tap import share the preferences from the settings screen.
+struct TechBlogQuickImportView: View {
     @ObservedObject var viewModel: ReaderModel
-    @ViewBuilder var settingsLink: SettingsLink
-
-    private var selectedTopics: String {
-        TechBlogTopic.allCases.filter { viewModel.techBlogSettings.topics.contains($0) }
-            .map(\.title).joined(separator: " · ")
-    }
+    @State private var showBrowser = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -157,27 +131,19 @@ struct TechBlogQuickImportView<SettingsLink: View>: View {
                     .frame(width: 44, height: 44)
                     .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Discover tech blogs").font(.headline)
-                    Text("Fresh finds from Hacker News, saved to your library.")
+                    Text("Hacker News").font(.headline)
+                    Text("Pick fresh stories to listen to, or grab the top ones in one tap.")
                         .font(.callout).foregroundStyle(.secondary)
                 }
             }
-            if selectedTopics.isEmpty {
-                Text("Choose at least one topic in import settings to get started.")
-                    .font(.callout).foregroundStyle(.secondary)
-            } else {
-                Text(selectedTopics).font(.subheadline.weight(.medium))
-                Text("Up to \(viewModel.techBlogSettings.importLimit) articles per import")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 16) {
-                    TechBlogImportButton(viewModel: viewModel)
-                    settingsLink
+                    browseButton
+                    TechBlogImportButton(viewModel: viewModel, prominent: false)
                 }
                 VStack(alignment: .leading, spacing: 14) {
-                    TechBlogImportButton(viewModel: viewModel)
-                    settingsLink
+                    browseButton
+                    TechBlogImportButton(viewModel: viewModel, prominent: false)
                 }
             }
             if let message = viewModel.techBlogMessage {
@@ -188,17 +154,12 @@ struct TechBlogQuickImportView<SettingsLink: View>: View {
         .padding(20)
         .background(techBlogPanelColor, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.accentColor.opacity(0.18)))
+        .sheet(isPresented: $showBrowser) { TechBlogBrowseView(viewModel: viewModel) }
     }
-}
 
-private struct TechBlogImportButton: View {
-    @ObservedObject var viewModel: ReaderModel
-
-    var body: some View {
-        Button {
-            Task { await viewModel.importLatestTechBlogs() }
-        } label: {
-            Label("Import latest articles", systemImage: "square.and.arrow.down")
+    private var browseButton: some View {
+        Button { showBrowser = true } label: {
+            Label("Browse stories", systemImage: "list.bullet")
         }
         #if os(macOS)
         .buttonStyle(DesktopButtonStyle(primary: true))
@@ -206,7 +167,33 @@ private struct TechBlogImportButton: View {
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         #endif
-        .disabled(viewModel.isLoading || viewModel.techBlogSettings.topics.isEmpty)
+        .disabled(viewModel.isLoading)
+    }
+}
+
+private struct TechBlogImportButton: View {
+    @ObservedObject var viewModel: ReaderModel
+    var prominent = true
+
+    var body: some View {
+        #if os(macOS)
+        button.buttonStyle(DesktopButtonStyle(primary: prominent))
+        #else
+        if prominent {
+            button.buttonStyle(.borderedProminent).controlSize(.large)
+        } else {
+            button.buttonStyle(.bordered).controlSize(.large)
+        }
+        #endif
+    }
+
+    private var button: some View {
+        Button {
+            Task { await viewModel.importLatestTechBlogs() }
+        } label: {
+            Label("Import top \(viewModel.techBlogSettings.importLimit)", systemImage: "square.and.arrow.down")
+        }
+        .disabled(viewModel.isLoading)
     }
 }
 
@@ -216,15 +203,4 @@ private var techBlogPanelColor: Color {
     #else
     Color.secondaryGroupedBackground
     #endif
-}
-
-private extension TechBlogTopic {
-    var symbol: String {
-        switch self {
-        case .ai: "sparkles"
-        case .backend: "server.rack"
-        case .scaling: "chart.line.uptrend.xyaxis"
-        case .interview: "person.2"
-        }
-    }
 }
