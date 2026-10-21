@@ -92,6 +92,13 @@ final class ReaderModel: ObservableObject {
     let audioEngine: AVAudioEngine!
     let playerNode: AVAudioPlayerNode!
     let timePitch: AVAudioUnitTimePitch!
+    private var fallbackEngineInstance: (any SpeechEngine)?
+
+    #if os(iOS)
+    @Published private(set) var isAppInBackground = false
+    #else
+    private let isAppInBackground = false
+    #endif
 
     @Published var isModelLoaded = false
     @Published var voiceNames: [String] = []
@@ -178,7 +185,7 @@ final class ReaderModel: ObservableObject {
     private var skippedSentences: Set<Int> = []
     private var generationTask: Task<Void, Never>?
     private var isSynthesisInFlight = false
-    private let lookaheadCount = 3
+    private let lookaheadCount = 100
 
     // Gapless playback: schedules cached buffers back-to-back on the player node.
     // See docs/IMPROVEMENT_PLAN.md (A2). Set up in init once playerNode exists.
@@ -195,11 +202,6 @@ final class ReaderModel: ObservableObject {
     private var listeningAccumulator: TimeInterval = 0
     private var listeningSaveTimer: Timer?
 
-    #if os(iOS)
-    // Held while playback is active so iOS grants runway around backgrounding and pause/resume,
-    // even if AVAudioPlayerNode hasn't yet started rendering the first buffer.
-    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
-    #endif
 
     private var sampleRate: Double { Self.sampleRate }
     private var audioFormat: AVAudioFormat {
@@ -211,9 +213,11 @@ final class ReaderModel: ObservableObject {
         guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
         buffer.frameLength = frameCount
         if let channels = buffer.floatChannelData {
-            let byteCount = Int(frameCount) * MemoryLayout<Float>.size
             for c in 0..<Int(format.channelCount) {
-                memset(channels[c], 0, byteCount)
+                for frame in 0..<Int(frameCount) {
+                    // Non-zero LSB comfort dither (~ -90 dBFS) keeps mediaserverd actively rendering
+                    channels[c][frame] = frame.isMultiple(of: 2) ? 1.0e-5 : -1.0e-5
+                }
             }
         }
         return buffer
@@ -256,16 +260,18 @@ final class ReaderModel: ObservableObject {
         audioEngine.connect(playerNode, to: timePitch, format: format)
         audioEngine.connect(timePitch, to: audioEngine.mainMixerNode, format: format)
 
+        if let fallbackSpeechEngine {
+            self.fallbackEngineInstance = fallbackSpeechEngine()
+        }
+
         let storedSpeed = UserDefaults.standard.float(forKey: "playbackSpeed")
 
         // Configure gapless scheduling. `self` is fully initialized below this point for stored
         // properties, so it is safe to reference as the buffer provider and in the callbacks.
-        // `silenceBridgeBuffer` keeps the player rendering while synthesis catches up, preventing
-        // iOS from suspending the app when the queue drains in background.
         scheduler = GaplessSentenceScheduler(
             player: schedulerPlayer ?? AVAudioPlayerNodeAdapter(playerNode),
             provider: self,
-            maxInFlight: lookaheadCount,
+            maxInFlight: 3,
             silenceBridgeBuffer: Self.makeSilenceBuffer(format: format, seconds: 0.5)
         )
         scheduler.onSentenceStarted = { [weak self] index, audio in
@@ -280,7 +286,7 @@ final class ReaderModel: ObservableObject {
         #if os(iOS)
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .spokenAudio)
+            try session.setCategory(.playback, mode: .spokenAudio, policy: .longFormAudio)
             try session.setActive(true)
         } catch {
             print("Audio session error: \(error)")
@@ -300,10 +306,11 @@ final class ReaderModel: ObservableObject {
             engine = try await speechEngineLoader()
             speechEngineNotice = nil
         } catch {
-            guard let fallback = fallbackSpeechEngine?(), !fallback.voices.isEmpty else {
+            guard let fallback = fallbackEngineInstance ?? fallbackSpeechEngine?(), !fallback.voices.isEmpty else {
                 errorMessage = error.localizedDescription
                 return
             }
+            if fallbackEngineInstance == nil { fallbackEngineInstance = fallback }
             engine = fallback
             speechEngineNotice = "Natural voices aren’t available (\(error.localizedDescription)). Using system voices."
         }
@@ -609,17 +616,10 @@ final class ReaderModel: ObservableObject {
         importResult = nil
         techBlogMessage = nil
         _ = await performURLImport(stories.map(\.url))
-        if let ctx = modelContext, let keys = try? libraryURLKeys(ctx) { savedTechBlogKeys = keys }
     }
 
     func isInLibrary(_ story: TechBlogStory) -> Bool {
         savedTechBlogKeys.contains(URLImportParser.key(for: story.url))
-    }
-
-    /// The stories a one-tap import would pick from the loaded list.
-    var suggestedTechBlogStoryIDs: Set<Int> {
-        Set(TechBlogDiscovery.unsaved(techBlogStories, savedKeys: savedTechBlogKeys)
-            .prefix(techBlogSettings.validated.importLimit).map(\.id))
     }
 
     private func libraryURLKeys(_ ctx: ModelContext) throws -> Set<String> {
@@ -663,7 +663,15 @@ final class ReaderModel: ObservableObject {
             for (index, url) in urls.enumerated() {
                 importProgress = "Importing \(index + 1) of \(urls.count)…"
                 let key = URLImportParser.key(for: url)
-                if savedURLs.contains(key) { result.skipped += 1; continue }
+                if savedURLs.contains(key) {
+                    result.skipped += 1
+                    if urls.count == 1 {
+                        result.singleItem = try ctx.fetch(FetchDescriptor<PlaylistItem>()).first {
+                            $0.sourceURL.flatMap(URL.init(string:)).map { URLImportParser.key(for: $0) } == key
+                        }
+                    }
+                    continue
+                }
                 do {
                     try Task.checkCancellation()
                     let extracted = try await extractContent(from: .url(url))
@@ -676,10 +684,12 @@ final class ReaderModel: ObservableObject {
                     catch { ctx.delete(item); throw error }
                     savedURLs.insert(key)
                     result.imported += 1
+                    if urls.count == 1 { result.singleItem = item }
                 } catch {
                     result.failures.append(.init(url: url, message: error.localizedDescription))
                 }
             }
+            savedTechBlogKeys = savedURLs
             importResult = result
             return result
         } catch {
@@ -846,7 +856,6 @@ final class ReaderModel: ObservableObject {
         guard !sentences.isEmpty, isModelLoaded, !isPreparing else { return }
         #if os(iOS)
         UIApplication.shared.isIdleTimerDisabled = true
-        beginBackgroundTaskIfNeeded()
         #endif
         if isPaused {
             ensureAudioSessionActive()
@@ -858,9 +867,8 @@ final class ReaderModel: ObservableObject {
                     errorMessage = "Audio playback could not resume. \(error.localizedDescription)"
                     listeningQueue.playbackFailed(errorMessage!, at: currentSentenceIndex)
                     #if os(iOS)
-        UIApplication.shared.isIdleTimerDisabled = false
-        endBackgroundTaskIfNeeded()
-        #endif
+                    UIApplication.shared.isIdleTimerDisabled = false
+                    #endif
                     return
                 }
             }
@@ -889,9 +897,8 @@ final class ReaderModel: ObservableObject {
                 errorMessage = "Audio playback could not start. \(error.localizedDescription)"
                 listeningQueue.playbackFailed(errorMessage!, at: currentSentenceIndex)
                 #if os(iOS)
-        UIApplication.shared.isIdleTimerDisabled = false
-        endBackgroundTaskIfNeeded()
-        #endif
+                UIApplication.shared.isIdleTimerDisabled = false
+                #endif
                 return
             }
         }
@@ -916,7 +923,6 @@ final class ReaderModel: ObservableObject {
         isPlaying = false
         #if os(iOS)
         UIApplication.shared.isIdleTimerDisabled = false
-        endBackgroundTaskIfNeeded()
         #endif
         stopWordTimer()
         accumulateListeningTime()
@@ -934,7 +940,6 @@ final class ReaderModel: ObservableObject {
         isPaused = false
         #if os(iOS)
         UIApplication.shared.isIdleTimerDisabled = false
-        endBackgroundTaskIfNeeded()
         #endif
         currentSentenceIndex = 0
         currentTokenIndex = -1
@@ -1005,6 +1010,8 @@ final class ReaderModel: ObservableObject {
         stop()
     }
 
+
+
     // MARK: - Now Playing & Remote Controls
 
     #if os(iOS)
@@ -1065,26 +1072,12 @@ final class ReaderModel: ObservableObject {
             // suspended). Re-setting an already-correct active session hitches the main thread and
             // can trigger -50 errors on some devices.
             if session.category != .playback || session.mode != .spokenAudio {
-                try session.setCategory(.playback, mode: .spokenAudio)
+                try session.setCategory(.playback, mode: .spokenAudio, policy: .longFormAudio)
             }
             try session.setActive(true)
         } catch {
             print("Audio session re-activation error: \(error)")
         }
-    }
-
-    private func beginBackgroundTaskIfNeeded() {
-        guard backgroundTaskID == .invalid else { return }
-        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "PagehumPlayback") { [weak self] in
-            // Expiration handler: iOS is telling us time's up. Release the assertion so we don't get killed.
-            Task { @MainActor [weak self] in self?.endBackgroundTaskIfNeeded() }
-        }
-    }
-
-    private func endBackgroundTaskIfNeeded() {
-        guard backgroundTaskID != .invalid else { return }
-        UIApplication.shared.endBackgroundTask(backgroundTaskID)
-        backgroundTaskID = .invalid
     }
 
     private func setupAudioSessionObservers() {
@@ -1129,6 +1122,48 @@ final class ReaderModel: ObservableObject {
             }
         }
 
+        // Restart audio engine if hardware routing or screen lock reconfigures audio hardware
+        NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: audioEngine,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.isPlaying && !self.audioEngine.isRunning {
+                    self.ensureAudioSessionActive()
+                    try? self.audioEngine.start()
+                }
+            }
+        }
+
+        // Intercept as soon as app begins resigning active to stop starting new GPU work
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.isAppInBackground = true
+                KokoroSpeechEngine.drainAndEvictGPU()
+            }
+        }
+
+        // Track background state and persist playback/stats when entering background.
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isAppInBackground = true
+                self.saveProgressNow()
+                self.accumulateListeningTime()
+                self.saveListeningTime()
+            }
+        }
+
         // If iOS deactivated our session while we were paused/backgrounded, reactivate it and
         // restart the engine on foreground so the next play() call doesn't silently fail.
         NotificationCenter.default.addObserver(
@@ -1138,9 +1173,15 @@ final class ReaderModel: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                self.isAppInBackground = false
                 self.ensureAudioSessionActive()
-                if self.isPlaying && !self.audioEngine.isRunning {
-                    try? self.audioEngine.start()
+                if self.isPlaying {
+                    if !self.audioEngine.isRunning {
+                        try? self.audioEngine.start()
+                    }
+                    if self.generationTask == nil {
+                        self.startPipeline()
+                    }
                 }
             }
         }
@@ -1167,7 +1208,31 @@ final class ReaderModel: ObservableObject {
                     continue
                 }
 
-                // Only stay lookaheadCount ahead of playback
+                let text = self.sentences[genIndex]
+                let voiceKey = voice + ".npy"
+
+                // Fast-path: Check disk cache first. Loading from disk is pure CPU file I/O (no GPU).
+                if let diskAudio = AudioDiskCache.shared.load(text: text, voiceKey: voiceKey) {
+                    self.audioCache[genIndex] = diskAudio
+                    self.scheduler.notifyAvailable()
+                    genIndex += 1
+                    await Task.yield()
+                    continue
+                }
+
+                #if os(iOS)
+                // If in background and not cached on disk, pause generation until foregrounded.
+                // Do NOT mark as skipped - wait for foreground so Kokoro can synthesize it.
+                if self.isAppInBackground || UIApplication.shared.applicationState != .active {
+                    while (self.isAppInBackground || UIApplication.shared.applicationState != .active) && !Task.isCancelled {
+                        try? await Task.sleep(for: .milliseconds(500))
+                    }
+                    guard !Task.isCancelled else { break }
+                    continue
+                }
+                #endif
+
+                // In the foreground, allow deep lookahead pre-caching
                 while genIndex - self.currentSentenceIndex >= self.lookaheadCount && !Task.isCancelled {
                     try? await Task.sleep(for: .milliseconds(200))
                 }
@@ -1180,7 +1245,6 @@ final class ReaderModel: ObservableObject {
 
                 self.isGenerating = self.audioCache[self.currentSentenceIndex] == nil
 
-                let text = self.sentences[genIndex]
                 let audio: SentenceAudio?
                 self.isSynthesisInFlight = true
                 if let audioGenerator = self.audioGenerator {
@@ -1194,6 +1258,11 @@ final class ReaderModel: ObservableObject {
                 if let audio {
                     self.audioCache[genIndex] = audio
                 } else {
+                    #if os(iOS)
+                    if self.isAppInBackground || UIApplication.shared.applicationState != .active {
+                        continue
+                    }
+                    #endif
                     self.skippedSentences.insert(genIndex)
                     self.playbackFailureCount = self.skippedSentences.count
                     if self.listeningQueue.isManaging(self.currentPlaylistItemID) {
@@ -1254,7 +1323,6 @@ final class ReaderModel: ObservableObject {
         }
         #if os(iOS)
         UIApplication.shared.isIdleTimerDisabled = false
-        endBackgroundTaskIfNeeded()
         #endif
         stopWordTimer()
         accumulateListeningTime()
@@ -1304,19 +1372,41 @@ final class ReaderModel: ObservableObject {
     // MARK: - Audio generation
 
     private func generateSentenceAudio(for text: String, format: AVAudioFormat, voice: String) async -> SentenceAudio? {
-        guard let engine = speechEngine else { return nil }
         let voiceKey = voice + ".npy"
         let cache = AudioDiskCache.shared
-        // A disk cache hit skips synthesis entirely; file I/O stays off the main thread.
+        // A disk cache hit skips synthesis entirely; file I/O stays off the main thread and requires no GPU.
         let cached = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 continuation.resume(returning: cache.load(text: text, voiceKey: voiceKey))
             }
         }
         if let cached { return cached }
-        guard let audio = await engine.synthesize(text, voice: voice, format: format) else { return nil }
-        cache.store(text: text, voiceKey: voiceKey, buffer: audio.buffer, tokens: audio.tokens)
-        return audio
+
+        #if os(iOS)
+        let inBackground = isAppInBackground || UIApplication.shared.applicationState != .active
+        // When the app is in the background or resigning active on iOS, NEVER invoke Kokoro (Metal GPU).
+        // Submitting Metal command buffers while backgrounded triggers an immediate process termination
+        // (SIGABRT/kIOGPUCommandBufferCallbackErrorBackgroundExecutionNotPermitted) by the iOS kernel.
+        if inBackground {
+            return nil
+        }
+        #endif
+
+        // Primary engine synthesis (e.g. Kokoro 82M on Apple Silicon) in the foreground
+        if let engine = speechEngine, let audio = await engine.synthesize(text, voice: voice, format: format) {
+            cache.store(text: text, voiceKey: voiceKey, buffer: audio.buffer, tokens: audio.tokens)
+            return audio
+        }
+
+        // Foreground fallback if primary engine fails
+        if let fallback = fallbackEngineInstance {
+            let fallbackVoice = fallback.defaultVoice ?? fallback.voices.first ?? ""
+            if let audio = await fallback.synthesize(text, voice: fallbackVoice, format: format) {
+                return audio
+            }
+        }
+
+        return nil
     }
 
     // MARK: - Text Splitting
@@ -1335,6 +1425,14 @@ extension ReaderModel: SentenceAudioProvider {
     func audioState(at index: Int) -> SentenceAudioState {
         if let audio = audioCache[index] { return .ready(audio) }
         if skippedSentences.contains(index) { return .skipped }
+        if index < sentences.count {
+            let text = sentences[index]
+            let voiceKey = selectedVoice + ".npy"
+            if let cached = AudioDiskCache.shared.load(text: text, voiceKey: voiceKey) {
+                audioCache[index] = cached
+                return .ready(cached)
+            }
+        }
         return .pending
     }
 }

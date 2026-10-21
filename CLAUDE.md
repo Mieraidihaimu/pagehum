@@ -45,7 +45,16 @@ Routing happens in `HomeView.navigationDestination` and `PlaylistView.navigation
 
 ### Background Audio
 
-The app is configured for background audio playback (`UIBackgroundModes = audio`). `AVAudioSession` is set to `.playback` / `.spokenAudio`. Lock screen controls use `MPRemoteCommandCenter` and `MPNowPlayingInfoCenter`.
+The app is configured for background audio playback (`UIBackgroundModes = audio`). `AVAudioSession` is set to `.playback` / `.spokenAudio` with `policy: .longFormAudio`. Lock screen controls use `MPRemoteCommandCenter` and `MPNowPlayingInfoCenter`.
+
+To guarantee uninterrupted playback and prevent OS termination when backgrounded:
+- **Never Call Metal in Background**: Submitting Metal command buffers while backgrounded triggers an immediate process kill (`kIOGPUCommandBufferCallbackErrorBackgroundExecutionNotPermitted` / `SIGABRT`) from the iOS kernel. `ReaderModel` tracks background transitions (`willResignActive`, `didEnterBackground`), halting GPU inference. If an uncached sentence is reached in background, the pipeline pauses cleanly until foregrounded without skipping sentences or corrupting playback.
+- **Synchronous Drain Barrier & Jetsam Eviction**: On `UIApplication.willResignActiveNotification`, `KokoroSpeechEngine.drainAndEvictGPU()` synchronously calls `Stream.gpu.synchronize()` to force completion of in-flight command buffers, and `GPU.clearCache()` to evict idle Metal buffer heaps before entering the background, avoiding memory pressure kills.
+- **Deep Foreground Pre-caching**: `lookaheadCount = 100` pre-synthesizes sentences into `AudioDiskCache` ahead of playback while in the foreground. Because Kokoro synthesizes at 40x real-time (150ms per sentence), the entire article is cached on disk within seconds of pressing play. Cached `.m4a` files are decoded purely via CPU (`AVAudioFile`) and require zero GPU.
+- **Disk Cache Fast-Path**: `SentenceAudioProvider.audioState(at:)` checks `AudioDiskCache` directly, providing instantaneous ready buffers during playback and seeking.
+- **Audio Session & Lifecycle**: Uses standard `UIBackgroundModes = audio`, `policy: .longFormAudio`, and listens for `.AVAudioEngineConfigurationChange` to recover the engine during hardware routing or lock-screen transitions.
+- **Inaudible Comfort Dither Keep-Alive**: `makeSilenceBuffer` renders imperceptible alternating dither (~ -90 dBFS, `±1.0e-5`) rather than digital zeros. This ensures iOS `mediaserverd` continuously sees non-zero audio frame activity, preventing the system from classifying the session as an idle/silent keep-alive.
+- **Guarded Gapless Bridging**: `GaplessSentenceScheduler` maintains continuous buffer playback using silence bridges between sentences, strictly guarded so silence is never scheduled prior to the first sentence buffer being ready.
 
 ### Share Extension
 

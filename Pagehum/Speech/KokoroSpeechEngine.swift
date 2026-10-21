@@ -40,4 +40,11 @@ final class KokoroSpeechEngine: SpeechEngine {
             }
         }
     }
+
+    /// Synchronously flushes in-flight Metal command buffers and evicts idle heap caches
+    /// to satisfy iOS background Jetsam limits and prevent SIGABRT watchdog termination.
+    static func drainAndEvictGPU() {
+        KokoroSynthesizer.synchronizeGPU()
+        KokoroSynthesizer.clearGPUCache()
+    }
 }

@@ -1,19 +1,16 @@
 import SwiftUI
 
-/// Lets the user choose which Hacker News stories to import, starting from the one-tap picks.
+/// Lets the user choose which Hacker News stories to import.
 struct TechBlogBrowseView: View {
     @ObservedObject var viewModel: ReaderModel
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
-    @State private var sort: TechBlogSort
+    @State private var sort: TechBlogSort = .newest
     @State private var selection: Set<Int> = []
     @State private var showingSettings = false
     @State private var loadedSettings: TechBlogSettings?
-
-    init(viewModel: ReaderModel) {
-        self.viewModel = viewModel
-        _sort = State(initialValue: viewModel.techBlogSettings.feed == .new ? .newest : .points)
-    }
+    @State private var previewStory: TechBlogStory?
+    @State private var isImportingSelection = false
 
     private var selectedStories: [TechBlogStory] {
         viewModel.techBlogStories.filter { selection.contains($0.id) && !viewModel.isInLibrary($0) }
@@ -45,9 +42,10 @@ struct TechBlogBrowseView: View {
                 content
             }
         }
-        .frame(width: 720, height: 640)
+        .frame(minWidth: 620, idealWidth: 760, minHeight: 520, idealHeight: 680)
         .task { await reload() }
         .onChange(of: showingSettings) { _, showing in reloadIfFiltersChanged(showing) }
+        .sheet(item: $previewStory) { storyPreview($0) }
         #else
         NavigationStack {
             content
@@ -66,6 +64,7 @@ struct TechBlogBrowseView: View {
         }
         .task { await reload() }
         .onChange(of: showingSettings) { _, showing in reloadIfFiltersChanged(showing) }
+        .sheet(item: $previewStory) { storyPreview($0) }
         #endif
     }
 
@@ -73,6 +72,12 @@ struct TechBlogBrowseView: View {
         let stories = TechBlogDiscovery.browse(viewModel.techBlogStories, query: query, sort: sort)
         return VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Choose your next read").font(.headline)
+                    Spacer()
+                    Text("^[\(stories.count) story](inflect: true)")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 searchField
                 Picker("Sort by", selection: $sort) {
                     ForEach(TechBlogSort.allCases) { Text($0.title).tag($0) }
@@ -89,14 +94,14 @@ struct TechBlogBrowseView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(stories, id: \.id) { story in
                             row(story)
-                            Divider().padding(.leading, 52)
+                            Divider().padding(.leading, 60)
                         }
                     }
                 }
                 .disabled(viewModel.isLoading)
             }
             Divider()
-            footer.padding(16)
+            footer.padding(16).background(.bar)
         }
     }
 
@@ -128,43 +133,125 @@ struct TechBlogBrowseView: View {
                 Button("Retry") { Task { await reload() } }
             }
         } else if viewModel.techBlogStories.isEmpty {
-            ContentUnavailableView("No matching stories", systemImage: "newspaper",
-                                   description: Text("Try a longer time window or lower minimums in import settings."))
+            ContentUnavailableView {
+                Label("No matching stories", systemImage: "newspaper")
+            } description: {
+                Text("Try a longer time window or lower minimums in filters.")
+            } actions: {
+                Button("Adjust filters") { showingSettings = true }
+            }
         } else {
-            ContentUnavailableView.search(text: query)
+            ContentUnavailableView {
+                Label("No results", systemImage: "magnifyingglass")
+            } description: {
+                Text("Try another title or site name.")
+            } actions: {
+                Button("Clear search") { query = "" }
+            }
         }
     }
 
     private func row(_ story: TechBlogStory) -> some View {
         let saved = viewModel.isInLibrary(story)
         let selected = !saved && selection.contains(story.id)
-        return Button {
-            if selected { selection.remove(story.id) } else { selection.insert(story.id) }
-        } label: {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: saved ? "checkmark.circle" : selected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(selected ? Color.accentColor : Color.secondary)
-                    .frame(width: 24)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(story.title)
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.leading)
-                    Text(story.details)
+        return HStack(alignment: .center, spacing: 8) {
+            Button {
+                toggleSelection(story)
+            } label: {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: saved ? "checkmark.circle" : selected ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                        .frame(width: 28, height: 28)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Text(story.site).lineLimit(1)
+                            if saved {
+                                Text("Saved").fontWeight(.medium)
+                                    .padding(.horizontal, 6).padding(.vertical, 2)
+                                    .background(.quaternary, in: Capsule())
+                            }
+                        }
                         .font(.caption).foregroundStyle(.secondary)
+                        Text(story.title)
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        ViewThatFits(in: .horizontal) {
+                            storyMetadata(story)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(story.score.formatted()) points · \(story.comments.formatted()) comments")
+                                Text(story.submittedAt, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
+                            }
+                        }
+                        .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
                 }
+                .contentShape(Rectangle())
+                .padding(.vertical, 14)
+            }
+            .buttonStyle(.plain)
+            .disabled(saved)
+            .accessibilityLabel("\(story.title), \(story.site), \(story.score) points, \(story.comments) comments")
+            .accessibilityValue(saved ? "Saved" : selected ? "Selected" : "Not selected")
+            .accessibilityHint(saved ? "Already in your library" : "Choose this article to import")
+            .accessibilityAddTraits(selected ? .isSelected : [])
+
+            Button { previewStory = story } label: {
+                Image(systemName: "doc.text.magnifyingglass")
+                    .font(.body)
+                    .frame(width: 44, height: 44)
+                    .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .accessibilityLabel("Preview \(story.title)")
+            .help("Preview article")
+        }
+        .padding(.horizontal, 16)
+        .background(selected ? Color.accentColor.opacity(0.06) : Color.clear)
+    }
+
+    private func storyMetadata(_ story: TechBlogStory) -> some View {
+        HStack(spacing: 12) {
+            Label("\(story.score.formatted())", systemImage: "arrow.up")
+                .accessibilityLabel("\(story.score) points")
+            Label("\(story.comments.formatted())", systemImage: "bubble.right")
+                .accessibilityLabel("\(story.comments) comments")
+            Text(story.submittedAt, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
+        }
+    }
+
+    private func storyPreview(_ story: TechBlogStory) -> some View {
+        ArticlePreviewView(title: story.title, url: story.url) {
+            HStack(spacing: 12) {
+                Link("HN discussion", destination: URL(string: "https://news.ycombinator.com/item?id=\(story.id)")!)
+                    .font(.callout)
                 Spacer(minLength: 0)
-                if saved {
-                    Text("Saved").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                if viewModel.isInLibrary(story) {
+                    Label("Saved to library", systemImage: "checkmark.circle")
+                        .font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Button {
+                        toggleSelection(story)
+                    } label: {
+                        Label(selection.contains(story.id) ? "Selected" : "Select article",
+                              systemImage: selection.contains(story.id) ? "checkmark.circle.fill" : "plus.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(viewModel.isLoading)
                 }
             }
-            .padding(.horizontal, 16).padding(.vertical, 10)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .disabled(saved)
-        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func toggleSelection(_ story: TechBlogStory) {
+        if selection.contains(story.id) { selection.remove(story.id) }
+        else { selection.insert(story.id) }
     }
 
     private var footer: some View {
@@ -177,29 +264,65 @@ struct TechBlogBrowseView: View {
                 Label(error, systemImage: "exclamationmark.circle")
                     .font(.callout).foregroundStyle(.orange)
             }
-            HStack(spacing: 12) {
-                Text("\(selectedStories.count) selected").font(.headline)
-                Spacer(minLength: 0)
-                Button("Clear") { selection.removeAll() }
-                    .disabled(selection.isEmpty)
-                importButton
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    selectionSummary
+                    Spacer(minLength: 0)
+                    clearSelectionButton
+                    importButton
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        selectionSummary
+                        Spacer()
+                        clearSelectionButton
+                    }
+                    importButton.frame(maxWidth: .infinity)
+                }
             }
         }
+    }
+
+    private var selectionSummary: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(selectedStories.isEmpty ? "Choose articles to import" : "\(selectedStories.count) selected")
+                .font(.callout.weight(.semibold))
+            let visibleIDs = Set(TechBlogDiscovery.browse(viewModel.techBlogStories, query: query, sort: sort).map(\.id))
+            let hiddenCount = selectedStories.filter { !visibleIDs.contains($0.id) }.count
+            if hiddenCount > 0 {
+                Text("\(hiddenCount) outside this search").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var clearSelectionButton: some View {
+        Button("Clear") { selection.removeAll() }
+            .disabled(selection.isEmpty || viewModel.isLoading)
     }
 
     private var importButton: some View {
         Button {
             Task {
+                isImportingSelection = true
+                defer { isImportingSelection = false }
                 await viewModel.importTechBlogStories(selectedStories)
-                selection.removeAll()
+                // Keep failed articles selected so retrying doesn't require finding them again.
+                selection = Set(selectedStories.map(\.id))
             }
         } label: {
-            Label("Import ^[\(selectedStories.count) article](inflect: true)", systemImage: "square.and.arrow.down")
+            if isImportingSelection {
+                Label("Importing…", systemImage: "square.and.arrow.down")
+            } else if selectedStories.isEmpty {
+                Label("Import articles", systemImage: "square.and.arrow.down")
+            } else {
+                Label("Import ^[\(selectedStories.count) article](inflect: true)", systemImage: "square.and.arrow.down")
+            }
         }
         #if os(macOS)
         .buttonStyle(DesktopButtonStyle(primary: true))
         #else
         .buttonStyle(.borderedProminent)
+        .controlSize(.large)
         #endif
         .disabled(selectedStories.isEmpty || viewModel.isLoading)
     }
@@ -228,17 +351,8 @@ struct TechBlogBrowseView: View {
     }
 
     private func reload() async {
+        selection.removeAll()
         loadedSettings = viewModel.techBlogSettings
         await viewModel.loadTechBlogStories()
-        selection = viewModel.suggestedTechBlogStoryIDs
-    }
-}
-
-private extension TechBlogStory {
-    var details: String {
-        let points = "\(score.formatted()) \(score == 1 ? "point" : "points")"
-        let replies = "\(comments.formatted()) \(comments == 1 ? "comment" : "comments")"
-        let age = submittedAt.formatted(.relative(presentation: .numeric, unitsStyle: .abbreviated))
-        return [site, points, replies, age].joined(separator: " · ")
     }
 }

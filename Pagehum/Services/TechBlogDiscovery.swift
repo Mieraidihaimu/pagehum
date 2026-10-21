@@ -8,7 +8,7 @@ nonisolated enum TechBlogFeed: String, CaseIterable, Codable, Sendable, Identifi
 }
 
 nonisolated enum TechBlogSort: String, CaseIterable, Sendable, Identifiable {
-    case points, comments, newest
+    case newest, points, comments
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -76,7 +76,7 @@ nonisolated struct HackerNewsItem: Decodable, Sendable {
     var descendants: Int? = nil
 }
 
-nonisolated struct TechBlogStory: Sendable {
+nonisolated struct TechBlogStory: Sendable, Identifiable {
     let id: Int
     let title: String
     let url: URL

@@ -85,6 +85,9 @@ final class GaplessSentenceScheduler {
     /// silence indefinitely.
     private var consecutiveSilenceBridges = 0
     private let maxConsecutiveSilenceBridges = 30
+    /// Tracks whether at least one real sentence buffer has been scheduled in the current session.
+    /// Silence bridging must only occur between sentences after playback has begun, never before.
+    private var hasScheduledSentence = false
 
     /// The sentence currently being heard, if any. Exposed for diagnostics/tests.
     var audibleIndex: Int? { inFlight.first }
@@ -155,6 +158,7 @@ final class GaplessSentenceScheduler {
         isPaused = false
         silenceInFlight = 0
         consecutiveSilenceBridges = 0
+        hasScheduledSentence = false
     }
 
     /// Schedule ready buffers until the in-flight queue is full, we run out of sentences, or we hit a
@@ -175,6 +179,7 @@ final class GaplessSentenceScheduler {
                 audioByIndex[idx] = audio
                 nextToSchedule += 1
                 consecutiveSilenceBridges = 0
+                hasScheduledSentence = true
                 player.schedule(audio.buffer) { [weak self] in
                     // Adapter guarantees this runs on the main thread.
                     MainActor.assumeIsolated { self?.handleCompletion(of: idx) }
@@ -191,6 +196,7 @@ final class GaplessSentenceScheduler {
     /// Only fires when the sentence queue is empty (or nearly so) and we haven't already bridged.
     private func scheduleSilenceBridgeIfNeeded() {
         guard isActive,
+              hasScheduledSentence,
               let silence = silenceBridgeBuffer,
               inFlight.isEmpty,
               silenceInFlight == 0,

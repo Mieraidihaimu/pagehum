@@ -61,6 +61,14 @@ public final class KokoroSynthesizer: @unchecked Sendable {
         return KokoroSynthesizer(engine: KokoroTTS(modelPath: model), styles: styles)
     }
 
+    public static func synchronizeGPU() {
+        Stream.gpu.synchronize()
+    }
+
+    public static func clearGPUCache() {
+        GPU.clearCache()
+    }
+
     public func generate(text: String, voice: String, format: AVAudioFormat) throws
         -> (buffer: AVAudioPCMBuffer, words: [SpokenWord]) {
         guard let style = styles[voice + ".npy"] else {

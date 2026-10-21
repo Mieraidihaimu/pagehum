@@ -1,6 +1,7 @@
 // Modified for Pagehum: unified application and command-line naming.
 #if os(macOS)
 import SwiftUI
+import SwiftData
 import UniformTypeIdentifiers
 
 struct DesktopInputView: View {
@@ -23,6 +24,7 @@ struct DesktopInputView: View {
                     ForEach(HomeView.InputTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented).frame(width: 240)
+                .labelsHidden()
                 .disabled(viewModel.isLoading)
                 inputForm
                     .disabled(viewModel.isLoading)
@@ -89,16 +91,15 @@ struct DesktopInputView: View {
         switch input {
         case .url:
             VStack(alignment: .leading, spacing: 8) {
-                Text("Article URLs").font(.callout).foregroundStyle(DesktopStyle.secondary)
+                Text("Article links").font(.callout.weight(.medium))
                 TextField("Paste article links", text: $url, axis: .vertical)
                     .lineLimit(3...6)
                     .textFieldStyle(.plain).padding(12)
                     .background(DesktopStyle.sidebar, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DesktopStyle.secondary.opacity(0.55)))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(urlFocused ? DesktopStyle.accent : DesktopStyle.border, lineWidth: urlFocused ? 2 : 1))
                     .focused($urlFocused)
                     .accessibilityLabel("Article URLs")
-                Text("Separate links with spaces, new lines, or commas.")
-                    .font(.caption).foregroundStyle(DesktopStyle.secondary)
+                URLInputHint(text: url)
             }
             HStack(spacing: 8) {
                 Button { importLinks(url, fromText: false) } label: {
@@ -106,11 +107,6 @@ struct DesktopInputView: View {
                 }
                 .buttonStyle(DesktopButtonStyle(primary: true))
                 .disabled(URLImportParser.urls(in: url).isEmpty || viewModel.isLoading)
-                if URLImportParser.urls(in: url).count == 1 {
-                    Button(action: load) { Label("Open page", systemImage: "arrow.right") }
-                        .buttonStyle(DesktopButtonStyle())
-                        .disabled(viewModel.isLoading)
-                }
             }
         case .file:
             VStack(alignment: .leading, spacing: 16) {
@@ -130,12 +126,12 @@ struct DesktopInputView: View {
                     .accessibilityLabel("Text to read aloud")
                 if !URLImportParser.urls(in: text).isEmpty {
                     Button { importLinks(text, fromText: true) } label: {
-                        Label("Import \(URLImportParser.urls(in: text).count) links", systemImage: "bookmark")
+                        Label(importLinksTitle(URLImportParser.urls(in: text).count), systemImage: "bookmark")
                     }
                     .buttonStyle(DesktopButtonStyle(primary: true))
                     .disabled(viewModel.isLoading)
                 }
-                Button(action: load) { Label("Read text", systemImage: "arrow.right") }
+                Button(action: load) { Label("Read pasted text", systemImage: "doc.text") }
                     .buttonStyle(DesktopButtonStyle(primary: URLImportParser.urls(in: text).isEmpty))
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
                     .padding(.top, 8)
@@ -145,8 +141,7 @@ struct DesktopInputView: View {
 
     private func load() {
         Task {
-            if input == .url, let link = URLImportParser.urls(in: url).first { await viewModel.loadURL(link.absoluteString) }
-            else { await viewModel.loadText(text) }
+            await viewModel.loadText(text)
             finishOpening()
         }
     }
@@ -155,6 +150,10 @@ struct DesktopInputView: View {
         Task {
             if let result = await viewModel.importURLs(from: value), result.failures.isEmpty {
                 if fromText { text = "" } else { url = "" }
+                if let item = result.singleItem,
+                   viewModel.openLibraryItem(item, preservingQueue: viewModel.currentPlaylistItemID == item.persistentModelID) {
+                    openReader()
+                }
             }
         }
     }

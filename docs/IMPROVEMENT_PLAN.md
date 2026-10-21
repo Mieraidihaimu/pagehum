@@ -21,6 +21,7 @@ being implemented now, plus the unit-test specification for its new component.
 
 ### UX
 
+- **Hacker News article previews** — implemented 2026-10-21. Stories have a separate preview action with loading, retry, browser and HN discussion links; selection stays independent of the current reader and playback.
 - **iCloud sync** — deferred; sync the library and resume position between Mac and iPhone. See the [implementation checklist](#4-icloud-sync--deferred-implementation-checklist).
 - **Sleep timer** ("stop after 15/30/60 min or end of article") — top missing feature for a reading/bedtime TTS app.
 - **Auto-play on resume** — `PlaylistView.reloadItem` loads content but leaves it paused.

@@ -41,6 +41,8 @@ struct URLImportResult {
     var imported = 0
     var skipped = 0
     var failures: [Failure] = []
+    /// The saved article when the request contained one unique URL and succeeded.
+    var singleItem: PlaylistItem?
 
     var summary: String {
         let parts = [

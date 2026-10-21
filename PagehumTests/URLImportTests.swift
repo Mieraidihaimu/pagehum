@@ -49,6 +49,7 @@ struct URLImportTests {
         let result = try #require(await model.importURLs(from: "https://example.com/saved#section,https://example.com/first https://example.com/broken\nhttps://example.com/last https://example.com/first"))
         #expect(result.imported == 2)
         #expect(result.skipped == 1)
+        #expect(result.singleItem == nil)
         #expect(result.failures.map { $0.url.path } == ["/broken"])
         #expect(extractor.paths == ["/first", "/broken", "/last"])
         #expect(try context.fetchCount(FetchDescriptor<PlaylistItem>()) == 3)
@@ -64,6 +65,74 @@ struct URLImportTests {
         #expect(try context.fetchCount(FetchDescriptor<PlaylistItem>()) == 4)
         let imported = try context.fetch(FetchDescriptor<PlaylistItem>()).filter { $0 !== existing }
         #expect(imported.allSatisfy { $0.status == PlaylistItem.Status.queued.rawValue })
+    }
+
+    @Test
+    func singleUniqueURLCanOpenAfterImportWithoutExtractingAgain() async throws {
+        let container = try ModelContainer(for: PlaylistItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = ModelContext(container)
+        let extractor = ImportTestExtractor()
+        let model = ReaderModel(loadModelOnInit: false, contentExtractor: extractor)
+        model.modelContext = context
+
+        let result = try #require(await model.importURLs(from: "https://example.com/article https://EXAMPLE.com:443/article#section"))
+        let item = try #require(result.singleItem)
+        #expect(result.imported == 1)
+        #expect(model.openLibraryItem(item))
+        #expect(model.content?.source.webURL?.absoluteString == "https://example.com/article")
+        #expect(model.sentences == ["Imported article text."])
+        #expect(model.currentPlaylistItemID == item.persistentModelID)
+        #expect(extractor.paths == ["/article"])
+        #expect(try context.fetchCount(FetchDescriptor<PlaylistItem>()) == 1)
+        #expect(!model.isPlaying)
+        #expect(!model.isPreparing)
+    }
+
+    @Test
+    func singleSavedURLCanResumeWithoutCreatingAnotherCopy() async throws {
+        let container = try ModelContainer(for: PlaylistItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = ModelContext(container)
+        let extractor = ImportTestExtractor()
+        let model = ReaderModel(loadModelOnInit: false, contentExtractor: extractor)
+        model.modelContext = context
+        let existing = PlaylistItem(title: "Saved", sourceURL: "https://example.com/saved", sourceType: "url",
+                                    fullText: "First sentence. Second sentence.")
+        existing.lastSentenceIndex = 1
+        existing.playbackTextOffset = "First sentence. ".utf16.count
+        existing.progressPercent = 0.5
+        context.insert(existing)
+        try context.save()
+
+        let result = try #require(await model.importURLs(from: "https://EXAMPLE.com:443/saved#section"))
+        let item = try #require(result.singleItem)
+        #expect(result.imported == 0)
+        #expect(result.skipped == 1)
+        #expect(item === existing)
+        #expect(model.openLibraryItem(item))
+        #expect(model.currentSentenceIndex == 1)
+        #expect(model.progress == 0.5)
+        #expect(extractor.paths.isEmpty)
+        #expect(try context.fetchCount(FetchDescriptor<PlaylistItem>()) == 1)
+        #expect(!model.isPlaying)
+    }
+
+    @Test
+    func failedSingleURLAndPartiallySuccessfulBatchDoNotOfferAnArticleToOpen() async throws {
+        let container = try ModelContainer(for: PlaylistItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let model = ReaderModel(loadModelOnInit: false, contentExtractor: ImportTestExtractor())
+        model.modelContext = ModelContext(container)
+        model.content = ReadingContent(title: "Current", body: "Keep this text.", source: .text("Keep this text."))
+        model.prepareTextPublic("Keep this text.")
+
+        let failed = try #require(await model.importURLs(from: "https://example.com/broken"))
+        #expect(failed.singleItem == nil)
+        #expect(failed.failures.count == 1)
+        let batch = try #require(await model.importURLs(from: "https://example.com/article https://example.com/broken"))
+        #expect(batch.imported == 1)
+        #expect(batch.failures.count == 1)
+        #expect(batch.singleItem == nil)
+        #expect(model.content?.title == "Current")
+        #expect(model.sentences == ["Keep this text."])
     }
 
     @Test

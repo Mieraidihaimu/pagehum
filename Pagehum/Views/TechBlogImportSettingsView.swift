@@ -143,14 +143,14 @@ struct TechBlogQuickImportView: View {
                             Text("Hacker News")
                                 .font(.headline)
                                 .foregroundStyle(.primary)
-                            Text("Top Stories")
+                            Text(viewModel.techBlogSettings.feed.title)
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(.orange)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(Color.orange.opacity(0.12), in: Capsule())
                         }
-                        Text("Browse top stories & listen on the go")
+                        Text("Preview stories and choose what to import")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }

@@ -23,6 +23,9 @@
     "/ Hacker News" : {
 
     },
+    "%@" : {
+
+    },
     "%@ · %@" : {
       "localizations" : {
         "en" : {
@@ -53,10 +56,33 @@
         }
       }
     },
+    "%@ points · %@ comments" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ points · %2$@ comments"
+          }
+        }
+      }
+    },
+    "%@, %@, %lld points, %lld comments" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@, %3$lld points, %4$lld comments"
+          }
+        }
+      }
+    },
     "%lld" : {
 
     },
     "%lld articles finished" : {
+
+    },
+    "%lld comments" : {
 
     },
     "%lld completed" : {
@@ -75,7 +101,13 @@
         }
       }
     },
+    "%lld outside this search" : {
+
+    },
     "%lld percent" : {
+
+    },
+    "%lld points" : {
 
     },
     "%lld pt" : {
@@ -115,7 +147,16 @@
     "^[%lld article](inflect: true)" : {
 
     },
+    "^[%lld story](inflect: true)" : {
+
+    },
+    "^[%lld unique link](inflect: true) ready to save to your library." : {
+
+    },
     "1 article finished" : {
+
+    },
+    "1 article ready. Opens for reading after import." : {
 
     },
     "1 line" : {
@@ -171,6 +212,9 @@
     "Add content (⌘N)" : {
 
     },
+    "Add one link to start reading, or several to build your library." : {
+
+    },
     "Add to Queue" : {
 
     },
@@ -186,13 +230,22 @@
     "Adjust anytime in the player." : {
 
     },
+    "Adjust filters" : {
+
+    },
     "All" : {
+
+    },
+    "Already in your library" : {
 
     },
     "Any" : {
 
     },
     "Any score" : {
+
+    },
+    "Article links" : {
 
     },
     "Article options" : {
@@ -249,9 +302,6 @@
     "Browse" : {
 
     },
-    "Browse top stories & listen on the go" : {
-
-    },
     "Cached audio" : {
 
     },
@@ -285,6 +335,9 @@
         }
       }
     },
+    "Choose articles to import" : {
+
+    },
     "Choose PDF" : {
       "localizations" : {
         "zh-Hans" : {
@@ -296,6 +349,12 @@
       }
     },
     "Choose PDF…" : {
+
+    },
+    "Choose this article to import" : {
+
+    },
+    "Choose your next read" : {
 
     },
     "Clear" : {
@@ -337,6 +396,9 @@
 
     },
     "Clear filters" : {
+
+    },
+    "Clear links" : {
 
     },
     "Clear search" : {
@@ -383,6 +445,9 @@
 
     },
     "Couldn’t clear cache" : {
+
+    },
+    "Couldn’t load preview" : {
 
     },
     "Couldn’t load stories" : {
@@ -503,6 +568,9 @@
     "Hacker News" : {
 
     },
+    "HN discussion" : {
+
+    },
     "https://example.com/article" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -514,13 +582,16 @@
         }
       }
     },
-    "Import %lld links" : {
+    "Import & open" : {
 
     },
     "Import ^[%lld article](inflect: true)" : {
 
     },
     "Import ^[%lld link](inflect: true)" : {
+
+    },
+    "Import articles" : {
 
     },
     "Import limits" : {
@@ -530,6 +601,9 @@
 
     },
     "Import top %lld" : {
+
+    },
+    "Importing…" : {
 
     },
     "In progress" : {
@@ -636,6 +710,9 @@
         }
       }
     },
+    "Loading preview…" : {
+
+    },
     "Loading stories…" : {
 
     },
@@ -713,7 +790,16 @@
         }
       }
     },
+    "No results" : {
+
+    },
     "No starred articles" : {
+
+    },
+    "No web links found. Try a link like example.com/article." : {
+
+    },
+    "Not selected" : {
 
     },
     "Not starred" : {
@@ -744,7 +830,7 @@
     "Open article" : {
 
     },
-    "Open page" : {
+    "Open in browser" : {
 
     },
     "Open selected article" : {
@@ -865,6 +951,15 @@
     "Preparing" : {
 
     },
+    "Preview %@" : {
+
+    },
+    "Preview article" : {
+
+    },
+    "Preview stories and choose what to import" : {
+
+    },
     "Progress" : {
 
     },
@@ -884,10 +979,11 @@
         }
       }
     },
-    "Read text" : {
+    "Read pasted text" : {
 
     },
     "Read Text" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -997,6 +1093,9 @@
         }
       }
     },
+    "Saved to library" : {
+
+    },
     "Saved to Reading Queue" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1035,6 +1134,12 @@
     "Select all articles" : {
 
     },
+    "Select article" : {
+
+    },
+    "Selected" : {
+
+    },
     "Selected Voice" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1044,9 +1149,6 @@
           }
         }
       }
-    },
-    "Separate links with spaces, new lines, or commas." : {
-
     },
     "Settings" : {
       "localizations" : {
@@ -1207,19 +1309,19 @@
     "Toggle elapsed or remaining time" : {
 
     },
-    "Top Stories" : {
-
-    },
     "Total Listening Time" : {
 
     },
     "Try a different title, source, or phrase." : {
 
     },
-    "Try a longer time window or lower minimums in import settings." : {
+    "Try a longer time window or lower minimums in filters." : {
 
     },
     "Try again" : {
+
+    },
+    "Try another title or site name." : {
 
     },
     "Try different words or turn off Starred only." : {

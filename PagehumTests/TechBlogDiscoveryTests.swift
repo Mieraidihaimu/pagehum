@@ -203,7 +203,7 @@ struct TechBlogImportTests {
     }
 
     @Test
-    func browsingSuggestsOneTapPicksAndImportsOnlyChosenStories() async throws {
+    func browsingLoadsWithoutImportingAndImportsOnlyChosenStories() async throws {
         let container = try ModelContainer(for: PlaylistItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let context = ModelContext(container)
         let extractor = TechBlogTestExtractor()
@@ -218,7 +218,6 @@ struct TechBlogImportTests {
 
         await model.loadTechBlogStories(using: FixedDiscovery(paths: ["saved", "first", "first#duplicate", "second", "third"]))
         #expect(model.techBlogStories.count == 5)
-        #expect(model.suggestedTechBlogStoryIDs == [1, 3])
         #expect(model.isInLibrary(model.techBlogStories[0]))
         #expect(extractor.paths.isEmpty)
         #expect(model.techBlogMessage?.contains("Couldn’t check 1 HN story") == true)
@@ -226,8 +225,29 @@ struct TechBlogImportTests {
         await model.importTechBlogStories([model.techBlogStories[4]])
         #expect(extractor.paths == ["/third"])
         #expect(model.isInLibrary(model.techBlogStories[4]))
-        #expect(model.suggestedTechBlogStoryIDs == [1, 3])
         #expect(!model.isLoading)
+    }
+
+    @Test
+    func retryingFailedLinksRefreshesStorySavedBadges() async throws {
+        let container = try ModelContainer(for: PlaylistItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let extractor = TechBlogTestExtractor()
+        extractor.failingPaths = ["/retry"]
+        let model = ReaderModel(loadModelOnInit: false, contentExtractor: extractor)
+        model.modelContext = ModelContext(container)
+        await model.loadTechBlogStories(using: FixedDiscovery(paths: ["retry"]))
+        let story = try #require(model.techBlogStories.first)
+
+        await model.importTechBlogStories([story])
+        #expect(!model.isInLibrary(story))
+        let failures = try #require(model.importResult).failures
+        #expect(failures.count == 1)
+        extractor.failingPaths.removeAll()
+        let result = try #require(await model.importURLs(from: failures.map { $0.url.absoluteString }.joined(separator: "\n")))
+        #expect(result.imported == 1)
+        #expect(model.isInLibrary(story))
+        #expect(model.content == nil)
+        #expect(try model.modelContext?.fetchCount(FetchDescriptor<PlaylistItem>()) == 1)
     }
 }
 
@@ -244,9 +264,11 @@ nonisolated private struct FixedDiscovery: TechBlogDiscovering {
 @MainActor
 private final class TechBlogTestExtractor: ContentExtracting {
     var paths: [String] = []
+    var failingPaths: Set<String> = []
     func extract(from source: ContentSource) async throws -> ReadingContent {
         let url = try #require(source.webURL)
         paths.append(url.path)
+        if failingPaths.contains(url.path) { throw URLError(.cannotLoadFromNetwork) }
         return ReadingContent(title: url.lastPathComponent, body: "Article text.", source: source)
     }
 }

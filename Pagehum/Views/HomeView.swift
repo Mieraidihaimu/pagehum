@@ -1,5 +1,6 @@
 // Modified for Pagehum: unified application and command-line naming.
 import SwiftUI
+import SwiftData
 import UniformTypeIdentifiers
 
 struct HomeView: View {
@@ -209,21 +210,18 @@ struct HomeView: View {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("Clear links")
                 }
             }
             .padding(14)
             .background(Color.secondaryGroupedBackground, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(isURLFieldFocused ? Color.accentColor : Color.primary.opacity(0.12)))
 
-            Text("Separate links with spaces, new lines, or commas.")
-                .font(.caption).foregroundStyle(.secondary)
+            URLInputHint(text: urlString)
             actionButton(importLinksTitle(URLImportParser.urls(in: urlString).count), icon: "bookmark.fill") {
                 importLinks(urlString, fromText: false)
             }
             .disabled(URLImportParser.urls(in: urlString).isEmpty)
-            if URLImportParser.urls(in: urlString).count == 1 {
-                Button("Open page") { loadURL() }
-                    .disabled(viewModel.isLoading)
-            }
         }
     }
 
@@ -277,8 +275,15 @@ struct HomeView: View {
                     importLinks(pastedText, fromText: true)
                 }
             }
-            actionButton("Read Text", icon: "play.circle.fill") { loadText() }
-                .disabled(pastedText.trimmingCharacters(in: .whitespaces).isEmpty)
+            if URLImportParser.urls(in: pastedText).isEmpty {
+                actionButton("Read pasted text", icon: "doc.text") { loadText() }
+                    .disabled(pastedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } else {
+                Button("Read pasted text", systemImage: "doc.text") { loadText() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .disabled(viewModel.isLoading)
+            }
         }
     }
 
@@ -304,21 +309,14 @@ struct HomeView: View {
 
     // MARK: - Actions
 
-    private func loadURL() {
-        Task {
-            guard let url = URLImportParser.urls(in: urlString).first else { return }
-            await viewModel.loadURL(url.absoluteString)
-            if viewModel.errorMessage == nil, viewModel.content != nil {
-                urlString = ""
-                navigateToReader = true
-            }
-        }
-    }
-
     private func importLinks(_ value: String, fromText: Bool) {
         Task {
             if let result = await viewModel.importURLs(from: value), result.failures.isEmpty {
                 if fromText { pastedText = "" } else { urlString = "" }
+                if let item = result.singleItem,
+                   viewModel.openLibraryItem(item, preservingQueue: viewModel.currentPlaylistItemID == item.persistentModelID) {
+                    navigateToReader = true
+                }
             }
         }
     }
