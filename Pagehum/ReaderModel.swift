@@ -1143,8 +1143,11 @@ final class ReaderModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.isAppInBackground = true
+            // NotificationCenter delivers on the main queue. Finish the barrier
+            // inside this callback; an unstructured Task can run after suspension.
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.isAppInBackground = true
                 KokoroSpeechEngine.drainAndEvictGPU()
             }
         }
@@ -1155,7 +1158,7 @@ final class ReaderModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 guard let self else { return }
                 self.isAppInBackground = true
                 self.saveProgressNow()
@@ -1171,8 +1174,9 @@ final class ReaderModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 guard let self else { return }
+                KokoroSpeechEngine.resumeGPUWork()
                 self.isAppInBackground = false
                 self.ensureAudioSessionActive()
                 if self.isPlaying {

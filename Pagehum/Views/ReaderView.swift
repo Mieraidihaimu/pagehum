@@ -6,6 +6,7 @@ struct ReaderView: View {
     @ObservedObject var viewModel: ReaderModel
     var showsPlaybackControls = true
     var desktopLayout = false
+    var showsArticleHeading = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -14,13 +15,14 @@ struct ReaderView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
-                            if desktopLayout {
+                            if desktopLayout || showsArticleHeading {
                                 VStack(alignment: .leading, spacing: 16) {
-                                    if let site = viewModel.content?.siteName {
+                                    if let site = viewModel.content?.siteName ?? viewModel.content?.source.webURL?.host() {
                                         Text(site.uppercased()).font(.caption).tracking(1.6).foregroundStyle(.secondary)
                                     }
                                     Text(viewModel.content?.title ?? "Reader")
-                                        .font(.system(size: 36, weight: .medium)).tracking(-0.8)
+                                        .font(desktopLayout ? .system(size: 36, weight: .medium) : .title.weight(.semibold))
+                                        .tracking(desktopLayout ? -0.8 : 0)
                                 }
                                 .padding(.bottom, 20)
                             }
@@ -69,7 +71,7 @@ struct ReaderView: View {
                                 }
                             }
                         }
-                        .frame(maxWidth: desktopLayout ? 620 : .infinity, alignment: .leading)
+                        .frame(maxWidth: desktopLayout || showsArticleHeading ? 620 : .infinity, alignment: .leading)
                         .padding(.horizontal, 24)
                         .padding(.top, desktopLayout ? 40 : 20)
                         .padding(.bottom, showsPlaybackControls ? 76 : 36)
@@ -113,12 +115,13 @@ struct SentenceView: View {
     let currentWord: String
     let currentTokenIndex: Int
     var textSize: Double = 17
+    @ScaledMetric(relativeTo: .body) private var fontScale: CGFloat = 1
 
     private var readerFont: Font {
-        .system(size: CGFloat(textSize), design: .serif)
+        .system(size: CGFloat(textSize) * fontScale, design: .serif)
     }
 
-    private var lineSpacing: CGFloat { CGFloat(textSize) * 0.5 }
+    private var lineSpacing: CGFloat { CGFloat(textSize) * fontScale * 0.5 }
 
     var body: some View {
         Group {
@@ -152,7 +155,7 @@ struct SentenceView: View {
     private var highlightedSentence: some View {
         let words = sentence.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
         let target = currentWord.trimmingCharacters(in: .punctuationCharacters).lowercased()
-        let activeWordIndex = findActiveWordIndex(words: words, target: target, tokenIndex: currentTokenIndex)
+        let activeWordIndex = Self.findActiveWordIndex(words: words, target: target, tokenIndex: currentTokenIndex)
 
         return words.enumerated().reduce(Text("")) { result, pair in
             let (wordIdx, word) = pair
@@ -167,13 +170,13 @@ struct SentenceView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func findActiveWordIndex(words: [String], target: String, tokenIndex: Int) -> Int? {
-        guard !target.isEmpty else { return nil }
+    static func findActiveWordIndex(words: [String], target: String, tokenIndex: Int) -> Int? {
+        guard !words.isEmpty, !target.isEmpty else { return nil }
 
         // TTS tokens may not map 1:1 to whitespace-split words (punctuation-only
         // tokens get skipped in the display). Use tokenIndex as a starting hint
         // and search outward for the matching word.
-        let searchStart = min(tokenIndex, words.count - 1)
+        let searchStart = min(max(0, tokenIndex), words.count - 1)
         let searchRange = max(0, searchStart - 2)...min(words.count - 1, searchStart + 2)
 
         for i in searchRange {
@@ -182,7 +185,7 @@ struct SentenceView: View {
         }
 
         // Broader fallback: exact match only, first occurrence at or after tokenIndex
-        for i in max(0, tokenIndex)..<words.count {
+        for i in min(max(0, tokenIndex), words.count)..<words.count {
             let stripped = words[i].trimmingCharacters(in: .punctuationCharacters).lowercased()
             if stripped == target { return i }
         }

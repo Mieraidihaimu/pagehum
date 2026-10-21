@@ -23,7 +23,7 @@ struct WebReaderView: View {
             )
             .id(url)
             #if os(iOS)
-            .ignoresSafeArea(edges: .bottom)
+            .ignoresSafeArea(edges: showsPlaybackControls ? .bottom : [])
             #endif
 
             if showsPlaybackControls {

@@ -5,8 +5,24 @@ struct LibrarySearchControls: View {
     @Binding var query: String
     @Binding var favoritesOnly: Bool
     var compact = false
+    @FocusState private var isSearching: Bool
 
     var body: some View {
+        #if os(iOS)
+        HStack(spacing: 8) {
+            searchField
+            Button { favoritesOnly.toggle() } label: {
+                Image(systemName: favoritesOnly ? "star.fill" : "star")
+                    .font(.title3)
+                    .foregroundStyle(favoritesOnly ? Color.accentColor : Color.secondary)
+                    .frame(width: 44, height: 44)
+                    .background(favoritesOnly ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Starred only")
+            .accessibilityValue(favoritesOnly ? "On" : "Off")
+        }
+        #else
         if compact {
             HStack(spacing: 12) {
                 searchField
@@ -18,6 +34,7 @@ struct LibrarySearchControls: View {
                 favoritesToggle
             }
         }
+        #endif
     }
 
     private var searchField: some View {
@@ -27,16 +44,30 @@ struct LibrarySearchControls: View {
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()
                 .accessibilityLabel("Search library")
+                .focused($isSearching)
+                .onSubmit { isSearching = false }
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .submitLabel(.search)
+                #endif
             if !query.isEmpty {
                 Button { query = "" } label: {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        #if os(iOS)
+                        .frame(width: 44, height: 44)
+                        #endif
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Clear search")
                 .help("Clear search")
             }
         }
+        #if os(iOS)
+        .frame(minHeight: 44)
+        .padding(.horizontal, 12)
+        #else
         .padding(compact ? 8 : 12)
+        #endif
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: compact ? 6 : 10))
     }
 
@@ -88,7 +119,11 @@ struct LibraryFavoriteButton: View {
         } label: {
             Image(systemName: item.isFavorite ? "star.fill" : "star")
                 .foregroundStyle(item.isFavorite ? Color.yellow : Color.secondary)
+                #if os(iOS)
+                .frame(width: 44, height: 44)
+                #else
                 .frame(width: compact ? 28 : 44, height: compact ? 28 : 44)
+                #endif
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -25,6 +25,8 @@ The test scheme sets `KOKORO_SKIP_MODEL_LOADING=1` for tests that do not need re
 python3 scripts/test-cli.py .build/pagehum-cli/pagehum
 ```
 
+For an opt-in iPhone simulator run using real blog articles and audio playback, see [playback diagnostics](docs/PLAYBACK_DIAGNOSTICS.md). It also records the October 2026 phone crash findings and the limits of simulator coverage.
+
 For changes to resource lookup or packaging, move the full CLI directory to another location and verify synthesis there. Unit tests alone do not validate Metal resource loading.
 
 The previous CLI implementation recorded two playback-state failures: `transitionsFromPreparingThroughAudiblePausedAndFinished` and `allGenerationFailuresRemainIncompleteAndReportEverySentence`. See [CLI notes](docs/CLI.md) for the historical result; current launch verification is recorded in [release notes](docs/RELEASE_NOTES.md).

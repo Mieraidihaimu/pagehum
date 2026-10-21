@@ -46,6 +46,16 @@
         }
       }
     },
+    "%@ / %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ / %2$@"
+          }
+        }
+      }
+    },
     "%@ at %@" : {
       "localizations" : {
         "en" : {
@@ -66,6 +76,9 @@
         }
       }
     },
+    "%@ times" : {
+
+    },
     "%@, %@, %lld points, %lld comments" : {
       "localizations" : {
         "en" : {
@@ -75,6 +88,9 @@
           }
         }
       }
+    },
+    "%@×" : {
+
     },
     "%lld" : {
 
@@ -114,6 +130,9 @@
 
     },
     "%lld selected" : {
+
+    },
+    "%lld sentences skipped" : {
 
     },
     "%lld skipped" : {
@@ -203,7 +222,16 @@
     "Activity" : {
 
     },
+    "Add" : {
+
+    },
     "Add %lld to queue" : {
+
+    },
+    "Add an article" : {
+
+    },
+    "Add an article or choose one from your library." : {
 
     },
     "Add content" : {
@@ -264,6 +292,7 @@
 
     },
     "Articles you save or read will appear here." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -325,6 +354,9 @@
         }
       }
     },
+    "Cancel preparation" : {
+
+    },
     "Cannot access file" : {
       "localizations" : {
         "zh-Hans" : {
@@ -334,6 +366,9 @@
           }
         }
       }
+    },
+    "Choose articles in Library and add them to your queue." : {
+
     },
     "Choose articles to import" : {
 
@@ -429,6 +464,9 @@
     "Continue listening" : {
 
     },
+    "Continue reading" : {
+
+    },
     "Continues automatically · Resume saved positions" : {
 
     },
@@ -512,6 +550,9 @@
           }
         }
       }
+    },
+    "Est. %@ left" : {
+
     },
     "Estimated listening time at %@, based on the remaining text. Updates as sentences advance; actual duration varies by voice and pauses." : {
 
@@ -655,6 +696,9 @@
         }
       }
     },
+    "Larger text" : {
+
+    },
     "Less" : {
 
     },
@@ -672,6 +716,9 @@
 
     },
     "Library Unavailable" : {
+
+    },
+    "Listen" : {
 
     },
     "Listen Again" : {
@@ -716,6 +763,9 @@
     "Loading stories…" : {
 
     },
+    "Make room for a good read." : {
+
+    },
     "Mark as Completed" : {
 
     },
@@ -755,7 +805,11 @@
     "Next article" : {
 
     },
+    "No articles yet" : {
+
+    },
     "No Articles Yet" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -808,6 +862,9 @@
     "Not started" : {
 
     },
+    "Off" : {
+
+    },
     "OK" : {
       "localizations" : {
         "zh-Hans" : {
@@ -817,6 +874,9 @@
           }
         }
       }
+    },
+    "On" : {
+
     },
     "Open →" : {
 
@@ -831,6 +891,9 @@
 
     },
     "Open in browser" : {
+
+    },
+    "Open library" : {
 
     },
     "Open selected article" : {
@@ -912,6 +975,9 @@
           }
         }
       }
+    },
+    "Playback actions" : {
+
     },
     "Playback options" : {
 
@@ -1006,6 +1072,12 @@
     "Reader text size" : {
 
     },
+    "Reading options" : {
+
+    },
+    "Reading progress" : {
+
+    },
     "Reading Queue" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1063,6 +1135,12 @@
 
     },
     "Retry failed links" : {
+
+    },
+    "Save a link or open a document to start your library." : {
+
+    },
+    "Save an article, skim it, or listen at your pace." : {
 
     },
     "Save for Later" : {
@@ -1185,6 +1263,9 @@
 
     },
     "Slower" : {
+
+    },
+    "Smaller text" : {
 
     },
     "Sometimes all an idea needs is a little room to breathe." : {
@@ -1350,6 +1431,9 @@
 
     },
     "Up next · %lld" : {
+
+    },
+    "Up next, %lld articles" : {
 
     },
     "URL" : {

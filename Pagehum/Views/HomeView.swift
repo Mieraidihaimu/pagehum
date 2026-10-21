@@ -12,12 +12,14 @@ struct HomeView: View {
     }
 
     @ObservedObject var viewModel: ReaderModel
+    var usesTabNavigation = false
     @State private var selectedTab: InputTab = .url
     @State private var urlString = ""
     @State private var pastedText = ""
     @State private var showFilePicker = false
     @State private var navigateToReader = false
     @FocusState private var isURLFieldFocused: Bool
+    @FocusState private var isTextFieldFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -62,6 +64,36 @@ struct HomeView: View {
                 .padding(.horizontal, 4)
                 .padding(.top, 4)
 
+                #if os(iOS)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Make room for a good read.")
+                        .font(.title2.weight(.semibold))
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Save an article, skim it, or listen at your pace.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if let content = viewModel.content {
+                    Button { navigateToReader = true } label: {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("Continue reading", systemImage: "book")
+                                .font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor)
+                            HStack {
+                                Text(content.title).font(.headline).lineLimit(2).foregroundStyle(.primary)
+                                Spacer(minLength: 8)
+                                Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                            }
+                            ProgressView(value: min(1, max(0, viewModel.progress)))
+                                .accessibilityLabel("Reading progress")
+                        }
+                        .padding(16)
+                        .background(Color.secondaryGroupedBackground, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                    .buttonStyle(.plain)
+                }
+                #endif
+
                 // Input selector
                 VStack(spacing: 16) {
                     Picker("Input", selection: $selectedTab) {
@@ -98,11 +130,22 @@ struct HomeView: View {
             .padding(.vertical, 8)
         }
         .background(Color.platformGroupedBackground)
-        .navigationTitle("")
+        .navigationTitle(usesTabNavigation ? "Add content" : "")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    isURLFieldFocused = false
+                    isTextFieldFocused = false
+                }
+            }
+        }
         #endif
         .toolbar {
+            if !usesTabNavigation {
             #if os(iOS)
             ToolbarItem(placement: .topBarLeading) {
                 NavigationLink {
@@ -142,13 +185,18 @@ struct HomeView: View {
                 .accessibilityLabel("Settings")
             }
             #endif
+            }
         }
         .navigationDestination(isPresented: $navigateToReader) {
+            #if os(iOS)
+            PhoneReaderView(viewModel: viewModel)
+            #else
             if let url = viewModel.content?.source.webURL {
                 WebReaderView(viewModel: viewModel, url: url)
             } else {
                 ReaderView(viewModel: viewModel)
             }
+            #endif
         }
         .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.pdf], allowsMultipleSelection: false) { result in
             handleFileSelection(result)
@@ -184,18 +232,34 @@ struct HomeView: View {
             }
         }
         .animation(.spring(duration: 0.4), value: viewModel.savedConfirmation)
+        .onChange(of: selectedTab) { _, _ in
+            isURLFieldFocused = false
+            isTextFieldFocused = false
+        }
     }
 
     // MARK: - Inputs
 
     private var urlInputView: some View {
         VStack(spacing: 14) {
+            #if os(iOS)
+            HStack {
+                Text("Article links").font(.subheadline.weight(.semibold))
+                Spacer()
+                PasteButton(payloadType: String.self) { values in
+                    urlString = values.joined(separator: "\n")
+                }
+                .labelStyle(.titleAndIcon)
+                .controlSize(.small)
+                .frame(minHeight: 44)
+            }
+            #endif
             HStack(spacing: 10) {
                 Image(systemName: "link")
                     .foregroundStyle(.secondary)
                     .frame(width: 20)
                 TextField("Paste article links", text: $urlString, axis: .vertical)
-                    .lineLimit(3...6)
+                    .lineLimit(2...5)
                     .textContentType(.URL)
                     .autocorrectionDisabled()
                     #if os(iOS)
@@ -209,6 +273,7 @@ struct HomeView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
+                            .frame(minWidth: 44, minHeight: 44)
                     }
                     .accessibilityLabel("Clear links")
                 }
@@ -256,7 +321,8 @@ struct HomeView: View {
     private var textInputView: some View {
         VStack(spacing: 14) {
             TextEditor(text: $pastedText)
-                .frame(height: 120)
+                .frame(height: 160)
+                .focused($isTextFieldFocused)
                 .padding(10)
                 .background(Color.secondaryGroupedBackground, in: RoundedRectangle(cornerRadius: 12))
                 .scrollContentBackground(.hidden)
@@ -299,17 +365,16 @@ struct HomeView: View {
                         .fontWeight(.semibold)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
-            .foregroundStyle(.white)
         }
+        .buttonStyle(HomePrimaryButtonStyle())
         .disabled(viewModel.isLoading)
     }
 
     // MARK: - Actions
 
     private func importLinks(_ value: String, fromText: Bool) {
+        isURLFieldFocused = false
+        isTextFieldFocused = false
         Task {
             if let result = await viewModel.importURLs(from: value), result.failures.isEmpty {
                 if fromText { pastedText = "" } else { urlString = "" }
@@ -322,9 +387,10 @@ struct HomeView: View {
     }
 
     private func loadText() {
+        isTextFieldFocused = false
         Task {
             await viewModel.loadText(pastedText)
-            if viewModel.content != nil { navigateToReader = true }
+            if viewModel.errorMessage == nil, viewModel.content != nil { navigateToReader = true }
         }
     }
 
@@ -338,10 +404,23 @@ struct HomeView: View {
             Task {
                 await viewModel.loadPDF(url)
                 url.stopAccessingSecurityScopedResource()
-                if viewModel.content != nil { navigateToReader = true }
+                if viewModel.errorMessage == nil, viewModel.content != nil { navigateToReader = true }
             }
         case .failure(let error):
             viewModel.errorMessage = error.localizedDescription
         }
+    }
+}
+
+private struct HomePrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .padding(.vertical, 4)
+            .foregroundStyle(.white)
+            .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.4)
     }
 }

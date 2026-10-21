@@ -35,7 +35,7 @@ Routing happens in `HomeView.navigationDestination` and `PlaylistView.navigation
 
 - **Engine**: Kokoro 82M model via the `KokoroSwift` SPM package. Audio is 24 kHz mono PCM.
 - **Model loading**: Happens asynchronously in `loadModel()` on a GCD background queue (not Swift concurrency — MLX uses internal `DispatchQueue.sync` that deadlocks on the cooperative thread pool). `isModelLoaded` gates playback.
-- **Audio generation**: `generateSentenceAudio()` dispatches to `DispatchQueue.global(qos: .userInitiated)` via `withCheckedContinuation`. Never use `Task.detached` for MLX/Kokoro work.
+- **Audio generation**: `KokoroSpeechEngine` runs model loading, inference, and GPU cleanup on one serial `SpeechSynthesisWorkQueue` via continuations. Never use `Task.detached` for MLX/Kokoro work or access the MLX stream concurrently.
 - **Speed**: Applied via `AVAudioUnitTimePitch.rate` (not at generation time — generation always uses `speed: 1.0`). When speed changes mid-playback, `bufferStartTime` is recalibrated to keep word highlight in sync.
 - **Lookahead**: 3 sentences pre-generated into `audioCache: [Int: SentenceAudio]`. The generation task stays 3 sentences ahead of the playback cursor.
 - **Sentence length limit**: `splitIntoSentences` enforces a 400-character max. Longer sentences are split at clause boundaries (`,;:—–`) or word boundaries to avoid Kokoro's `tooManyTokens` error.
@@ -49,7 +49,7 @@ The app is configured for background audio playback (`UIBackgroundModes = audio`
 
 To guarantee uninterrupted playback and prevent OS termination when backgrounded:
 - **Never Call Metal in Background**: Submitting Metal command buffers while backgrounded triggers an immediate process kill (`kIOGPUCommandBufferCallbackErrorBackgroundExecutionNotPermitted` / `SIGABRT`) from the iOS kernel. `ReaderModel` tracks background transitions (`willResignActive`, `didEnterBackground`), halting GPU inference. If an uncached sentence is reached in background, the pipeline pauses cleanly until foregrounded without skipping sentences or corrupting playback.
-- **Synchronous Drain Barrier & Jetsam Eviction**: On `UIApplication.willResignActiveNotification`, `KokoroSpeechEngine.drainAndEvictGPU()` synchronously calls `Stream.gpu.synchronize()` to force completion of in-flight command buffers, and `GPU.clearCache()` to evict idle Metal buffer heaps before entering the background, avoiding memory pressure kills.
+- **Synchronous Drain Barrier & Jetsam Eviction**: Inside the main-queue `UIApplication.willResignActiveNotification` callback, `KokoroSpeechEngine.drainAndEvictGPU()` suspends its serial work queue, waits for current inference to finish, synchronizes the GPU, and clears its cache. Do not defer this barrier to a Task or run cleanup concurrently with inference. New GPU work is rejected until `didBecomeActive` resumes the queue; system-voice sessions never initialize GPU cleanup.
 - **Deep Foreground Pre-caching**: `lookaheadCount = 100` pre-synthesizes sentences into `AudioDiskCache` ahead of playback while in the foreground. Because Kokoro synthesizes at 40x real-time (150ms per sentence), the entire article is cached on disk within seconds of pressing play. Cached `.m4a` files are decoded purely via CPU (`AVAudioFile`) and require zero GPU.
 - **Disk Cache Fast-Path**: `SentenceAudioProvider.audioState(at:)` checks `AudioDiskCache` directly, providing instantaneous ready buffers during playback and seeking.
 - **Audio Session & Lifecycle**: Uses standard `UIBackgroundModes = audio`, `policy: .longFormAudio`, and listens for `.AVAudioEngineConfigurationChange` to recover the engine during hardware routing or lock-screen transitions.
@@ -75,7 +75,7 @@ The app group ID `group.com.test.mier.hello` must match in both targets' entitle
 
 ## Key Invariants
 
-- **Never use `Task.detached` for MLX/Kokoro work** — MLX uses `DispatchQueue.sync` internally which deadlocks on Swift concurrency's cooperative thread pool. Always use `withCheckedContinuation` + `DispatchQueue.global()`.
+- **Never use `Task.detached` for MLX/Kokoro work** — MLX uses `DispatchQueue.sync` internally which deadlocks on Swift concurrency's cooperative thread pool. Use the dedicated serial `SpeechSynthesisWorkQueue` for loading, inference, and GPU cleanup.
 - **Never stop `audioEngine`** during normal operation — only stop `playerNode`. The engine stays alive for the model's lifetime.
 - **Views must NOT call `cleanup()` / `stop()` on disappear** — `ReaderModel` is a singleton that persists across navigation. Stopping playback on view disappear breaks background audio and re-entry. Only the user or explicit actions (loading new content) should stop playback.
 - **`audioCache` and `skippedSentences` are @MainActor** — access only from the main actor. Always clear both together: `audioCache = [:]; skippedSentences = []`.

@@ -38,16 +38,7 @@ struct PagehumApp: App {
                     #if os(macOS)
                     DesktopRootView(viewModel: model, navigateToReader: $navigateToReader)
                     #else
-                    NavigationStack {
-                    HomeView(viewModel: model)
-                        .navigationDestination(isPresented: $navigateToReader) {
-                            if let url = model.content?.source.webURL {
-                                WebReaderView(viewModel: model, url: url)
-                            } else {
-                                ReaderView(viewModel: model)
-                            }
-                        }
-                    }
+                    PhoneRootView(viewModel: model, navigateToReader: $navigateToReader)
                     #endif
                 }
                 .safeAreaInset(edge: .top) {
@@ -63,7 +54,7 @@ struct PagehumApp: App {
                     model.handleOpenURL(url)
                     Task {
                         await model.loadPendingSharedURL()
-                        navigateToReader = model.content != nil
+                        navigateToReader = model.errorMessage == nil && model.content != nil
                     }
                 }
                 .onAppear {
@@ -71,7 +62,7 @@ struct PagehumApp: App {
                     if model.pendingSharedURL != nil {
                         Task {
                             await model.loadPendingSharedURL()
-                            navigateToReader = model.content != nil
+                            navigateToReader = model.errorMessage == nil && model.content != nil
                         }
                     }
                 }

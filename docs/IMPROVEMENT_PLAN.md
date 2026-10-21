@@ -21,6 +21,7 @@ being implemented now, plus the unit-test specification for its new component.
 
 ### UX
 
+- **iPhone navigation and reading** — implemented 2026-10-21. Added Add/Library/Listen/Settings tabs, original-page reading for web articles with the publisher's images and layout, text-size controls for PDFs and pasted text, an accessible inline player with reserved screen space, and mobile paste, keyboard and library controls. Web articles have no Reader-mode switch.
 - **Hacker News article previews** — implemented 2026-10-21. Stories have a separate preview action with loading, retry, browser and HN discussion links; selection stays independent of the current reader and playback.
 - **iCloud sync** — deferred; sync the library and resume position between Mac and iPhone. See the [implementation checklist](#4-icloud-sync--deferred-implementation-checklist).
 - **Sleep timer** ("stop after 15/30/60 min or end of article") — top missing feature for a reading/bedtime TTS app.

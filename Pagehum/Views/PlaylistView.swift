@@ -14,9 +14,11 @@ struct PlaylistView: View {
     @State private var selecting = false
     @State private var selection: Set<PersistentIdentifier> = []
     @State private var confirmingRemoval = false
+    private let addContent: (() -> Void)?
 
-    init(viewModel: ReaderModel) {
+    init(viewModel: ReaderModel, addContent: (() -> Void)? = nil) {
         self.viewModel = viewModel
+        self.addContent = addContent
         queue = viewModel.listeningQueue
     }
 
@@ -45,11 +47,16 @@ struct PlaylistView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             if allItems.isEmpty {
-                ContentUnavailableView(
-                    "No Articles Yet",
-                    systemImage: "book.closed",
-                    description: Text("Articles you save or read will appear here.")
-                )
+                ContentUnavailableView {
+                    Label("No articles yet", systemImage: "book.closed")
+                } description: {
+                    Text("Save a link or open a document to start your library.")
+                } actions: {
+                    if let addContent {
+                        Button("Add an article", action: addContent)
+                            .buttonStyle(.borderedProminent).controlSize(.large)
+                    }
+                }
             } else if filteredItems.isEmpty {
                 LibrarySearchEmptyView(query: searchText, favoritesOnly: favoritesOnly) {
                     searchText = ""
@@ -103,6 +110,7 @@ struct PlaylistView: View {
                 }
                 #if os(iOS)
                 .listStyle(.insetGrouped)
+                .scrollDismissesKeyboard(.interactively)
                 #else
                 .listStyle(.plain)
                 #endif
@@ -180,11 +188,15 @@ struct PlaylistView: View {
             }
         }
         .navigationDestination(item: $selectedItem) { _ in
+            #if os(iOS)
+            PhoneReaderView(viewModel: viewModel)
+            #else
             if let url = viewModel.content?.source.webURL {
                 WebReaderView(viewModel: viewModel, url: url)
             } else {
                 ReaderView(viewModel: viewModel)
             }
+            #endif
         }
     }
 
@@ -417,6 +429,7 @@ struct CompletedArticlesView: View {
                 }
                 #if os(iOS)
                 .listStyle(.insetGrouped)
+                .scrollDismissesKeyboard(.interactively)
                 #else
                 .listStyle(.plain)
                 #endif
@@ -455,11 +468,15 @@ struct CompletedArticlesView: View {
             }
         }
         .navigationDestination(item: $selectedItem) { _ in
+            #if os(iOS)
+            PhoneReaderView(viewModel: viewModel)
+            #else
             if let url = viewModel.content?.source.webURL {
                 WebReaderView(viewModel: viewModel, url: url)
             } else {
                 ReaderView(viewModel: viewModel)
             }
+            #endif
         }
     }
 

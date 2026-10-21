@@ -128,6 +128,29 @@ struct TechBlogQuickImportView: View {
             Button {
                 showBrowser = true
             } label: {
+                #if os(iOS)
+                HStack(spacing: 12) {
+                    Image(systemName: "newspaper.fill")
+                        .font(.title2)
+                        .foregroundStyle(.orange)
+                        .frame(width: 44, height: 44)
+                        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Hacker News").font(.headline).foregroundStyle(.primary)
+                        Text("Preview stories and choose what to import")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(viewModel.techBlogSettings.feed.title)
+                            .font(.caption.weight(.medium)).foregroundStyle(.orange)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+                .padding(16)
+                .background(techBlogPanelColor, in: RoundedRectangle(cornerRadius: 16))
+                #else
                 HStack(spacing: 14) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -175,6 +198,7 @@ struct TechBlogQuickImportView: View {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
                 )
+                #endif
             }
             .buttonStyle(.plain)
             .disabled(viewModel.isLoading)

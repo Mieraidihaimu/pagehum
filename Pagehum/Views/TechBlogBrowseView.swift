@@ -11,6 +11,7 @@ struct TechBlogBrowseView: View {
     @State private var loadedSettings: TechBlogSettings?
     @State private var previewStory: TechBlogStory?
     @State private var isImportingSelection = false
+    @FocusState private var isSearching: Bool
 
     private var selectedStories: [TechBlogStory] {
         viewModel.techBlogStories.filter { selection.contains($0.id) && !viewModel.isInLibrary($0) }
@@ -57,6 +58,10 @@ struct TechBlogBrowseView: View {
                         settingsButton
                         refreshButton
                     }
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") { isSearching = false }
+                    }
                 }
                 .navigationDestination(isPresented: $showingSettings) {
                     TechBlogImportSettingsView(viewModel: viewModel)
@@ -98,6 +103,9 @@ struct TechBlogBrowseView: View {
                         }
                     }
                 }
+                #if os(iOS)
+                .scrollDismissesKeyboard(.interactively)
+                #endif
                 .disabled(viewModel.isLoading)
             }
             Divider()
@@ -111,6 +119,12 @@ struct TechBlogBrowseView: View {
             TextField("Search titles and sites", text: $query)
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()
+                .focused($isSearching)
+                .onSubmit { isSearching = false }
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .submitLabel(.search)
+                #endif
             if !query.isEmpty {
                 Button { query = "" } label: {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)

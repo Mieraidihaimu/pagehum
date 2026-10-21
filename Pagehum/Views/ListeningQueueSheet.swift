@@ -20,7 +20,9 @@ struct ListeningQueueSheet: View {
                 }
                 Section {
                     if queue.upcoming.isEmpty {
-                        Text("This is the last article. Playback stops when it finishes.")
+                        Text(queue.isActive
+                             ? "This is the last article. Playback stops when it finishes."
+                             : "Choose articles in Library and add them to your queue.")
                             .foregroundStyle(.secondary)
                     }
                     ForEach(queue.upcoming) { entry in
@@ -49,6 +51,7 @@ struct ListeningQueueSheet: View {
                 }
             }
         }
+        .presentationDragIndicator(.visible)
     }
 }
 #endif
