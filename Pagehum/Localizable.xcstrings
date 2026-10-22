@@ -951,6 +951,9 @@
     "Pause" : {
 
     },
+    "Pause offline save" : {
+
+    },
     "Paused" : {
 
     },
@@ -1119,6 +1122,9 @@
     "Remove from Starred" : {
 
     },
+    "Remove offline audio" : {
+
+    },
     "Remove selected articles" : {
 
     },
@@ -1129,6 +1135,9 @@
 
     },
     "Resume →" : {
+
+    },
+    "Resume offline save" : {
 
     },
     "Retry" : {
@@ -1143,6 +1152,12 @@
     "Save an article, skim it, or listen at your pace." : {
 
     },
+    "Save audio offline" : {
+
+    },
+    "Save every article's audio before locking your phone to keep the same voice throughout the queue." : {
+
+    },
     "Save for Later" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1153,6 +1168,12 @@
           }
         }
       }
+    },
+    "Save queue audio offline" : {
+
+    },
+    "Save selected audio offline" : {
+
     },
     "Saved" : {
 

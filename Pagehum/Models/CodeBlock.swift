@@ -10,7 +10,7 @@ import Foundation
 ///
 /// Produced by `ArticleSegmenter` from the sentinel markers that `TextExtractor`'s reader JS
 /// substitutes for `<pre>` elements.
-struct CodeBlock: Codable, Equatable {
+nonisolated struct CodeBlock: Codable, Equatable {
 
     /// Raw language token as it appeared on the page (`"swift"`, `"bash"`, `"jsx"`), lowercased.
     /// `nil` when the page gave us nothing to go on.

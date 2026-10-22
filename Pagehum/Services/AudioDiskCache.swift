@@ -13,7 +13,7 @@ import Foundation
 ///
 /// Deliberately free of any Kokoro/MLX dependency (deals only in `AVAudioPCMBuffer` + `WordTiming`),
 /// so it is unit-testable off-device.
-final class AudioDiskCache {
+nonisolated final class AudioDiskCache: @unchecked Sendable {
 
     static let shared = AudioDiskCache()
 
@@ -62,6 +62,15 @@ final class AudioDiskCache {
     }
 
     // MARK: - Load
+
+    func contains(text: String, voiceKey: String) -> Bool {
+        queue.sync {
+            let base = fileBase(text: text, voiceKey: voiceKey)
+            return ["m4a", "json"].allSatisfy {
+                FileManager.default.fileExists(atPath: directory.appendingPathComponent(base + "." + $0).path)
+            }
+        }
+    }
 
     /// Returns cached audio for `text`+`voiceKey`, or `nil` (a miss) on any problem.
     func load(text: String, voiceKey: String) -> SentenceAudio? {

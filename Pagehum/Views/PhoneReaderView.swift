@@ -24,6 +24,13 @@ struct PhoneReaderView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                if let id = viewModel.currentOfflineAudioID {
+                    OfflineAudioButton(manager: viewModel.offlineAudio, id: id, canSave: viewModel.isModelLoaded,
+                                       canRemove: !viewModel.isPlaying && !viewModel.isPreparing,
+                                       save: viewModel.saveCurrentAudioOffline)
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
                 if let url = viewModel.content?.source.webURL {
                     Link(destination: url) {
                         Image(systemName: "arrow.up.right.square")

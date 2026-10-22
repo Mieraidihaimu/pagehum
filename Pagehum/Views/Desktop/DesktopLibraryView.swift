@@ -39,6 +39,12 @@ struct DesktopLibraryView: View {
                     Text("Your library").font(.system(size: 24, weight: .medium))
                     Spacer(minLength: 0)
                     Button {
+                        viewModel.saveAudioOffline(selectedItems)
+                    } label: {
+                        Label("Save audio offline", systemImage: "arrow.down.circle").labelStyle(.iconOnly)
+                    }
+                    .disabled(selectedItems.isEmpty || !viewModel.isModelLoaded).help("Save selected audio offline")
+                    Button {
                         selection = Set(filteredItems.map(\.persistentModelID))
                     } label: {
                         Image(systemName: "checkmark.rectangle.stack").frame(width: 28, height: 28)
@@ -248,6 +254,8 @@ struct DesktopLibraryView: View {
                 Button("Open article") { openItem(item) }
             }
             let queueableItems = articles.filter { !isAlreadyQueued($0) }
+            Button("Save audio offline", systemImage: "arrow.down.circle") { viewModel.saveAudioOffline(articles) }
+                .disabled(!viewModel.isModelLoaded)
             Button(queueTitle(count: queueableItems.count)) { enqueue(queueableItems) }
                 .disabled(queueableItems.isEmpty || !viewModel.isModelLoaded || viewModel.isLoading)
             Divider()

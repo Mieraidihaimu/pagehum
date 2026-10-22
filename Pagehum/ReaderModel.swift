@@ -24,7 +24,7 @@ private extension Double {
     }
 }
 
-struct SentenceAudio {
+nonisolated struct SentenceAudio {
     let buffer: AVAudioPCMBuffer
     let tokens: [WordTiming]?
     /// Leading-silence compensation (seconds) applied to `bufferStartTime` for AAC-decoded cache
@@ -126,6 +126,25 @@ final class ReaderModel: ObservableObject {
     var modelContext: ModelContext?
     @Published var currentPlaylistItemID: PersistentIdentifier?
     lazy var listeningQueue = ListeningQueue(model: self)
+    private let offlineStore: OfflineAudioStore
+    private let applicationIsActive: () -> Bool
+    private var currentTextID = ""
+    @Published private(set) var currentOfflineAudioID: String?
+    private var activeOfflineAudioID: String?
+    @Published private(set) var isWaitingForOfflineAudio = false
+    lazy var offlineAudio = OfflineAudioManager(store: offlineStore, canPrepare: { [weak self] in
+        guard let self else { return false }
+        return self.isModelLoaded && self.canRunSpeechWork
+    }, generate: { [weak self] text, voice in
+        guard let self else { return nil }
+        return await self.generateSentenceAudio(for: text, format: self.audioFormat, voice: voice, allowFallback: false)
+    })
+
+    private var canRunSpeechWork: Bool { !isAppInBackground && applicationIsActive() }
+    var isCurrentAudioSaved: Bool {
+        !currentTextID.isEmpty && offlineStore.readyRequest(textID: currentTextID, preferredVoice: selectedVoice) != nil
+    }
+    var canPlayCurrentContent: Bool { !sentences.isEmpty && (isModelLoaded || isCurrentAudioSaved) }
 
     @Published var speed: Float = UserDefaults.standard.float(forKey: "playbackSpeed").clamped(fallback: 1.0) {
         didSet {
@@ -150,6 +169,7 @@ final class ReaderModel: ObservableObject {
     @Published var selectedVoice: String = UserDefaults.standard.string(forKey: "selectedVoice") ?? "" {
         didSet {
             UserDefaults.standard.set(selectedVoice, forKey: "selectedVoice")
+            refreshOfflineAudioIdentity()
             guard oldValue != selectedVoice, isPlaying else { return }
             // Restart pipeline with new voice — clear cached audio from old voice
             generationTask?.cancel()
@@ -231,8 +251,18 @@ final class ReaderModel: ObservableObject {
         audioGenerator: ((String, AVAudioFormat) async -> SentenceAudio?)? = nil,
         speechEngineLoader: (() async throws -> any SpeechEngine)? = nil,
         fallbackSpeechEngine: (@MainActor () -> any SpeechEngine)? = { SystemSpeechEngine() },
-        modelStore: ModelStore = .standard
+        modelStore: ModelStore = .standard,
+        offlineStore: OfflineAudioStore = .standard,
+        applicationIsActive: @escaping () -> Bool = {
+            #if os(iOS)
+            UIApplication.shared.applicationState == .active
+            #else
+            true
+            #endif
+        }
     ) {
+        self.offlineStore = offlineStore
+        self.applicationIsActive = applicationIsActive
         self.extractor = contentExtractor ?? TextExtractor()
         self.contentLoadTimeout = contentLoadTimeout
         self.audioGenerator = audioGenerator
@@ -279,6 +309,9 @@ final class ReaderModel: ObservableObject {
         }
         scheduler.onFinished = { [weak self] in
             self?.handlePlaybackFinished()
+        }
+        scheduler.onWaitingForAudio = { [weak self] index in
+            self?.handleWaitingForAudio(at: index)
         }
 
         if storedSpeed > 0 { timePitch.rate = storedSpeed; speed = storedSpeed }
@@ -327,6 +360,7 @@ final class ReaderModel: ObservableObject {
             selectedVoice = voiceNames.first(where: { $0.hasPrefix("af") }) ?? voiceNames.first ?? ""
         }
         isModelLoaded = true
+        offlineAudio.resume()
     }
 
     /// True when system voices are in use only because the Kokoro model isn't on this device yet.
@@ -505,6 +539,11 @@ final class ReaderModel: ObservableObject {
 
     private func prepareText(_ text: String) {
         fullText = text
+        refreshOfflineAudioIdentity()
+        if let saved = offlineStore.readyRequest(textID: currentTextID, preferredVoice: selectedVoice) {
+            applyOfflineSegments(saved)
+            return
+        }
         // Lift code blocks out of the spoken stream. Bodies with no markers (everything saved
         // before this feature) segment to exactly `splitIntoSentences(text)`, so stored
         // `lastSentenceIndex` values stay valid.
@@ -524,6 +563,11 @@ final class ReaderModel: ObservableObject {
         }
 
         fullText = document.plainText
+        refreshOfflineAudioIdentity()
+        if let saved = offlineStore.readyRequest(textID: currentTextID, preferredVoice: selectedVoice) {
+            applyOfflineSegments(saved)
+            return
+        }
         let segmented = ReaderDocumentSentenceProjector.segment(
             document,
             splitProse: Self.splitIntoSentences
@@ -852,8 +896,79 @@ final class ReaderModel: ObservableObject {
 
     // MARK: - Playback Controls
 
+    private func refreshOfflineAudioIdentity() {
+        currentTextID = fullText.isEmpty ? "" : OfflineAudioRequest.textIdentifier(fullText)
+        currentOfflineAudioID = fullText.isEmpty ? nil : OfflineAudioRequest.identifier(textID: currentTextID, voice: selectedVoice)
+        activeOfflineAudioID = nil
+    }
+
+    func offlineRequest(for item: PlaylistItem) -> OfflineAudioRequest {
+        let id = offlineAudioID(for: item)
+        if let existing = offlineStore.record(id) { return existing.request }
+        if item.persistentModelID == currentPlaylistItemID, item.fullText == fullText {
+            return currentOfflineRequest()
+        }
+        let segmented = ArticleSegmenter.segment(item.fullText, splitProse: Self.splitIntoSentences)
+        return OfflineAudioRequest(text: item.fullText, title: item.title, voice: selectedVoice,
+                                   sentences: segmented.sentences, offsets: segmented.sentenceStartOffsetsUTF16, codeBlocks: segmented.codeBlocks)
+    }
+
+    func offlineAudioID(for item: PlaylistItem) -> String {
+        OfflineAudioRequest.identifier(textID: OfflineAudioRequest.textIdentifier(item.fullText), voice: selectedVoice)
+    }
+
+    private func currentOfflineRequest() -> OfflineAudioRequest {
+        OfflineAudioRequest(text: fullText, title: content?.title ?? "Article", voice: selectedVoice,
+                            sentences: sentences, offsets: sentenceStartOffsetsUTF16, codeBlocks: codeBlocks)
+    }
+
+    func saveAudioOffline(_ items: [PlaylistItem]) { offlineAudio.enqueue(items.map { offlineRequest(for: $0) }) }
+    func saveCurrentAudioOffline() {
+        guard !fullText.isEmpty else { return }
+        offlineAudio.enqueue([currentOfflineRequest()])
+    }
+
+    func saveQueueAudioOffline() {
+        guard let modelContext, let items = try? modelContext.fetch(FetchDescriptor<PlaylistItem>()) else { return }
+        let ids = [listeningQueue.current?.id].compactMap { $0 } + listeningQueue.upcoming.map(\.id)
+        saveAudioOffline(ids.compactMap { id in items.first { $0.persistentModelID == id } })
+    }
+
+    private func applyOfflineSegments(_ request: OfflineAudioRequest) {
+        activeOfflineAudioID = request.id
+        sentences = request.sentences
+        sentenceStartOffsetsUTF16 = request.offsets
+        codeBlocks = request.codeBlocks
+        currentSentenceIndex = 0
+        progress = 0
+        audioCache = [:]; skippedSentences = []
+    }
+
+    private func activateOfflinePlayback() {
+        guard let saved = offlineStore.readyRequest(textID: currentTextID, preferredVoice: selectedVoice) else { return }
+        let offset = playbackTextOffset(for: currentSentenceIndex)
+        if sentences != saved.sentences {
+            guard !isPaused else { return }
+            applyOfflineSegments(saved)
+            currentSentenceIndex = sentenceIndex(forTextOffset: offset)
+            progress = Double(currentSentenceIndex) / Double(max(1, sentences.count))
+        }
+        activeOfflineAudioID = saved.id
+    }
+
+    private func savedAudio(at index: Int) -> SentenceAudio? {
+        guard let id = activeOfflineAudioID ?? currentOfflineAudioID,
+              let request = offlineStore.record(id)?.request,
+              request.sentences.indices.contains(index), sentences.indices.contains(index),
+              request.sentences[index] == sentences[index] else { return nil }
+        return offlineStore.load(id: id, index: index)
+    }
+
     func play() {
-        guard !sentences.isEmpty, isModelLoaded, !isPreparing else { return }
+        guard !isPlaying, !isPreparing else { return }
+        activateOfflinePlayback()
+        guard canPlayCurrentContent, !isPreparing else { return }
+        isWaitingForOfflineAudio = false
         #if os(iOS)
         UIApplication.shared.isIdleTimerDisabled = true
         #endif
@@ -914,6 +1029,7 @@ final class ReaderModel: ObservableObject {
     }
 
     func pause() {
+        isWaitingForOfflineAudio = false
         listeningQueue.pausePendingAdvance()
         if let start = bufferStartTime {
             pauseElapsed = Date().timeIntervalSince(start)
@@ -932,6 +1048,7 @@ final class ReaderModel: ObservableObject {
     }
 
     func stop() {
+        isWaitingForOfflineAudio = false
         generationTask?.cancel()
         generationTask = nil
         scheduler.stop()
@@ -969,7 +1086,7 @@ final class ReaderModel: ObservableObject {
     }
 
     func restartFromBeginning() {
-        guard !sentences.isEmpty, isModelLoaded else { return }
+        guard canPlayCurrentContent else { return }
         stop()
         saveProgressNow()
         play()
@@ -1148,6 +1265,7 @@ final class ReaderModel: ObservableObject {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.isAppInBackground = true
+                self.offlineAudio.suspend()
                 KokoroSpeechEngine.drainAndEvictGPU()
             }
         }
@@ -1178,7 +1296,13 @@ final class ReaderModel: ObservableObject {
                 guard let self else { return }
                 KokoroSpeechEngine.resumeGPUWork()
                 self.isAppInBackground = false
+                self.offlineAudio.resume()
                 self.ensureAudioSessionActive()
+                if self.isWaitingForOfflineAudio {
+                    self.isWaitingForOfflineAudio = false
+                    self.isPaused = false
+                    self.play()
+                }
                 if self.isPlaying {
                     if !self.audioEngine.isRunning {
                         try? self.audioEngine.start()
@@ -1199,6 +1323,10 @@ final class ReaderModel: ObservableObject {
 
     private func startPipeline() {
         generationTask?.cancel()
+        if let id = activeOfflineAudioID, offlineStore.record(id)?.isReady == true {
+            generationTask = nil
+            return // The normal scheduler reads saved clips on demand; no synthesis or deep PCM cache.
+        }
         generationTask = Task { [weak self] in
             guard let self else { return }
             let format = self.audioFormat
@@ -1215,8 +1343,8 @@ final class ReaderModel: ObservableObject {
                 let text = self.sentences[genIndex]
                 let voiceKey = voice + ".npy"
 
-                // Fast-path: Check disk cache first. Loading from disk is pure CPU file I/O (no GPU).
-                if let diskAudio = AudioDiskCache.shared.load(text: text, voiceKey: voiceKey) {
+                // Explicit offline saves survive normal cache eviction and are preferred.
+                if let diskAudio = self.savedAudio(at: genIndex) ?? AudioDiskCache.shared.load(text: text, voiceKey: voiceKey) {
                     self.audioCache[genIndex] = diskAudio
                     self.scheduler.notifyAvailable()
                     genIndex += 1
@@ -1224,17 +1352,15 @@ final class ReaderModel: ObservableObject {
                     continue
                 }
 
-                #if os(iOS)
                 // If in background and not cached on disk, pause generation until foregrounded.
                 // Do NOT mark as skipped - wait for foreground so Kokoro can synthesize it.
-                if self.isAppInBackground || UIApplication.shared.applicationState != .active {
-                    while (self.isAppInBackground || UIApplication.shared.applicationState != .active) && !Task.isCancelled {
+                if !self.canRunSpeechWork {
+                    while !self.canRunSpeechWork && !Task.isCancelled {
                         try? await Task.sleep(for: .milliseconds(500))
                     }
                     guard !Task.isCancelled else { break }
                     continue
                 }
-                #endif
 
                 // In the foreground, allow deep lookahead pre-caching
                 while genIndex - self.currentSentenceIndex >= self.lookaheadCount && !Task.isCancelled {
@@ -1262,11 +1388,9 @@ final class ReaderModel: ObservableObject {
                 if let audio {
                     self.audioCache[genIndex] = audio
                 } else {
-                    #if os(iOS)
-                    if self.isAppInBackground || UIApplication.shared.applicationState != .active {
+                    if !self.canRunSpeechWork {
                         continue
                     }
-                    #endif
                     self.skippedSentences.insert(genIndex)
                     self.playbackFailureCount = self.skippedSentences.count
                     if self.listeningQueue.isManaging(self.currentPlaylistItemID) {
@@ -1287,6 +1411,15 @@ final class ReaderModel: ObservableObject {
     }
 
     // MARK: - Scheduler callbacks
+
+    private func handleWaitingForAudio(at index: Int) {
+        guard !canRunSpeechWork, !isPaused else { return }
+        currentSentenceIndex = index
+        progress = Double(index) / Double(max(1, sentences.count))
+        pause()
+        isPreparing = false
+        isWaitingForOfflineAudio = true
+    }
 
     /// A sentence just became audible. Sync the reader's current index, word-highlight timing, and
     /// persisted progress. Invoked by `GaplessSentenceScheduler` on the main actor.
@@ -1375,7 +1508,7 @@ final class ReaderModel: ObservableObject {
 
     // MARK: - Audio generation
 
-    private func generateSentenceAudio(for text: String, format: AVAudioFormat, voice: String) async -> SentenceAudio? {
+    private func generateSentenceAudio(for text: String, format: AVAudioFormat, voice: String, allowFallback: Bool = true) async -> SentenceAudio? {
         let voiceKey = voice + ".npy"
         let cache = AudioDiskCache.shared
         // A disk cache hit skips synthesis entirely; file I/O stays off the main thread and requires no GPU.
@@ -1386,15 +1519,12 @@ final class ReaderModel: ObservableObject {
         }
         if let cached { return cached }
 
-        #if os(iOS)
-        let inBackground = isAppInBackground || UIApplication.shared.applicationState != .active
         // When the app is in the background or resigning active on iOS, NEVER invoke Kokoro (Metal GPU).
         // Submitting Metal command buffers while backgrounded triggers an immediate process termination
         // (SIGABRT/kIOGPUCommandBufferCallbackErrorBackgroundExecutionNotPermitted) by the iOS kernel.
-        if inBackground {
+        if !canRunSpeechWork {
             return nil
         }
-        #endif
 
         // Primary engine synthesis (e.g. Kokoro 82M on Apple Silicon) in the foreground
         if let engine = speechEngine, let audio = await engine.synthesize(text, voice: voice, format: format) {
@@ -1403,7 +1533,7 @@ final class ReaderModel: ObservableObject {
         }
 
         // Foreground fallback if primary engine fails
-        if let fallback = fallbackEngineInstance {
+        if allowFallback, let fallback = fallbackEngineInstance {
             let fallbackVoice = fallback.defaultVoice ?? fallback.voices.first ?? ""
             if let audio = await fallback.synthesize(text, voice: fallbackVoice, format: format) {
                 return audio
@@ -1428,6 +1558,10 @@ extension ReaderModel: SentenceAudioProvider {
 
     func audioState(at index: Int) -> SentenceAudioState {
         if let audio = audioCache[index] { return .ready(audio) }
+        if let audio = savedAudio(at: index) {
+            audioCache[index] = audio
+            return .ready(audio)
+        }
         if skippedSentences.contains(index) { return .skipped }
         if index < sentences.count {
             let text = sentences[index]

@@ -11,11 +11,13 @@ final class ListeningQueue: ObservableObject {
         let id: PersistentIdentifier
         let title: String
         let remainingCharacters: Int
+        let textID: String
 
         init(_ item: PlaylistItem) {
             id = item.persistentModelID
             title = item.title
             remainingCharacters = ListeningQueue.remainingCharacters(in: item)
+            textID = OfflineAudioRequest.textIdentifier(item.fullText)
         }
     }
 
@@ -164,7 +166,7 @@ final class ListeningQueue: ObservableObject {
             return
         }
         guard autoplay else { return }
-        guard model.isModelLoaded else {
+        guard model.canPlayCurrentContent else {
             failure = "The voice engine isn’t ready yet. Retry when it has finished loading."
             return
         }

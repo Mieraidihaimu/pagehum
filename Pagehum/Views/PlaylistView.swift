@@ -34,13 +34,14 @@ struct PlaylistView: View {
             !completedItems.contains(where: { $0.persistentModelID == item.persistentModelID }) &&
             !inProgressItems.contains(where: { $0.persistentModelID == item.persistentModelID })
         }
-        let displayOrder = inProgressItems + unreadItems
-        let selectedItems = displayOrder.filter { selection.contains($0.persistentModelID) && !queue.contains($0.persistentModelID) }
+        let displayOrder = inProgressItems + unreadItems + (selecting ? completedItems : [])
+        let selectedItems = displayOrder.filter { selection.contains($0.persistentModelID) }
+        let queueableItems = selectedItems.filter { !queue.contains($0.persistentModelID) }
         // The current article stays: its next progress save would touch a deleted model.
-        let removableItems = selectedItems.filter { $0.persistentModelID != viewModel.currentPlaylistItemID }
+        let removableItems = selectedItems.filter { $0.persistentModelID != viewModel.currentPlaylistItemID && !queue.contains($0.persistentModelID) }
         let appending = queue.isActive || (viewModel.progress < 1 && (viewModel.isPlaying || viewModel.isPaused || viewModel.isPreparing))
         let playTitle: LocalizedStringKey = appending
-            ? "Add \(selectedItems.count) to queue" : "Play ^[\(selectedItems.count) article](inflect: true)"
+            ? "Add \(queueableItems.count) to queue" : "Play ^[\(queueableItems.count) article](inflect: true)"
 
         VStack(spacing: 0) {
             LibrarySearchControls(query: $searchText, favoritesOnly: $favoritesOnly)
@@ -91,7 +92,11 @@ struct PlaylistView: View {
                     }
 
                     // 3. Completed in a summary row which can be clicked to see the list of completed
-                    if !completedItems.isEmpty && !selecting {
+                    if !completedItems.isEmpty && selecting {
+                        Section("Completed") {
+                            ForEach(completedItems) { item in libraryRow(item) }
+                        }
+                    } else if !completedItems.isEmpty {
                         Section {
                             NavigationLink {
                                 CompletedArticlesView(viewModel: viewModel, initialSearchText: searchText)
@@ -137,7 +142,7 @@ struct PlaylistView: View {
                         Text("\(selectedItems.count) selected").font(.headline)
                         Spacer()
                         Button("Select all") {
-                            selection = Set(displayOrder.filter { !queue.contains($0.persistentModelID) }.map(\.persistentModelID))
+                            selection = Set(displayOrder.map(\.persistentModelID))
                         }
                     }
                     HStack(spacing: 12) {
@@ -166,18 +171,28 @@ struct PlaylistView: View {
                             }
                         }
                         Button {
-                            queue.enqueue(selectedItems)
+                            queue.enqueue(queueableItems)
                             selection = []
                             selecting = false
                             // A new queue opens its first article; show it with the player.
-                            if !appending { selectedItem = selectedItems.first }
+                            if !appending { selectedItem = queueableItems.first }
                         } label: {
                             Text(playTitle).frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
-                        .disabled(selectedItems.isEmpty || !viewModel.isModelLoaded || viewModel.isLoading)
+                        .disabled(queueableItems.isEmpty || viewModel.isLoading)
                     }
+                    Button {
+                        viewModel.saveAudioOffline(selectedItems)
+                        selection = []
+                        selecting = false
+                    } label: {
+                        Label("Save selected audio offline", systemImage: "arrow.down.circle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(selectedItems.isEmpty || !viewModel.isModelLoaded)
                     if !viewModel.isModelLoaded {
                         Text("Waiting for the voice engine to load")
                             .font(.caption).foregroundStyle(.secondary)
@@ -208,7 +223,7 @@ struct PlaylistView: View {
 
         return HStack(alignment: .center, spacing: 4) {
             if selecting {
-                Image(systemName: queued ? "checkmark.circle" : selected ? "checkmark.circle.fill" : "circle")
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundStyle(selected ? Color.accentColor : Color.secondary)
                     .padding(.trailing, 8)
@@ -216,17 +231,15 @@ struct PlaylistView: View {
             }
             Button {
                 if selecting {
-                    guard !queued else { return }
                     if selected { selection.remove(item.persistentModelID) } else { selection.insert(item.persistentModelID) }
                 } else {
                     open(item)
                 }
             } label: {
-                PlaylistRowView(
-                    item: item,
-                    isPlaying: isPlaying,
-                    isInQueue: queued && !selecting
-                )
+                VStack(alignment: .leading, spacing: 6) {
+                    PlaylistRowView(item: item, isPlaying: isPlaying, isInQueue: queued && !selecting)
+                    OfflineAudioProgressView(manager: viewModel.offlineAudio, id: viewModel.offlineAudioID(for: item))
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
@@ -254,6 +267,10 @@ struct PlaylistView: View {
             .tint(.yellow)
         }
         .contextMenu {
+            OfflineAudioMenuActions(manager: viewModel.offlineAudio, id: viewModel.offlineAudioID(for: item),
+                                    canSave: viewModel.isModelLoaded, canRemove: !isPlaying,
+                                    save: { viewModel.saveAudioOffline([item]) })
+            Divider()
             Button {
                 open(item)
             } label: {

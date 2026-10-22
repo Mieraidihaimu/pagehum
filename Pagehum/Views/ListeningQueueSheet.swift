@@ -13,12 +13,19 @@ struct ListeningQueueSheet: View {
                 if let current = queue.current {
                     Section(queue.failure == nil ? "Current article" : "Needs attention") {
                         Text(current.title)
+                        if let id = viewModel.currentOfflineAudioID {
+                            OfflineAudioProgressView(manager: viewModel.offlineAudio, id: id)
+                        }
                         if let failure = queue.failure {
                             Text(failure).font(.footnote).foregroundStyle(.orange)
                         }
                     }
                 }
                 Section {
+                    Button("Save queue audio offline", systemImage: "arrow.down.circle") {
+                        viewModel.saveQueueAudioOffline()
+                    }
+                    .disabled(!viewModel.isModelLoaded || !queue.isActive)
                     if queue.upcoming.isEmpty {
                         Text(queue.isActive
                              ? "This is the last article. Playback stops when it finishes."
@@ -30,6 +37,8 @@ struct ListeningQueueSheet: View {
                             Text(entry.title).lineLimit(2)
                             Text(ListeningQueue.durationLabel(characters: entry.remainingCharacters, speed: viewModel.speed))
                                 .font(.caption).foregroundStyle(.secondary)
+                            OfflineAudioProgressView(manager: viewModel.offlineAudio,
+                                                     id: OfflineAudioRequest.identifier(textID: entry.textID, voice: viewModel.selectedVoice))
                         }
                     }
                     .onMove { queue.move(fromOffsets: $0, toOffset: $1) }
@@ -38,6 +47,7 @@ struct ListeningQueueSheet: View {
                     Text("Up next")
                 } footer: {
                     Text("Continues automatically · Resume saved positions")
+                    Text("Save every article's audio before locking your phone to keep the same voice throughout the queue.")
                 }
             }
             .navigationTitle("Up next")

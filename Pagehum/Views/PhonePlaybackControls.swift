@@ -4,6 +4,7 @@ import SwiftUI
 struct PhonePlaybackControls: View {
     @ObservedObject var viewModel: ReaderModel
     @ObservedObject private var queue: ListeningQueue
+    @ObservedObject private var offlineAudio: OfflineAudioManager
     @State private var isScrubbing = false
     @State private var scrubProgress = 0.0
     @State private var showsQueue = false
@@ -11,10 +12,12 @@ struct PhonePlaybackControls: View {
     init(viewModel: ReaderModel) {
         self.viewModel = viewModel
         queue = viewModel.listeningQueue
+        offlineAudio = viewModel.offlineAudio
     }
 
     private var status: String {
-        if !viewModel.isModelLoaded { return "Loading voice…" }
+        if viewModel.isWaitingForOfflineAudio { return "Open Pagehum to prepare audio" }
+        if !viewModel.isModelLoaded && !viewModel.isCurrentAudioSaved { return "Loading voice…" }
         if viewModel.isPreparing { return "Preparing audio…" }
         if viewModel.isPlaying { return "Playing" }
         if viewModel.progress >= 1 { return "Finished" }
@@ -71,7 +74,10 @@ struct PhonePlaybackControls: View {
             .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
 
             Group {
-                if !viewModel.isModelLoaded || viewModel.isPreparing {
+                if let id = viewModel.currentOfflineAudioID, let saving = offlineAudio.progress[id],
+                   saving.state != .ready {
+                    Text(saving.label)
+                } else if (!viewModel.isModelLoaded && !viewModel.isCurrentAudioSaved) || viewModel.isPreparing || viewModel.isWaitingForOfflineAudio {
                     Text(status)
                 } else if viewModel.playbackFailureCount > 0 {
                     Text("\(viewModel.playbackFailureCount) sentences skipped")
@@ -92,6 +98,11 @@ struct PhonePlaybackControls: View {
     private var actionsMenu: some View {
         Menu {
             Text(status)
+            if let id = viewModel.currentOfflineAudioID {
+                OfflineAudioMenuActions(manager: offlineAudio, id: id, canSave: viewModel.isModelLoaded,
+                                        canRemove: !viewModel.isPlaying && !viewModel.isPreparing,
+                                        save: viewModel.saveCurrentAudioOffline)
+            }
             if viewModel.playbackFailureCount > 0 {
                 Text("\(viewModel.playbackFailureCount) sentences skipped")
             }
@@ -107,7 +118,7 @@ struct PhonePlaybackControls: View {
             Button("Restart from beginning", systemImage: "arrow.counterclockwise") {
                 viewModel.restartFromBeginning()
             }
-            .disabled(!viewModel.isModelLoaded || viewModel.sentences.isEmpty || viewModel.isLoading)
+            .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
             Divider()
             Button("Up next, \(queue.upcoming.count) articles", systemImage: "list.bullet") {
                 showsQueue = true
@@ -139,8 +150,8 @@ struct PhonePlaybackControls: View {
             .frame(width: 44, height: 44)
         }
         .accessibilityLabel(viewModel.isPreparing ? "Cancel preparation" : viewModel.isPlaying ? "Pause" : "Play")
-        .disabled(!viewModel.isModelLoaded || viewModel.sentences.isEmpty || viewModel.isLoading)
-        .opacity(!viewModel.isModelLoaded || viewModel.sentences.isEmpty || viewModel.isLoading ? 0.4 : 1)
+        .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
+        .opacity(!viewModel.canPlayCurrentContent || viewModel.isLoading ? 0.4 : 1)
     }
 
     private var displayProgress: Double { isScrubbing ? scrubProgress : min(1, max(0, viewModel.progress)) }

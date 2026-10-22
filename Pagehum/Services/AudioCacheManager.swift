@@ -1,6 +1,6 @@
 import Foundation
 
-enum AudioCacheManager {
+nonisolated enum AudioCacheManager {
 
     static var cacheDirectory: URL {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]

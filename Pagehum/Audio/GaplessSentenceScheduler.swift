@@ -60,6 +60,7 @@ final class GaplessSentenceScheduler {
 
     /// Fired exactly once when the last schedulable sentence has finished playing.
     var onFinished: (() -> Void)?
+    var onWaitingForAudio: ((Int) -> Void)?
 
     // MARK: - State
 
@@ -73,6 +74,7 @@ final class GaplessSentenceScheduler {
     private var announcedHead: Int?
     private var isActive = false
     private var isPaused = false
+    private var revision = 0
 
     /// Optional silence buffer scheduled between sentences to keep the player rendering while the
     /// generation pipeline catches up. Without this, the player queue drains → iOS suspends the app
@@ -151,6 +153,7 @@ final class GaplessSentenceScheduler {
     // MARK: - Internals
 
     private func reset() {
+        revision += 1
         nextToSchedule = 0
         inFlight.removeAll()
         audioByIndex.removeAll()
@@ -170,11 +173,13 @@ final class GaplessSentenceScheduler {
                 nextToSchedule += 1
 
             case .pending:
+                if inFlight.isEmpty && !isPaused { onWaitingForAudio?(nextToSchedule) }
                 scheduleSilenceBridgeIfNeeded()
                 return   // wait for notifyAvailable()
 
             case .ready(let audio):
                 let idx = nextToSchedule
+                let scheduledRevision = revision
                 inFlight.append(idx)
                 audioByIndex[idx] = audio
                 nextToSchedule += 1
@@ -182,7 +187,10 @@ final class GaplessSentenceScheduler {
                 hasScheduledSentence = true
                 player.schedule(audio.buffer) { [weak self] in
                     // Adapter guarantees this runs on the main thread.
-                    MainActor.assumeIsolated { self?.handleCompletion(of: idx) }
+                    MainActor.assumeIsolated {
+                        guard let self, self.revision == scheduledRevision else { return }
+                        self.handleCompletion(of: idx)
+                    }
                 }
             }
         }
@@ -196,6 +204,7 @@ final class GaplessSentenceScheduler {
     /// Only fires when the sentence queue is empty (or nearly so) and we haven't already bridged.
     private func scheduleSilenceBridgeIfNeeded() {
         guard isActive,
+              !isPaused,
               hasScheduledSentence,
               let silence = silenceBridgeBuffer,
               inFlight.isEmpty,
@@ -204,9 +213,10 @@ final class GaplessSentenceScheduler {
         else { return }
         silenceInFlight += 1
         consecutiveSilenceBridges += 1
+        let scheduledRevision = revision
         player.schedule(silence) { [weak self] in
             MainActor.assumeIsolated {
-                guard let self else { return }
+                guard let self, self.revision == scheduledRevision else { return }
                 self.silenceInFlight -= 1
                 guard self.isActive else { return }
                 self.refill()

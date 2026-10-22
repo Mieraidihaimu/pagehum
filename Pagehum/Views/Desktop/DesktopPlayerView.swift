@@ -71,7 +71,7 @@ struct DesktopPlayerView: View {
                     }
                     .help(viewModel.isPlaying ? "Pause" : "Play")
                     .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
-                    .disabled(!viewModel.isModelLoaded || viewModel.sentences.isEmpty || viewModel.isLoading)
+                    .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
                     Button { viewModel.skipForward() } label: {
                         Image(systemName: "goforward.20").font(.system(size: 19)).frame(width: 32, height: 36)
                     }.help("Forward 20 seconds").accessibilityLabel("Forward 20 seconds")
@@ -85,6 +85,11 @@ struct DesktopPlayerView: View {
                 .labelsHidden().frame(width: 76)
                 .help("Playback speed")
                 Menu {
+                    if let id = viewModel.currentOfflineAudioID {
+                        OfflineAudioMenuActions(manager: viewModel.offlineAudio, id: id, canSave: viewModel.isModelLoaded,
+                                                canRemove: !viewModel.isPlaying && !viewModel.isPreparing,
+                                                save: viewModel.saveCurrentAudioOffline)
+                    }
                     Button("Restart from beginning", systemImage: "arrow.counterclockwise") { viewModel.restartFromBeginning() }
                 } label: { Image(systemName: "ellipsis") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 20)
