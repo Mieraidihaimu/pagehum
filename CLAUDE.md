@@ -60,10 +60,10 @@ To guarantee uninterrupted playback and prevent OS termination when backgrounded
 
 `PagehumShare` is a Share Extension target. When a user shares a URL from Safari, the extension:
 1. Writes the URL to `UserDefaults(suiteName: "group.com.test.mier.hello")` under key `"SharedURL"`
-2. Opens the app via the `pagehum://open?url=` deep link scheme
-3. The main app reads the shared URL in `checkForSharedURL()` / `loadPendingSharedURL()`
+2. Confirms the link was saved using extension-safe UI; the user opens Pagehum.
+3. The main app reads the shared URL on launch/foreground via `checkForSharedURL()` / `loadPendingSharedURL()`, deduplicates it, and only clears the handoff after a successful save. Failed links can be retried or discarded. Current and legacy deep links remain supported.
 
-The app group ID `group.com.test.mier.hello` must match in both targets' entitlements.
+The app group ID `group.com.test.mier.hello` must match in the app’s `Pagehum-iOS.entitlements` and the extension’s entitlements. `Pagehum.entitlements` is used for macOS. See `docs/IOS_RELEASE.md` for release verification.
 
 ### Persistence
 

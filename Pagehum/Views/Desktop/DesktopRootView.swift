@@ -24,6 +24,7 @@ struct DesktopRootView: View {
     @State private var page: Page = .home
     @State private var showStats = false
     @State private var showTechBlogSettings = false
+    @State private var showOfflineAudio = false
 
     init(viewModel: ReaderModel, navigateToReader: Binding<Bool>) {
         self.viewModel = viewModel
@@ -113,7 +114,7 @@ struct DesktopRootView: View {
     }
 
     private func navigationButton(_ destination: Page) -> some View {
-        Button { page = destination; showTechBlogSettings = false } label: {
+        Button { page = destination; showTechBlogSettings = false; showOfflineAudio = false } label: {
             HStack(spacing: 10) {
                 Image(systemName: destination.symbol).frame(width: 20)
                 Text(destination.rawValue)
@@ -133,12 +134,13 @@ struct DesktopRootView: View {
 
     private var header: some View {
         HStack {
-            if page == .settings && showTechBlogSettings {
-                Button { showTechBlogSettings = false } label: {
+            if page == .settings && (showTechBlogSettings || showOfflineAudio) {
+                Button { showTechBlogSettings = false; showOfflineAudio = false } label: {
                     Label("Settings", systemImage: "chevron.left")
                 }
                 .buttonStyle(.borderless)
-                Text("/ Hacker News").font(.system(size: 13)).foregroundStyle(DesktopStyle.secondary)
+                Text(showOfflineAudio ? "/ Offline Audio" : "/ Hacker News")
+                    .font(.system(size: 13)).foregroundStyle(DesktopStyle.secondary)
             } else {
                 Text(page.rawValue).font(.system(size: 13)).foregroundStyle(DesktopStyle.secondary)
             }
@@ -172,11 +174,14 @@ struct DesktopRootView: View {
                 actions: { Button("Add content") { page = .home }.buttonStyle(DesktopButtonStyle(primary: true)) }
             }
         case .settings:
-            if showTechBlogSettings {
+            if showOfflineAudio {
+                OfflineAudioListView(viewModel: viewModel, openPlayer: { page = .reader })
+            } else if showTechBlogSettings {
                 TechBlogImportSettingsView(viewModel: viewModel)
             } else {
                 DesktopSettingsView(viewModel: viewModel, openStats: { showStats = true },
-                                    openTechBlogSettings: openTechBlogSettings)
+                                    openTechBlogSettings: openTechBlogSettings,
+                                    openOfflineAudio: { showOfflineAudio = true })
             }
         }
     }

@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
 
     @ObservedObject var viewModel: ReaderModel
+    var openReader: (() -> Void)? = nil
     @State private var cacheSize = AudioCacheManager.formattedSize()
     @State private var cacheFileCount = AudioCacheManager.fileCount()
     @State private var showClearConfirmation = false
@@ -126,6 +127,11 @@ struct SettingsView: View {
             }
 
             Section {
+                NavigationLink {
+                    OfflineAudioListView(viewModel: viewModel, openPlayer: openReader)
+                } label: {
+                    OfflineAudioSettingsLabel()
+                }
                 LabeledContent("Cached Audio") {
                     Text(cacheSize)
                         .foregroundStyle(.secondary)

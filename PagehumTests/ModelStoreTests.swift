@@ -39,6 +39,37 @@ struct ModelStoreTests {
     }
 
     @Test
+    func repairsExistingCorruptAssetAndRemovesStagingFiles() async throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let assets = try sourceAssets(in: root)
+        let downloads = root.appending(path: "downloads")
+        try copy(assets, into: downloads)
+        let damaged = downloads.appending(path: assets[0].name)
+        try Data("bad".utf8).write(to: damaged)
+        let store = ModelStore(assets: assets, bundleDirectory: nil, downloadDirectory: downloads)
+        #expect(store.modelDirectory() == nil)
+        _ = try await store.download { _ in }
+        #expect(try ModelStore.sha256(of: damaged) == assets[0].sha256)
+        #expect(store.modelDirectory() == downloads)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: downloads.path).sorted() == assets.map(\.name).sorted())
+    }
+
+    @Test
+    func cancelledDownloadDoesNotInstallAnAsset() async throws {
+        let root = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let downloads = root.appending(path: "downloads")
+        let store = ModelStore(assets: try sourceAssets(in: root), bundleDirectory: nil, downloadDirectory: downloads)
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await store.download { _ in }
+        }
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(store.modelDirectory() == nil)
+    }
+
+    @Test
     func pinnedAssetsMatchTheSetupScript() throws {
         #expect(ModelStore.standardAssets.map(\.name) == ["kokoro-v1_0.safetensors", "voices.npz"])
         #expect(ModelStore.standardAssets.allSatisfy { $0.url.scheme == "https" && $0.sha256.count == 64 })

@@ -10,6 +10,12 @@ Useful areas for contribution include reader extraction, accessibility, playback
 
 ## Verification
 
+For the iPhone release, run `./scripts/verify-ios.sh`. It runs simulator tests and verifies an
+unsigned Release archive, using the pinned dependency lockfile. It needs Xcode 26.2+ with an
+installed iPhone simulator and Metal toolchain. It does not need downloaded voice models.
+See [the iPhone release runbook](docs/IOS_RELEASE.md) for artifacts, overrides, and device checks.
+
+
 Run the Mac tests (local ad-hoc signing omits development-only entitlements). The launch machine currently stalls before executing the app tests; see [release notes](docs/RELEASE_NOTES.md) for that limitation:
 
 ```sh
@@ -29,7 +35,7 @@ For an opt-in iPhone simulator run using real blog articles and audio playback, 
 
 For changes to resource lookup or packaging, move the full CLI directory to another location and verify synthesis there. Unit tests alone do not validate Metal resource loading.
 
-The previous CLI implementation recorded two playback-state failures: `transitionsFromPreparingThroughAudiblePausedAndFinished` and `allGenerationFailuresRemainIncompleteAndReportEverySentence`. See [CLI notes](docs/CLI.md) for the historical result; current launch verification is recorded in [release notes](docs/RELEASE_NOTES.md).
+The two historical playback-state failures, `transitionsFromPreparingThroughAudiblePausedAndFinished` and `allGenerationFailuresRemainIncompleteAndReportEverySentence`, pass in the October 2026 iPhone simulator run. See [iPhone release preparation](docs/IOS_RELEASE.md) for current coverage and remaining device gates; [CLI notes](docs/CLI.md) and the 0.1.0 release notes retain historical results.
 
 ## Compatibility
 

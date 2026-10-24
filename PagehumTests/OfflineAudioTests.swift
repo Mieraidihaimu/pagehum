@@ -143,6 +143,80 @@ struct OfflineAudioTests {
     }
 
     @Test
+    func offlineListGroupsVoicesIncludesPartialAndOrphanedSavesAndSortsByTitle() async throws {
+        let fixture = try await OfflineFixture()
+        defer { fixture.cleanup() }
+        let ready = try fixture.add("Alpha")
+        let partial = try fixture.add("Beta")
+        let removed = try fixture.add("Gamma")
+        fixture.model.saveAudioOffline([ready, removed])
+        try await fixture.wait { fixture.store.allRecords().count == 2 && fixture.store.allRecords().allSatisfy { $0.isReady } }
+        let request = fixture.model.offlineRequest(for: ready)
+        let otherVoice = OfflineAudioRequest(text: ready.fullText, title: "Older title", voice: "another-voice",
+                                            sentences: request.sentences, offsets: request.offsets, codeBlocks: request.codeBlocks)
+        _ = try fixture.store.register(otherVoice)
+        let partialRequest = fixture.model.offlineRequest(for: partial)
+        _ = try fixture.store.register(partialRequest)
+        _ = try fixture.store.save(OfflineTestEngine.audio(), id: partialRequest.id, index: 0)
+        fixture.store.pause(partialRequest.id)
+        fixture.container.mainContext.delete(removed)
+        try fixture.container.mainContext.save()
+
+        let entries = OfflineAudioLibrary.entries(records: fixture.store.allRecords(), items: [partial, ready], preferredVoice: otherVoice.voice)
+        #expect(entries.map(\.title) == ["Alpha", "Beta", "Gamma"])
+        #expect(entries[0].records.count == 2)
+        #expect(entries[0].displayRecord.request.id == request.id) // Prefer ready audio over an unfinished voice.
+        #expect(entries[0].canPlay)
+        #expect(!entries[1].isReady && !entries[1].canPlay)
+        #expect(entries[1].displayRecord.completed.count == 1)
+        #expect(entries[2].isReady && !entries[2].canPlay)
+        #expect(entries[2].item == nil)
+    }
+
+    @Test
+    func bulkOfflineSelectionPlaysReadyArticlesAndDeletesEverySelectedVoiceOnly() async throws {
+        let fixture = try await OfflineFixture()
+        defer { fixture.cleanup() }
+        let items = try ["Alpha", "Beta", "Keep"].map { try fixture.add($0) }
+        fixture.model.saveAudioOffline(items)
+        try await fixture.wait { fixture.store.allRecords().count == 3 && fixture.store.allRecords().allSatisfy { $0.isReady } }
+        let first = fixture.model.offlineRequest(for: items[0])
+        let otherVoice = OfflineAudioRequest(text: items[0].fullText, title: first.title, voice: "another-voice",
+                                            sentences: first.sentences, offsets: first.offsets, codeBlocks: first.codeBlocks)
+        _ = try fixture.store.register(otherVoice)
+        fixture.store.pause(otherVoice.id)
+        let reopened = OfflineAudioStore(directory: fixture.directory)
+        let entries = OfflineAudioLibrary.entries(records: reopened.allRecords(), items: items, preferredVoice: "unavailable-voice")
+        let selectedIDs = Set(entries.prefix(2).map(\.id))
+        let selected = entries.filter { selectedIDs.contains($0.id) }
+        let player = OfflineTestPlayer()
+        var inferenceCalls = 0
+        let model = ReaderModel(loadModelOnInit: false, schedulerPlayer: player, audioGenerator: { _, _ in
+            inferenceCalls += 1
+            return nil
+        }, fallbackSpeechEngine: nil, offlineStore: reopened, applicationIsActive: { false })
+        model.modelContext = fixture.container.mainContext
+        defer { model.listeningQueue.end(); model.stop() }
+        model.listeningQueue.enqueue(selected.filter(\.canPlay).compactMap(\.item))
+        for item in items.prefix(2) {
+            try await fixture.wait { model.currentPlaylistItemID == item.persistentModelID && model.isPlaying }
+            for _ in model.sentences.indices { player.completeNext() }
+        }
+        try await fixture.wait { !model.listeningQueue.isActive }
+        #expect(inferenceCalls == 0)
+        #expect(items[2].progressPercent == 0)
+
+        for entry in selected {
+            for record in entry.records { model.offlineAudio.remove(record.request.id) }
+        }
+        let remaining = OfflineAudioStore(directory: fixture.directory).allRecords()
+        #expect(remaining.count == 1)
+        #expect(remaining.first?.request.textID == entries.last?.id)
+        #expect(try fixture.container.mainContext.fetchCount(FetchDescriptor<PlaylistItem>()) == 3)
+        #expect(selected.flatMap(\.records).allSatisfy { model.offlineAudio.progress[$0.request.id] == nil })
+    }
+
+    @Test
     func unpreparedBackgroundArticlePausesAtItsPositionInsteadOfHanging() async throws {
         let fixture = try await OfflineFixture()
         defer { fixture.cleanup() }

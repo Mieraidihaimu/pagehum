@@ -10,14 +10,14 @@ struct PhoneRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationStack {
-                HomeView(viewModel: viewModel, usesTabNavigation: true)
+            browsingTab {
+                HomeView(viewModel: viewModel, usesTabNavigation: true, openReader: openReader)
             }
             .tabItem { Label("Add", systemImage: "plus.circle") }
             .tag(Tab.add)
 
-            NavigationStack {
-                PlaylistView(viewModel: viewModel, addContent: { selectedTab = .add })
+            browsingTab {
+                PlaylistView(viewModel: viewModel, addContent: { selectedTab = .add }, openReader: openReader)
             }
             .tabItem { Label("Library", systemImage: "books.vertical") }
             .tag(Tab.library)
@@ -42,8 +42,8 @@ struct PhoneRootView: View {
             .tabItem { Label("Listen", systemImage: viewModel.isPlaying ? "waveform" : "headphones") }
             .tag(Tab.listen)
 
-            NavigationStack {
-                SettingsView(viewModel: viewModel)
+            browsingTab {
+                SettingsView(viewModel: viewModel, openReader: openReader)
             }
             .tabItem { Label("Settings", systemImage: "gearshape") }
             .tag(Tab.settings)
@@ -54,6 +54,20 @@ struct PhoneRootView: View {
                 navigateToReader = false
             }
         }
+    }
+
+    private func browsingTab<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        // Reserve actual layout space so Library's selection actions and pushed
+        // settings screens stay above the player, including on older iOS versions.
+        VStack(spacing: 0) {
+            NavigationStack { content() }
+            PhoneMiniPlayer(viewModel: viewModel, openReader: openReader)
+        }
+        .background(Color.platformGroupedBackground)
+    }
+
+    private func openReader() {
+        selectedTab = .listen
     }
 }
 #endif

@@ -48,11 +48,16 @@ nonisolated struct ModelStore: Sendable {
     /// The first directory holding every asset. Downloads land there only after verification.
     func modelDirectory() -> URL? {
         [bundleDirectory, downloadDirectory].compactMap { $0 }.first { directory in
-            assets.allSatisfy { FileManager.default.fileExists(atPath: directory.appending(path: $0.name).path) }
+            assets.allSatisfy { asset in
+                let values = try? directory.appending(path: asset.name)
+                    .resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+                return values?.isRegularFile == true && Int64(values?.fileSize ?? -1) == asset.size
+            }
         }
     }
 
     /// Downloads missing assets, verifying each checksum before it becomes visible to `modelDirectory()`.
+    @concurrent
     func download(progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: downloadDirectory, withIntermediateDirectories: true)
@@ -64,18 +69,26 @@ nonisolated struct ModelStore: Sendable {
         let total = Double(max(downloadSize, 1))
         var completed: Int64 = 0
         for asset in assets {
+            try Task.checkCancellation()
             let destination = downloadDirectory.appending(path: asset.name)
-            if !fileManager.fileExists(atPath: destination.path) {
-                let partial = downloadDirectory.appending(path: asset.name + ".partial")
+            // A prior installation may have been truncated or corrupted. Never trust existence alone.
+            if (try? Self.sha256(of: destination)) != asset.sha256 {
+                let partial = downloadDirectory.appending(path: ".\(asset.name).\(UUID().uuidString).partial")
+                defer { try? fileManager.removeItem(at: partial) }
                 let base = completed
                 try await FileDownload(destination: partial) { written in
-                    progress(Double(base + written) / total)
+                    progress(min(1, max(0, Double(base + written) / total)))
                 }.run(from: asset.url)
+                try Task.checkCancellation()
                 guard try Self.sha256(of: partial) == asset.sha256 else {
-                    try? fileManager.removeItem(at: partial)
                     throw DownloadError.checksumMismatch(asset.name)
                 }
-                try fileManager.moveItem(at: partial, to: destination)
+                try Task.checkCancellation()
+                if fileManager.fileExists(atPath: destination.path) {
+                    _ = try fileManager.replaceItemAt(destination, withItemAt: partial)
+                } else {
+                    try fileManager.moveItem(at: partial, to: destination)
+                }
             }
             completed += asset.size
             progress(Double(completed) / total)
@@ -109,7 +122,11 @@ nonisolated private final class FileDownload: NSObject, URLSessionDownloadDelega
     }
 
     func run(from url: URL) async throws {
-        let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+        try Task.checkCancellation()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 60
+        configuration.timeoutIntervalForResource = 30 * 60
+        let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
         let task = session.downloadTask(with: url)
         defer { session.finishTasksAndInvalidate() }
         try await withTaskCancellationHandler {

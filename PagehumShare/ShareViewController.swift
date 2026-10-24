@@ -1,83 +1,76 @@
-// Modified for Pagehum: unified application and command-line naming.
+// Modified for Pagehum: save shared links using extension-safe APIs.
 import UIKit
 import UniformTypeIdentifiers
 
-class ShareViewController: UIViewController {
-
+final class ShareViewController: UIViewController {
     private let appGroupID = "group.com.test.mier.hello"
     private let sharedURLKey = "SharedURL"
+    private var didHandleContent = false
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        guard !didHandleContent else { return }
+        didHandleContent = true
         handleSharedContent()
     }
 
     private func handleSharedContent() {
-        guard let items = extensionContext?.inputItems as? [NSExtensionItem] else {
-            close()
+        let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? [])
+            .flatMap { $0.attachments ?? [] }
+        // Prefer the URL representation even when the host also supplies a text title.
+        if let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.url.identifier) }) {
+            provider.loadItem(forTypeIdentifier: UTType.url.identifier) { [weak self] data, error in
+                let value: String?
+                if let url = data as? URL {
+                    value = url.absoluteString
+                } else if let bytes = data as? Data {
+                    value = URL(dataRepresentation: bytes, relativeTo: nil)?.absoluteString
+                } else {
+                    value = data as? String
+                }
+                DispatchQueue.main.async {
+                    self?.save(value, error: error)
+                }
+            }
+        } else if let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) }) {
+            provider.loadItem(forTypeIdentifier: UTType.plainText.identifier) { [weak self] data, error in
+                DispatchQueue.main.async {
+                    self?.save(data as? String, error: error)
+                }
+            }
+        } else {
+            showResult(title: "No web link found", message: "Share an article URL from your browser to add it to Pagehum.")
+        }
+    }
+
+    private func save(_ value: String?, error: Error?) {
+        guard error == nil,
+              let text = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let url = URL(string: text),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+              let host = url.host, !host.isEmpty else {
+            showResult(title: "Couldn’t add link", message: "Share a complete http or https article URL and try again.")
             return
         }
-
-        for item in items {
-            guard let attachments = item.attachments else { continue }
-            for provider in attachments {
-                if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                    provider.loadItem(forTypeIdentifier: UTType.url.identifier) { [weak self] data, _ in
-                        DispatchQueue.main.async {
-                            if let url = data as? URL {
-                                self?.saveAndOpenApp(url: url.absoluteString)
-                            } else if let urlData = data as? Data, let url = URL(dataRepresentation: urlData, relativeTo: nil) {
-                                self?.saveAndOpenApp(url: url.absoluteString)
-                            } else {
-                                self?.close()
-                            }
-                        }
-                    }
-                    return
-                }
-
-                if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                    provider.loadItem(forTypeIdentifier: UTType.plainText.identifier) { [weak self] data, _ in
-                        DispatchQueue.main.async {
-                            if let text = data as? String, text.hasPrefix("http") {
-                                self?.saveAndOpenApp(url: text)
-                            } else {
-                                self?.close()
-                            }
-                        }
-                    }
-                    return
-                }
-            }
+        guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) != nil,
+              let defaults = UserDefaults(suiteName: appGroupID) else {
+            showResult(title: "Couldn’t save link", message: "Pagehum’s shared storage is unavailable. Open Pagehum and paste the link there.")
+            return
         }
-        close()
+        // Do not silently replace a link that the app has not imported yet.
+        if let pending = defaults.string(forKey: sharedURLKey), !pending.isEmpty, pending != url.absoluteString {
+            showResult(title: "A link is waiting", message: "Open Pagehum to import your previous link, then share this article again.")
+            return
+        }
+        defaults.set(url.absoluteString, forKey: sharedURLKey)
+        showResult(title: "Link saved", message: "Open Pagehum to import this article.")
     }
 
-    private func saveAndOpenApp(url: String) {
-        let defaults = UserDefaults(suiteName: appGroupID)
-        defaults?.set(url, forKey: sharedURLKey)
-        defaults?.synchronize()
-
-        let encoded = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? url
-        if let appURL = URL(string: "pagehum://open?url=\(encoded)") {
-            openURL(appURL)
-        }
-
-        close()
-    }
-
-    private func openURL(_ url: URL) {
-        var responder: UIResponder? = self
-        while let r = responder {
-            if r.responds(to: NSSelectorFromString("openURL:")) {
-                r.perform(NSSelectorFromString("openURL:"), with: url)
-                return
-            }
-            responder = r.next
-        }
-    }
-
-    private func close() {
-        extensionContext?.completeRequest(returningItems: nil)
+    private func showResult(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Done", style: .default) { [weak self] _ in
+            self?.extensionContext?.completeRequest(returningItems: nil)
+        })
+        present(alert, animated: true)
     }
 }

@@ -29,6 +29,11 @@ struct PhonePlaybackControls: View {
             playButton
             speedMenu
             progressControl
+            if queue.isActive {
+                PhoneQueueButton(count: queue.upcoming.count, needsAttention: queue.failure != nil) {
+                    showsQueue = true
+                }
+            }
             actionsMenu
         }
         .padding(.horizontal, 8)

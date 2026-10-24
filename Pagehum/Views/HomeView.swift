@@ -13,6 +13,7 @@ struct HomeView: View {
 
     @ObservedObject var viewModel: ReaderModel
     var usesTabNavigation = false
+    var openReader: (() -> Void)? = nil
     @State private var selectedTab: InputTab = .url
     @State private var urlString = ""
     @State private var pastedText = ""
@@ -75,7 +76,7 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let content = viewModel.content {
-                    Button { navigateToReader = true } label: {
+                    Button(action: showReader) {
                         VStack(alignment: .leading, spacing: 10) {
                             Label("Continue reading", systemImage: "book")
                                 .font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor)
@@ -372,6 +373,11 @@ struct HomeView: View {
 
     // MARK: - Actions
 
+    private func showReader() {
+        if let openReader { openReader() }
+        else { navigateToReader = true }
+    }
+
     private func importLinks(_ value: String, fromText: Bool) {
         isURLFieldFocused = false
         isTextFieldFocused = false
@@ -380,7 +386,7 @@ struct HomeView: View {
                 if fromText { pastedText = "" } else { urlString = "" }
                 if let item = result.singleItem,
                    viewModel.openLibraryItem(item, preservingQueue: viewModel.currentPlaylistItemID == item.persistentModelID) {
-                    navigateToReader = true
+                    showReader()
                 }
             }
         }
@@ -390,7 +396,7 @@ struct HomeView: View {
         isTextFieldFocused = false
         Task {
             await viewModel.loadText(pastedText)
-            if viewModel.errorMessage == nil, viewModel.content != nil { navigateToReader = true }
+            if viewModel.errorMessage == nil, viewModel.content != nil { showReader() }
         }
     }
 
@@ -404,7 +410,7 @@ struct HomeView: View {
             Task {
                 await viewModel.loadPDF(url)
                 url.stopAccessingSecurityScopedResource()
-                if viewModel.errorMessage == nil, viewModel.content != nil { navigateToReader = true }
+                if viewModel.errorMessage == nil, viewModel.content != nil { showReader() }
             }
         case .failure(let error):
             viewModel.errorMessage = error.localizedDescription

@@ -4,36 +4,16 @@ import SwiftData
 
 @main
 struct PagehumApp: App {
-    let model = ReaderModel()
-    let modelContainer: ModelContainer?
-    let startupWarning: String?
+    @StateObject private var model = ReaderModel()
+    @StateObject private var library = LibraryStore()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var navigateToReader = false
-
-    init() {
-        let schema = Schema([PlaylistItem.self, ListeningRecord.self])
-        do {
-            let container = try ModelContainer(for: schema)
-            modelContainer = container
-            startupWarning = nil
-            model.modelContext = container.mainContext
-            model.migrateLegacyPlaybackTextOffsets()
-        } catch {
-            do {
-                let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
-                let container = try ModelContainer(for: schema, configurations: configuration)
-                modelContainer = container
-                startupWarning = "The saved library could not be opened. Changes in this session will not be saved."
-                model.modelContext = container.mainContext
-            } catch {
-                modelContainer = nil
-                startupWarning = "The library could not be initialized: \(error.localizedDescription)"
-            }
-        }
-    }
+    @State private var importingSharedURL = false
+    @State private var sharedImportFailed = false
 
     var body: some Scene {
         WindowGroup {
-            if let modelContainer {
+            if let modelContainer = library.container {
                 Group {
                     #if os(macOS)
                     DesktopRootView(viewModel: model, navigateToReader: $navigateToReader)
@@ -42,37 +22,50 @@ struct PagehumApp: App {
                     #endif
                 }
                 .safeAreaInset(edge: .top) {
-                    if let startupWarning {
-                        Text(startupWarning)
-                            .font(.caption)
-                            .frame(maxWidth: .infinity)
-                            .padding(8)
-                            .background(.orange.opacity(0.18))
+                    if let message = model.librarySaveError {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(message)
+                            Button("Retry saving") { model.saveLibraryChanges() }
+                        }
+                        .font(.callout)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(.orange.opacity(0.18))
                     }
                 }
                 .onOpenURL { url in
                     model.handleOpenURL(url)
-                    Task {
-                        await model.loadPendingSharedURL()
-                        navigateToReader = model.errorMessage == nil && model.content != nil
-                    }
+                    importSharedURL()
+                }
+                .alert("Couldn’t import shared link", isPresented: $sharedImportFailed) {
+                    Button("Retry") { importSharedURL() }
+                    Button("Discard link", role: .destructive) { model.discardPendingSharedURL() }
+                    Button("OK", role: .cancel) { }
+                } message: {
+                    Text(model.errorMessage ?? "Please try again.")
                 }
                 .onAppear {
-                    model.checkForSharedURL()
-                    if model.pendingSharedURL != nil {
-                        Task {
-                            await model.loadPendingSharedURL()
-                            navigateToReader = model.errorMessage == nil && model.content != nil
-                        }
+                    model.modelContext = modelContainer.mainContext
+                    model.migrateLegacyPlaybackTextOffsets()
+                    importSharedURL()
+                }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active {
+                        importSharedURL()
+                    } else {
+                        model.saveProgressNow()
                     }
                 }
                 .modelContainer(modelContainer)
             } else {
-                ContentUnavailableView(
-                    "Library Unavailable",
-                    systemImage: "externaldrive.badge.exclamationmark",
-                    description: Text(startupWarning ?? "The library could not be initialized.")
-                )
+                ContentUnavailableView {
+                    Label("Library Unavailable", systemImage: "externaldrive.badge.exclamationmark")
+                } description: {
+                    Text(library.errorMessage ?? "The library could not be initialized.")
+                } actions: {
+                    Button("Try again") { library.retry() }
+                        .buttonStyle(.borderedProminent)
+                }
             }
         }
         #if os(macOS)
@@ -117,5 +110,18 @@ struct PagehumApp: App {
             }
         }
         #endif
+    }
+
+    private func importSharedURL() {
+        guard !importingSharedURL, !model.isLoading, model.modelContext != nil else { return }
+        if model.pendingSharedURL == nil { model.checkForSharedURL() }
+        guard model.pendingSharedURL != nil else { return }
+        importingSharedURL = true
+        Task {
+            await model.loadPendingSharedURL()
+            navigateToReader = model.errorMessage == nil && model.content != nil
+            sharedImportFailed = model.errorMessage != nil
+            importingSharedURL = false
+        }
     }
 }

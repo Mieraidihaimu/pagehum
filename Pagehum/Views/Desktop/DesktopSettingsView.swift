@@ -6,6 +6,7 @@ struct DesktopSettingsView: View {
     @ObservedObject var viewModel: ReaderModel
     var openStats: () -> Void
     var openTechBlogSettings: () -> Void
+    var openOfflineAudio: () -> Void
     @State private var cacheSize = AudioCacheManager.formattedSize()
     @State private var cacheCount = AudioCacheManager.fileCount()
     @State private var clearConfirmation = false
@@ -66,6 +67,17 @@ struct DesktopSettingsView: View {
                 .padding(20).frame(maxWidth: .infinity, alignment: .leading)
                 .background(DesktopStyle.panel, in: RoundedRectangle(cornerRadius: 10))
             sectionTitle("Storage")
+            row {
+                Button(action: openOfflineAudio) {
+                    HStack {
+                        OfflineAudioSettingsLabel()
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(DesktopStyle.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
             row {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Cached audio")

@@ -1,0 +1,32 @@
+name: iPhone release checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+      PAGEHUM_VERIFY_OUTPUT: ${{ github.workspace }}/.build/verification-results
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Metal compiler
+        run: xcodebuild -downloadComponent MetalToolchain
+      - name: Test and archive for iPhone
+        run: ./scripts/verify-ios.sh
+      - name: Preserve test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-test-results
+          path: .build/verification-results/Tests.xcresult
+          if-no-files-found: warn
+          retention-days: 14

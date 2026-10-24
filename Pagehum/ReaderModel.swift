@@ -113,6 +113,7 @@ final class ReaderModel: ObservableObject {
     @Published private(set) var playbackFailureCount = 0
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published private(set) var librarySaveError: String?
     @Published var content: ReadingContent?
     @Published var savedConfirmation = false
     @Published private(set) var importProgress: String?
@@ -127,7 +128,7 @@ final class ReaderModel: ObservableObject {
     @Published var currentPlaylistItemID: PersistentIdentifier?
     lazy var listeningQueue = ListeningQueue(model: self)
     private let offlineStore: OfflineAudioStore
-    private let applicationIsActive: () -> Bool
+    private let applicationIsActive: @MainActor () -> Bool
     private var currentTextID = ""
     @Published private(set) var currentOfflineAudioID: String?
     private var activeOfflineAudioID: String?
@@ -253,7 +254,7 @@ final class ReaderModel: ObservableObject {
         fallbackSpeechEngine: (@MainActor () -> any SpeechEngine)? = { SystemSpeechEngine() },
         modelStore: ModelStore = .standard,
         offlineStore: OfflineAudioStore = .standard,
-        applicationIsActive: @escaping () -> Bool = {
+        applicationIsActive: @escaping @MainActor () -> Bool = {
             #if os(iOS)
             UIApplication.shared.applicationState == .active
             #else
@@ -395,32 +396,54 @@ final class ReaderModel: ObservableObject {
 
     // MARK: - Shared URL from Extension
 
-    private let appGroupID = "group.com.test.mier.hello"
     private let sharedURLKey = "SharedURL"
     @Published var pendingSharedURL: String?
 
-    func checkForSharedURL() {
-        let defaults = UserDefaults(suiteName: appGroupID)
+    func checkForSharedURL(from defaults: UserDefaults? = UserDefaults(suiteName: "group.com.test.mier.hello")) {
         if let url = defaults?.string(forKey: sharedURLKey), !url.isEmpty {
-            defaults?.removeObject(forKey: sharedURLKey)
-            defaults?.synchronize()
             pendingSharedURL = url
         }
+    }
+
+    func discardPendingSharedURL(from defaults: UserDefaults? = UserDefaults(suiteName: "group.com.test.mier.hello")) {
+        if let pendingSharedURL, defaults?.string(forKey: sharedURLKey) == pendingSharedURL {
+            defaults?.removeObject(forKey: sharedURLKey)
+        }
+        pendingSharedURL = nil
     }
 
     func handleOpenURL(_ url: URL) {
         guard ["pagehum", "speechly"].contains(url.scheme ?? ""), url.host == "open",
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let urlParam = components.queryItems?.first(where: { $0.name == "url" })?.value else {
+              let urlParam = components.queryItems?.first(where: { $0.name == "url" })?.value,
+              let target = URL(string: urlParam),
+              ["http", "https"].contains(target.scheme?.lowercased() ?? ""),
+              let host = target.host, !host.isEmpty else {
             return
         }
         pendingSharedURL = urlParam
     }
 
-    func loadPendingSharedURL() async {
-        guard let url = pendingSharedURL else { return }
-        pendingSharedURL = nil
-        await loadURL(url)
+    func loadPendingSharedURL(from defaults: UserDefaults? = UserDefaults(suiteName: "group.com.test.mier.hello")) async {
+        guard !isLoading, let value = pendingSharedURL else { return }
+        errorMessage = nil
+        guard let url = URL(string: value),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+              let host = url.host, !host.isEmpty else {
+            errorMessage = "The shared link is not a valid web URL."
+            return
+        }
+        // Import exactly one URL (including commas and query parameters), deduplicate saved
+        // articles, and acknowledge the handoff only after a successful library save.
+        guard let result = await performURLImport([url]), let item = result.singleItem else {
+            errorMessage = errorMessage ?? importResult?.failures.first?.message ?? "The shared article could not be imported. Try again."
+            return
+        }
+        if defaults?.string(forKey: sharedURLKey) == value {
+            defaults?.removeObject(forKey: sharedURLKey)
+        }
+        if pendingSharedURL == value { pendingSharedURL = nil }
+        openLibraryItem(item)
     }
 
     // MARK: - Content Loading
@@ -795,8 +818,22 @@ final class ReaderModel: ObservableObject {
         }
         let item = PlaylistItem(title: content.title, sourceURL: sourceURL, sourceType: sourceType, fullText: content.body)
         ctx.insert(item)
-        try? ctx.save()
+        saveLibraryChanges(in: ctx)
         currentPlaylistItemID = item.persistentModelID
+    }
+
+    /// Keep pending context changes for retry, and make durability failures visible in every tab.
+    @discardableResult
+    func saveLibraryChanges(in context: ModelContext? = nil) -> Bool {
+        guard let context = context ?? modelContext else { return false }
+        do {
+            try context.save()
+            librarySaveError = nil
+            return true
+        } catch {
+            librarySaveError = "Your latest library changes could not be saved. Keep Pagehum open, free up storage if needed, and retry."
+            return false
+        }
     }
 
     func saveProgressNow() {
@@ -813,7 +850,7 @@ final class ReaderModel: ObservableObject {
         } else {
             item.status = PlaylistItem.Status.inProgress.rawValue
         }
-        try? ctx.save()
+        saveLibraryChanges(in: ctx)
         updateNowPlayingInfo()
     }
 
@@ -826,7 +863,7 @@ final class ReaderModel: ObservableObject {
             items: items,
             splitProse: Self.splitIntoSentences
         ) {
-            try? modelContext.save()
+            saveLibraryChanges(in: modelContext)
         }
     }
 
@@ -868,13 +905,18 @@ final class ReaderModel: ObservableObject {
         let descriptor = FetchDescriptor<ListeningRecord>(
             predicate: #Predicate { $0.dateString == today }
         )
-        if let existing = try? ctx.fetch(descriptor).first {
-            existing.secondsListened += listeningAccumulator
-        } else {
-            ctx.insert(ListeningRecord(date: Date(), secondsListened: listeningAccumulator))
+        do {
+            if let existing = try ctx.fetch(descriptor).first {
+                existing.secondsListened += listeningAccumulator
+            } else {
+                ctx.insert(ListeningRecord(date: Date(), secondsListened: listeningAccumulator))
+            }
+            // The context retains these changes if saving fails. Do not count them twice on retry.
+            listeningAccumulator = 0
+            saveLibraryChanges(in: ctx)
+        } catch {
+            librarySaveError = "Listening time could not be saved. Keep Pagehum open and try again."
         }
-        try? ctx.save()
-        listeningAccumulator = 0
     }
 
     private func startListeningSaveTimer() {
@@ -1203,17 +1245,18 @@ final class ReaderModel: ObservableObject {
             object: AVAudioSession.sharedInstance(),
             queue: .main
         ) { [weak self] notification in
+            let typeRaw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            let optionsRaw = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                guard let info = notification.userInfo,
-                      let typeRaw = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+                guard let typeRaw,
                       let type = AVAudioSession.InterruptionType(rawValue: typeRaw) else { return }
 
                 switch type {
                 case .began:
                     if self.isPlaying { self.pause() }
                 case .ended:
-                    guard let optionsRaw = info[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
+                    guard let optionsRaw else { return }
                     let options = AVAudioSession.InterruptionOptions(rawValue: optionsRaw)
                     if options.contains(.shouldResume) { self.play() }
                 @unknown default:
@@ -1227,10 +1270,10 @@ final class ReaderModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
+            let reasonRaw = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
             Task { @MainActor [weak self] in
                 guard let self,
-                      let info = notification.userInfo,
-                      let reasonRaw = info[AVAudioSessionRouteChangeReasonKey] as? UInt,
+                      let reasonRaw,
                       let reason = AVAudioSession.RouteChangeReason(rawValue: reasonRaw) else { return }
 
                 if reason == .oldDeviceUnavailable && self.isPlaying {

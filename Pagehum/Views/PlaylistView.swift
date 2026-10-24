@@ -15,10 +15,12 @@ struct PlaylistView: View {
     @State private var selection: Set<PersistentIdentifier> = []
     @State private var confirmingRemoval = false
     private let addContent: (() -> Void)?
+    private let openReader: (() -> Void)?
 
-    init(viewModel: ReaderModel, addContent: (() -> Void)? = nil) {
+    init(viewModel: ReaderModel, addContent: (() -> Void)? = nil, openReader: (() -> Void)? = nil) {
         self.viewModel = viewModel
         self.addContent = addContent
+        self.openReader = openReader
         queue = viewModel.listeningQueue
     }
 
@@ -99,7 +101,7 @@ struct PlaylistView: View {
                     } else if !completedItems.isEmpty {
                         Section {
                             NavigationLink {
-                                CompletedArticlesView(viewModel: viewModel, initialSearchText: searchText)
+                                CompletedArticlesView(viewModel: viewModel, initialSearchText: searchText, openReader: openReader)
                             } label: {
                                 CompletedSummaryRow(
                                     completedCount: completedItems.count,
@@ -161,6 +163,7 @@ struct PlaylistView: View {
                         ) {
                             Button("Remove", role: .destructive) {
                                 for item in removableItems { modelContext.delete(item) }
+                                viewModel.saveLibraryChanges(in: modelContext)
                                 selection = []
                                 selecting = false
                             }
@@ -175,7 +178,7 @@ struct PlaylistView: View {
                             selection = []
                             selecting = false
                             // A new queue opens its first article; show it with the player.
-                            if !appending { selectedItem = queueableItems.first }
+                            if !appending, let first = queueableItems.first { showReader(for: first) }
                         } label: {
                             Text(playTitle).frame(maxWidth: .infinity)
                         }
@@ -260,7 +263,7 @@ struct PlaylistView: View {
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button {
                 item.isFavorite.toggle()
-                try? modelContext.save()
+                viewModel.saveLibraryChanges(in: modelContext)
             } label: {
                 Label(item.isFavorite ? "Unstar" : "Star", systemImage: item.isFavorite ? "star.slash" : "star.fill")
             }
@@ -287,7 +290,7 @@ struct PlaylistView: View {
 
             Button {
                 item.isFavorite.toggle()
-                try? modelContext.save()
+                viewModel.saveLibraryChanges(in: modelContext)
             } label: {
                 Label(item.isFavorite ? "Remove from Starred" : "Star Article", systemImage: item.isFavorite ? "star.slash" : "star")
             }
@@ -299,7 +302,8 @@ struct PlaylistView: View {
                     item.status = PlaylistItem.Status.inProgress.rawValue
                     item.progressPercent = 0
                     item.lastSentenceIndex = 0
-                    try? modelContext.save()
+                    item.playbackTextOffset = 0
+                    viewModel.saveLibraryChanges(in: modelContext)
                 } label: {
                     Label("Mark as Unread", systemImage: "arrow.counterclockwise")
                 }
@@ -307,7 +311,8 @@ struct PlaylistView: View {
                 Button {
                     item.status = PlaylistItem.Status.completed.rawValue
                     item.progressPercent = 1.0
-                    try? modelContext.save()
+                    item.playbackTextOffset = item.fullText.utf16.count
+                    viewModel.saveLibraryChanges(in: modelContext)
                 } label: {
                     Label("Mark as Completed", systemImage: "checkmark.circle")
                 }
@@ -324,6 +329,7 @@ struct PlaylistView: View {
             Button(role: .destructive) {
                 if item.persistentModelID != viewModel.currentPlaylistItemID {
                     modelContext.delete(item)
+                    viewModel.saveLibraryChanges(in: modelContext)
                 }
             } label: {
                 Label("Delete Article", systemImage: "trash")
@@ -339,11 +345,17 @@ struct PlaylistView: View {
                 modelContext.delete(item)
             }
         }
+        viewModel.saveLibraryChanges(in: modelContext)
     }
 
     private func open(_ item: PlaylistItem) {
         viewModel.openLibraryItem(item, preservingQueue: viewModel.currentPlaylistItemID == item.persistentModelID)
-        selectedItem = item
+        showReader(for: item)
+    }
+
+    private func showReader(for item: PlaylistItem) {
+        if let openReader { openReader() }
+        else { selectedItem = item }
     }
 }
 
@@ -405,9 +417,11 @@ struct CompletedArticlesView: View {
     @State private var favoritesOnly = false
     @State private var selectedItem: PlaylistItem?
     @State private var confirmingClearAll = false
+    private let openReader: (() -> Void)?
 
-    init(viewModel: ReaderModel, initialSearchText: String = "") {
+    init(viewModel: ReaderModel, initialSearchText: String = "", openReader: (() -> Void)? = nil) {
         self.viewModel = viewModel
+        self.openReader = openReader
         _searchText = State(initialValue: initialSearchText)
     }
 
@@ -476,6 +490,7 @@ struct CompletedArticlesView: View {
                                     modelContext.delete(item)
                                 }
                             }
+                            viewModel.saveLibraryChanges(in: modelContext)
                         }
                         Button("Cancel", role: .cancel) {}
                     } message: {
@@ -500,8 +515,7 @@ struct CompletedArticlesView: View {
     private func completedRow(_ item: PlaylistItem) -> some View {
         HStack(alignment: .center, spacing: 4) {
             Button {
-                viewModel.openLibraryItem(item, preservingQueue: false)
-                selectedItem = item
+                open(item)
             } label: {
                 PlaylistRowView(
                     item: item,
@@ -517,7 +531,7 @@ struct CompletedArticlesView: View {
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button {
                 item.isFavorite.toggle()
-                try? modelContext.save()
+                viewModel.saveLibraryChanges(in: modelContext)
             } label: {
                 Label(item.isFavorite ? "Unstar" : "Star", systemImage: item.isFavorite ? "star.slash" : "star.fill")
             }
@@ -525,8 +539,7 @@ struct CompletedArticlesView: View {
         }
         .contextMenu {
             Button {
-                viewModel.openLibraryItem(item, preservingQueue: false)
-                selectedItem = item
+                open(item)
             } label: {
                 Label("Listen Again", systemImage: "play.fill")
             }
@@ -535,14 +548,15 @@ struct CompletedArticlesView: View {
                 item.status = PlaylistItem.Status.inProgress.rawValue
                 item.progressPercent = 0
                 item.lastSentenceIndex = 0
-                try? modelContext.save()
+                item.playbackTextOffset = 0
+                viewModel.saveLibraryChanges(in: modelContext)
             } label: {
                 Label("Mark as Unread", systemImage: "arrow.counterclockwise")
             }
 
             Button {
                 item.isFavorite.toggle()
-                try? modelContext.save()
+                viewModel.saveLibraryChanges(in: modelContext)
             } label: {
                 Label(item.isFavorite ? "Remove from Starred" : "Star Article", systemImage: item.isFavorite ? "star.slash" : "star")
             }
@@ -558,12 +572,19 @@ struct CompletedArticlesView: View {
             Button(role: .destructive) {
                 if item.persistentModelID != viewModel.currentPlaylistItemID {
                     modelContext.delete(item)
+                    viewModel.saveLibraryChanges(in: modelContext)
                 }
             } label: {
                 Label("Delete Article", systemImage: "trash")
             }
             .disabled(item.persistentModelID == viewModel.currentPlaylistItemID)
         }
+    }
+
+    private func open(_ item: PlaylistItem) {
+        viewModel.openLibraryItem(item, preservingQueue: viewModel.currentPlaylistItemID == item.persistentModelID)
+        if let openReader { openReader() }
+        else { selectedItem = item }
     }
 
     private func deleteCompletedItems(at offsets: IndexSet) {
@@ -573,6 +594,7 @@ struct CompletedArticlesView: View {
                 modelContext.delete(item)
             }
         }
+        viewModel.saveLibraryChanges(in: modelContext)
     }
 }
 

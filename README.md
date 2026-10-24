@@ -39,7 +39,7 @@ After extracting the CLI archive, open its `pagehum` directory in Terminal and r
 | --- | --- |
 | macOS app and CLI | Apple Silicon, macOS 15.6+, Xcode 26.1+ with the Metal toolchain |
 | iOS app | Physical device with MLX support; app target is iOS 18.6+ |
-| Bundled iOS share extension | Currently targets iOS 26.1; use iOS 26.1+ for the full app and extension build |
+| Bundled iOS share extension | iOS 18.6+, matching the app |
 
 MLX speech generation does not run in the iOS Simulator; there the app falls back to Apple's built-in voices.
 
@@ -58,6 +58,21 @@ open Pagehum.xcodeproj
 ```
 
 Select **Pagehum-macOS** or **Pagehum-iOS**. For device builds, choose your development team and configure your own app identifiers and shared app group in both the app and extension. The checked-in identifiers are retained for compatibility with existing development installations; the project does not include signing credentials.
+
+### Verify the iPhone release
+
+```sh
+./scripts/verify-ios.sh
+```
+
+This runs the iPhone simulator regression suite, builds an unsigned device Release archive,
+and checks its packaging. Debug voice weights are excluded for this test run, so no model
+asset download is needed. Install an iPhone simulator runtime and the Metal toolchain in Xcode.
+The same checks run in GitHub Actions. See [iPhone release preparation](docs/IOS_RELEASE.md)
+for physical-device checks and TestFlight signing.
+
+Sharing a web link saves it for import when you next open Pagehum. The extension confirms
+that it saved the link; it does not launch the app. Failed imports keep the link available for retry.
 
 ### Use the command line
 

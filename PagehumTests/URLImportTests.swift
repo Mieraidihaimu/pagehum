@@ -7,6 +7,67 @@ import Testing
 @MainActor
 struct URLImportTests {
     @Test
+    func sharedLinkIsRetainedOnFailureAndAcknowledgedAfterDurableImport() async throws {
+        let suite = "SharedImportTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let container = try ModelContainer(for: PlaylistItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let extractor = ImportTestExtractor()
+        let model = ReaderModel(loadModelOnInit: false, contentExtractor: extractor)
+        model.modelContext = container.mainContext
+        let link = "https://example.com/broken?first=1&second=two,three#section"
+        defaults.set(link, forKey: "SharedURL")
+        model.checkForSharedURL(from: defaults)
+        await model.loadPendingSharedURL(from: defaults)
+        #expect(model.errorMessage != nil)
+        #expect(defaults.string(forKey: "SharedURL") == link)
+        #expect(model.pendingSharedURL == link)
+        #expect(try container.mainContext.fetchCount(FetchDescriptor<PlaylistItem>()) == 0)
+
+        extractor.shouldFail = false
+        await model.loadPendingSharedURL(from: defaults)
+        #expect(model.errorMessage == nil)
+        #expect(defaults.string(forKey: "SharedURL") == nil)
+        #expect(model.pendingSharedURL == nil)
+        #expect(model.content?.source.webURL?.absoluteString == link)
+        #expect(try container.mainContext.fetchCount(FetchDescriptor<PlaylistItem>()) == 1)
+
+        defaults.set(link, forKey: "SharedURL")
+        model.checkForSharedURL(from: defaults)
+        await model.loadPendingSharedURL(from: defaults)
+        #expect(try container.mainContext.fetchCount(FetchDescriptor<PlaylistItem>()) == 1)
+        #expect(defaults.string(forKey: "SharedURL") == nil)
+    }
+
+    @Test(arguments: ["file:///etc/passwd", "javascript:alert(1)", "ftp://example.com/file", "https://"])
+    func rejectsNonWebDeepLinkTargets(target: String) {
+        let model = ReaderModel(loadModelOnInit: false)
+        var link = URLComponents()
+        link.scheme = "pagehum"
+        link.host = "open"
+        link.queryItems = [URLQueryItem(name: "url", value: target)]
+        model.handleOpenURL(link.url!)
+        #expect(model.pendingSharedURL == nil)
+    }
+
+    @Test
+    func discardingFailedShareDoesNotDeleteANewerHandoff() throws {
+        let suite = "SharedDiscardTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = ReaderModel(loadModelOnInit: false)
+        defaults.set("https://example.com/first", forKey: "SharedURL")
+        model.checkForSharedURL(from: defaults)
+        defaults.set("https://example.com/second", forKey: "SharedURL")
+        model.discardPendingSharedURL(from: defaults)
+        #expect(model.pendingSharedURL == nil)
+        #expect(defaults.string(forKey: "SharedURL") == "https://example.com/second")
+        model.checkForSharedURL(from: defaults)
+        model.discardPendingSharedURL(from: defaults)
+        #expect(defaults.string(forKey: "SharedURL") == nil)
+    }
+
+    @Test
     func detectsMixedSeparatorsAndLinksInProse() {
         let links = URLImportParser.urls(in: "Read [this](https://example.com/a),https://example.org/b\nwww.apple.com\texample.net/c and https://example.com/end.")
         #expect(links.map(\.absoluteString) == [

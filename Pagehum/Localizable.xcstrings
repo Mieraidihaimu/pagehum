@@ -166,6 +166,12 @@
     "^[%lld article](inflect: true)" : {
 
     },
+    "^[%lld article](inflect: true) up next" : {
+
+    },
+    "^[%lld saved voice](inflect: true)" : {
+
+    },
     "^[%lld story](inflect: true)" : {
 
     },
@@ -264,6 +270,9 @@
     "All" : {
 
     },
+    "All saved voices for these articles will be deleted. The articles stay in your library." : {
+
+    },
     "Already in your library" : {
 
     },
@@ -274,6 +283,9 @@
 
     },
     "Article links" : {
+
+    },
+    "Article no longer in your library" : {
 
     },
     "Article options" : {
@@ -324,6 +336,9 @@
           }
         }
       }
+    },
+    "Audio in use is kept until you finish listening or remove it from the queue." : {
+
     },
     "Back 20 seconds" : {
 
@@ -485,6 +500,9 @@
     "Couldn’t clear cache" : {
 
     },
+    "Couldn’t import shared link" : {
+
+    },
     "Couldn’t load preview" : {
 
     },
@@ -506,6 +524,9 @@
     "days" : {
 
     },
+    "Delete %lld" : {
+
+    },
     "Delete All Audio Files" : {
       "localizations" : {
         "zh-Hans" : {
@@ -517,6 +538,18 @@
       }
     },
     "Delete Article" : {
+
+    },
+    "Delete offline audio" : {
+
+    },
+    "Delete offline audio for ^[%lld article](inflect: true)?" : {
+
+    },
+    "Deselect all" : {
+
+    },
+    "Discard link" : {
 
     },
     "Done" : {
@@ -577,6 +610,9 @@
       }
     },
     "Filters" : {
+
+    },
+    "Finished" : {
 
     },
     "Forward 20 seconds" : {
@@ -645,6 +681,9 @@
 
     },
     "Importing…" : {
+
+    },
+    "In listening queue" : {
 
     },
     "In progress" : {
@@ -728,6 +767,9 @@
 
     },
     "Listening progress" : {
+
+    },
+    "Listening queue" : {
 
     },
     "Listening stats" : {
@@ -834,6 +876,9 @@
     "No matching stories" : {
 
     },
+    "No offline audio" : {
+
+    },
     "No readable text could be extracted from this page." : {
       "localizations" : {
         "zh-Hans" : {
@@ -865,6 +910,9 @@
     "Off" : {
 
     },
+    "Offline Audio" : {
+
+    },
     "OK" : {
       "localizations" : {
         "zh-Hans" : {
@@ -894,6 +942,12 @@
 
     },
     "Open library" : {
+
+    },
+    "Open Listen: %@" : {
+
+    },
+    "Open Pagehum to prepare audio" : {
 
     },
     "Open selected article" : {
@@ -966,6 +1020,12 @@
     "Play / Pause" : {
 
     },
+    "Play %@" : {
+
+    },
+    "Play %lld" : {
+
+    },
     "Play ^[%lld article](inflect: true)" : {
 
     },
@@ -982,7 +1042,13 @@
     "Playback actions" : {
 
     },
+    "Playback needs attention. Open listening queue." : {
+
+    },
     "Playback options" : {
+
+    },
+    "Playback requires a completed save and its article in your library." : {
 
     },
     "Playback speed" : {
@@ -1018,6 +1084,9 @@
 
     },
     "Preparing" : {
+
+    },
+    "Preparing audio…" : {
 
     },
     "Preview %@" : {
@@ -1092,6 +1161,9 @@
         }
       }
     },
+    "Ready to listen" : {
+
+    },
     "Refresh" : {
 
     },
@@ -1128,6 +1200,9 @@
     "Remove selected articles" : {
 
     },
+    "Reorder or remove upcoming articles" : {
+
+    },
     "Restart from beginning" : {
 
     },
@@ -1146,10 +1221,16 @@
     "Retry failed links" : {
 
     },
+    "Retry saving" : {
+
+    },
     "Save a link or open a document to start your library." : {
 
     },
     "Save an article, skim it, or listen at your pace." : {
+
+    },
+    "Save audio from your library or player to listen offline." : {
 
     },
     "Save audio offline" : {
@@ -1236,6 +1317,9 @@
     "Select article" : {
 
     },
+    "Select saved articles to listen or free up storage." : {
+
+    },
     "Selected" : {
 
     },
@@ -1287,6 +1371,9 @@
 
     },
     "Smaller text" : {
+
+    },
+    "Some audio couldn’t be deleted" : {
 
     },
     "Sometimes all an idea needs is a little room to breathe." : {
@@ -1385,6 +1472,9 @@
           }
         }
       }
+    },
+    "The remaining saves are still selected. Try deleting them again." : {
+
     },
     "This is the last article. Playback stops when it finishes." : {
 
