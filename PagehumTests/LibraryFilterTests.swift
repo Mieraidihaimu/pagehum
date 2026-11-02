@@ -139,7 +139,7 @@ struct LibraryFilterTests {
     }
 
     @Test
-    func librarySectionsPartitionInProgressFirstThenUnreadThenCompleted() {
+    func librarySectionsPartitionUnreadFirstThenInProgressThenCompleted() {
         let inProgress = PlaylistItem(title: "Reading Now", sourceType: "url", fullText: "Text", status: "inProgress")
         inProgress.progressPercent = 0.4
 
@@ -169,8 +169,8 @@ struct LibraryFilterTests {
         #expect(unreadItems.map(\.title) == ["Queued Article"])
         #expect(completedItems.map(\.title) == ["Done Article", "100% Article"])
 
-        let displayOrder = inProgressItems + unreadItems
-        #expect(displayOrder.map(\.title) == ["Reading Now", "Queued Article"])
+        let displayOrder = unreadItems + inProgressItems + completedItems
+        #expect(displayOrder.map(\.title) == ["Queued Article", "Reading Now", "Done Article", "100% Article"])
     }
 }
 

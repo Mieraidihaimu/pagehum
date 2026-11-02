@@ -11,6 +11,9 @@ struct PlaylistView: View {
     @State private var selectedItem: PlaylistItem?
     @State private var searchText = ""
     @State private var favoritesOnly = false
+    @State private var unreadExpanded = true
+    @State private var inProgressExpanded = true
+    @State private var completedExpanded = true
     @State private var selecting = false
     @State private var selection: Set<PersistentIdentifier> = []
     @State private var confirmingRemoval = false
@@ -36,7 +39,7 @@ struct PlaylistView: View {
             !completedItems.contains(where: { $0.persistentModelID == item.persistentModelID }) &&
             !inProgressItems.contains(where: { $0.persistentModelID == item.persistentModelID })
         }
-        let displayOrder = inProgressItems + unreadItems + (selecting ? completedItems : [])
+        let displayOrder = unreadItems + inProgressItems + (selecting ? completedItems : [])
         let selectedItems = displayOrder.filter { selection.contains($0.persistentModelID) }
         let queueableItems = selectedItems.filter { !queue.contains($0.persistentModelID) }
         // The current article stays: its next progress save would touch a deleted model.
@@ -67,51 +70,45 @@ struct PlaylistView: View {
                 }
             } else {
                 List {
-                    // 1. In Progress first
-                    if !inProgressItems.isEmpty {
-                        Section {
-                            ForEach(inProgressItems) { item in
-                                libraryRow(item)
-                                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                            }
-                            .onDelete { offsets in deleteItems(from: inProgressItems, at: offsets) }
-                        } header: {
-                            Label("In Progress", systemImage: "play.circle")
-                        }
-                    }
-
-                    // 2. Unread second
                     if !unreadItems.isEmpty {
-                        Section {
+                        librarySection("Unread", systemImage: "tray", count: unreadItems.count,
+                                       isExpanded: $unreadExpanded) {
                             ForEach(unreadItems) { item in
                                 libraryRow(item)
                                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             }
                             .onDelete { offsets in deleteItems(from: unreadItems, at: offsets) }
-                        } header: {
-                            Label("Unread", systemImage: "tray")
                         }
                     }
 
-                    // 3. Completed in a summary row which can be clicked to see the list of completed
-                    if !completedItems.isEmpty && selecting {
-                        Section("Completed") {
-                            ForEach(completedItems) { item in libraryRow(item) }
-                        }
-                    } else if !completedItems.isEmpty {
-                        Section {
-                            NavigationLink {
-                                CompletedArticlesView(viewModel: viewModel, initialSearchText: searchText, openReader: openReader)
-                            } label: {
-                                CompletedSummaryRow(
-                                    completedCount: completedItems.count,
-                                    totalCompletedCount: allItems.filter { $0.status == PlaylistItem.Status.completed.rawValue || $0.progressPercent >= 1 }.count,
-                                    isFiltered: !searchText.isEmpty || favoritesOnly
-                                )
+                    if !inProgressItems.isEmpty {
+                        librarySection("In Progress", systemImage: "play.circle", count: inProgressItems.count,
+                                       isExpanded: $inProgressExpanded) {
+                            ForEach(inProgressItems) { item in
+                                libraryRow(item)
+                                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             }
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                        } header: {
-                            Label("Completed", systemImage: "checkmark.circle")
+                            .onDelete { offsets in deleteItems(from: inProgressItems, at: offsets) }
+                        }
+                    }
+
+                    if !completedItems.isEmpty {
+                        librarySection("Completed", systemImage: "checkmark.circle", count: completedItems.count,
+                                       isExpanded: $completedExpanded) {
+                            if selecting {
+                                ForEach(completedItems) { item in libraryRow(item) }
+                            } else {
+                                NavigationLink {
+                                    CompletedArticlesView(viewModel: viewModel, initialSearchText: searchText, openReader: openReader)
+                                } label: {
+                                    CompletedSummaryRow(
+                                        completedCount: completedItems.count,
+                                        totalCompletedCount: allItems.filter { $0.status == PlaylistItem.Status.completed.rawValue || $0.progressPercent >= 1 }.count,
+                                        isFiltered: !searchText.isEmpty || favoritesOnly
+                                    )
+                                }
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            }
                         }
                     }
                 }
@@ -215,6 +212,38 @@ struct PlaylistView: View {
                 ReaderView(viewModel: viewModel)
             }
             #endif
+        }
+    }
+
+    private func librarySection<Content: View>(
+        _ title: LocalizedStringKey, systemImage: String, count: Int,
+        isExpanded: Binding<Bool>, @ViewBuilder content: () -> Content
+    ) -> some View {
+        Section {
+            if isExpanded.wrappedValue { content() }
+        } header: {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.wrappedValue.toggle()
+                }
+            } label: {
+                HStack {
+                    Label(title, systemImage: systemImage)
+                    Spacer()
+                    Text(count, format: .number).monospacedDigit()
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .rotationEffect(.degrees(isExpanded.wrappedValue ? 0 : -90))
+                        .accessibilityHidden(true)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityValue(isExpanded.wrappedValue ? Text("Expanded") : Text("Collapsed"))
+            .accessibilityHint(isExpanded.wrappedValue ? Text("Collapse section") : Text("Expand section"))
         }
     }
 
