@@ -178,6 +178,27 @@ struct ListeningQueueTests {
         #expect(ListeningQueue.remainingCharacters(in: item) > "Remaining sentence.".count)
         #expect(ListeningQueue.durationLabel(characters: 4680, speed: 1) == "About 6 min")
         #expect(ListeningQueue.durationLabel(characters: 4680, speed: 2) == "About 3 min")
+        #expect(ListeningQueue.durationLabel(characters: 4680, speed: 1, compact: true) == "~6 min")
+        #expect(ListeningQueue.durationLabel(characters: 4680, speed: 2, compact: true) == "~3 min")
+        #expect(ListeningQueue.durationLabel(characters: 0, speed: 1, compact: true) == "<1 min")
+        #expect(ListeningQueue.durationLabel(characters: 46_800, speed: 1, compact: true) == "~1 hr")
+    }
+
+    @Test
+    func textCountEstimateHandlesUnicodeCodeLegacyProgressAndOutOfRangeOffsets() {
+        let prefix = "Café 👩🏽‍💻. "
+        let code = ArticleSegmenter.marker(for: CodeBlock(language: "swift", source: String(repeating: "let x = 1\n", count: 100)))
+        let item = PlaylistItem(title: "Estimate", sourceType: "text", fullText: "\(prefix)Remaining \(code) text.")
+        item.playbackTextOffset = prefix.utf16.count
+        #expect(ListeningQueue.remainingCharacters(in: item) == "Remaining   text.".count)
+
+        item.playbackTextOffset = Int.max
+        #expect(ListeningQueue.remainingCharacters(in: item) == 0)
+        item.playbackTextOffset = nil
+        item.progressPercent = 0.5
+        #expect(ListeningQueue.remainingCharacters(in: item) == Int(ceil(Double(item.libraryCharacterCount) / 2)))
+        item.progressPercent = 1
+        #expect(ListeningQueue.remainingCharacters(in: item) == item.libraryCharacterCount)
     }
 }
 

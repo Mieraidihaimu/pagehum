@@ -56,7 +56,7 @@ struct DesktopRootView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 if let failure = queue.failure {
                     HStack(spacing: 12) {
-                        Image(systemName: "exclamationmark.circle").foregroundStyle(.orange)
+                        Image(systemName: "exclamationmark.circle").foregroundStyle(AppTheme.warning)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(queue.current?.title ?? "Listening paused").font(.headline)
                             Text(failure).font(.callout).foregroundStyle(DesktopStyle.secondary)
@@ -96,7 +96,7 @@ struct DesktopRootView: View {
                 Image(systemName: "waveform")
                     .foregroundStyle(DesktopStyle.accent)
                     .frame(width: 32, height: 32)
-                    .background(DesktopStyle.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                    .background(AppTheme.accentPrimarySubtle, in: RoundedRectangle(cornerRadius: 10))
                 Text("Pagehum").font(.system(size: 19, weight: .medium))
             }
             .padding(.horizontal, 8)
@@ -121,8 +121,8 @@ struct DesktopRootView: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12).frame(height: 38)
-            .foregroundStyle(page == destination ? DesktopStyle.text : DesktopStyle.secondary)
-            .background(page == destination ? DesktopStyle.accent.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 8))
+            .foregroundStyle(page == destination ? DesktopStyle.accent : DesktopStyle.secondary)
+            .background(page == destination ? AppTheme.accentPrimarySubtle : .clear, in: RoundedRectangle(cornerRadius: 8))
             .overlay(alignment: .leading) {
                 if page == destination { Capsule().fill(DesktopStyle.accent).frame(width: 3, height: 18) }
             }

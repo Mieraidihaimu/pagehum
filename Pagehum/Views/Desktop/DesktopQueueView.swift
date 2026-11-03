@@ -54,7 +54,8 @@ struct DesktopQueueView: View {
             }
         }
         .padding(24).frame(width: 480)
-        .background(DesktopStyle.canvas).foregroundStyle(DesktopStyle.text)
+        .background(AppTheme.surface).foregroundStyle(DesktopStyle.text)
+        .presentationBackground(AppTheme.surface)
     }
 }
 #endif

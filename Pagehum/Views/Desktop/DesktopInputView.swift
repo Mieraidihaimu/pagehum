@@ -20,11 +20,10 @@ struct DesktopInputView: View {
         DesktopPage {
             DesktopHeading(title: "Make time for a good read.", subtitle: "Add an article, then listen at your own pace.")
             VStack(alignment: .leading, spacing: 20) {
-                Picker("Input type", selection: $input) {
-                    ForEach(HomeView.InputTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                ThemeSegmentedPicker(title: "Input type", options: HomeView.InputTab.allCases, selection: $input) {
+                    Text($0.rawValue)
                 }
-                .pickerStyle(.segmented).frame(width: 240)
-                .labelsHidden()
+                .frame(width: 240)
                 .disabled(viewModel.isLoading)
                 inputForm
                     .disabled(viewModel.isLoading)
@@ -36,8 +35,7 @@ struct DesktopInputView: View {
                 }
             }
             .padding(24)
-            .background(DesktopStyle.panel, in: RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(DesktopStyle.border))
+            .themeCard(cornerRadius: 12)
 
             TechBlogQuickImportView(viewModel: viewModel)
                 .padding(.top, 20)
@@ -46,7 +44,7 @@ struct DesktopInputView: View {
                 URLImportStatusView(viewModel: viewModel)
                 if let error = viewModel.errorMessage {
                     Label(error, systemImage: "exclamationmark.circle")
-                        .font(.callout).foregroundStyle(.orange)
+                        .font(.callout).foregroundStyle(AppTheme.warning)
                         .textSelection(.enabled)
                 }
             }
@@ -95,8 +93,8 @@ struct DesktopInputView: View {
                 TextField("Paste article links", text: $url, axis: .vertical)
                     .lineLimit(3...6)
                     .textFieldStyle(.plain).padding(12)
-                    .background(DesktopStyle.sidebar, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(urlFocused ? DesktopStyle.accent : DesktopStyle.border, lineWidth: urlFocused ? 2 : 1))
+                    .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(urlFocused ? AppTheme.borderFocus : DesktopStyle.border, lineWidth: urlFocused ? 2 : 1))
                     .focused($urlFocused)
                     .accessibilityLabel("Article URLs")
                 URLInputHint(text: url)
@@ -121,8 +119,8 @@ struct DesktopInputView: View {
                 TextEditor(text: $text)
                     .font(.body).scrollContentBackground(.hidden)
                     .padding(8).frame(height: 144)
-                    .background(DesktopStyle.sidebar, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(DesktopStyle.secondary.opacity(0.55)))
+                    .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(AppTheme.borderSubtle))
                     .accessibilityLabel("Text to read aloud")
                 if !URLImportParser.urls(in: text).isEmpty {
                     Button { importLinks(text, fromText: true) } label: {

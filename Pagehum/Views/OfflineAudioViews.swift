@@ -14,7 +14,7 @@ struct OfflineAudioProgressView: View {
                 }
             }
             .font(.caption)
-            .foregroundStyle(progress.state == .ready ? Color.green : Color.secondary)
+            .foregroundStyle(progress.state == .ready ? AppTheme.success : AppTheme.textSecondary)
             .accessibilityElement(children: .combine)
         }
     }
@@ -57,7 +57,7 @@ struct OfflineAudioButton: View {
                 OfflineAudioMenuActions(manager: manager, id: id, canSave: canSave, canRemove: canRemove, save: save)
             } label: {
                 Image(systemName: progress.state == .ready ? "checkmark.circle.fill" : "arrow.down.circle")
-                    .foregroundStyle(progress.state == .ready ? Color.green : Color.accentColor)
+                    .foregroundStyle(progress.state == .ready ? AppTheme.success : AppTheme.accentPrimary)
                     .frame(minWidth: 44, minHeight: 44)
             }
             .accessibilityLabel(progress.label)

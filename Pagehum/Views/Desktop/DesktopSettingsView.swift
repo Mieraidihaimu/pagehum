@@ -65,7 +65,7 @@ struct DesktopSettingsView: View {
             Text("Sometimes all an idea needs is a little room to breathe.")
                 .font(.system(size: viewModel.textSize, design: .serif)).lineSpacing(8)
                 .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                .background(DesktopStyle.panel, in: RoundedRectangle(cornerRadius: 10))
+                .themeCard(cornerRadius: 10)
             sectionTitle("Storage")
             row {
                 Button(action: openOfflineAudio) {

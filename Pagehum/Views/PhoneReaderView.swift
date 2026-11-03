@@ -13,12 +13,12 @@ struct PhoneReaderView: View {
                 ReaderView(viewModel: viewModel, showsPlaybackControls: false, showsArticleHeading: true)
             }
         }
-        .background(Color.platformGroupedBackground)
+        .background(AppTheme.canvas)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PhonePlaybackControls(viewModel: viewModel)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(.bar)
+                .background(AppTheme.canvas)
         }
         .navigationTitle(viewModel.content?.title ?? "Reader")
         .navigationBarTitleDisplayMode(.inline)
@@ -28,6 +28,7 @@ struct PhoneReaderView: View {
                     OfflineAudioButton(manager: viewModel.offlineAudio, id: id, canSave: viewModel.isModelLoaded,
                                        canRemove: !viewModel.isPlaying && !viewModel.isPreparing,
                                        save: viewModel.saveCurrentAudioOffline)
+                        .foregroundStyle(AppTheme.accentPrimary)
                 }
             }
             ToolbarItem(placement: .primaryAction) {
@@ -37,6 +38,7 @@ struct PhoneReaderView: View {
                             .frame(minWidth: 44, minHeight: 44)
                     }
                     .accessibilityLabel("Open in browser")
+                    .foregroundStyle(AppTheme.accentPrimary)
                 } else {
                     Menu {
                         Button("Larger text", systemImage: "textformat.size.larger") {
@@ -51,6 +53,7 @@ struct PhoneReaderView: View {
                         Image(systemName: "textformat.size").frame(minWidth: 44, minHeight: 44)
                     }
                     .accessibilityLabel("Reading options")
+                    .foregroundStyle(AppTheme.accentPrimary)
                 }
             }
         }

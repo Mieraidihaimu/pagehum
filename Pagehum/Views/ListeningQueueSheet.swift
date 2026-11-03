@@ -17,9 +17,10 @@ struct ListeningQueueSheet: View {
                             OfflineAudioProgressView(manager: viewModel.offlineAudio, id: id)
                         }
                         if let failure = queue.failure {
-                            Text(failure).font(.footnote).foregroundStyle(.orange)
+                            Text(failure).font(.footnote).foregroundStyle(AppTheme.warning)
                         }
                     }
+                    .listRowBackground(AppTheme.surface)
                 }
                 Section {
                     Button("Save queue audio offline", systemImage: "arrow.down.circle") {
@@ -30,13 +31,13 @@ struct ListeningQueueSheet: View {
                         Text(queue.isActive
                              ? "This is the last article. Playback stops when it finishes."
                              : "Choose articles in Library and add them to your queue.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
                     ForEach(queue.upcoming) { entry in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(entry.title).lineLimit(2)
                             Text(ListeningQueue.durationLabel(characters: entry.remainingCharacters, speed: viewModel.speed))
-                                .font(.caption).foregroundStyle(.secondary)
+                                .font(.caption).foregroundStyle(AppTheme.textSecondary)
                             OfflineAudioProgressView(manager: viewModel.offlineAudio,
                                                      id: OfflineAudioRequest.identifier(textID: entry.textID, voice: viewModel.selectedVoice))
                         }
@@ -49,7 +50,10 @@ struct ListeningQueueSheet: View {
                     Text("Continues automatically · Resume saved positions")
                     Text("Save every article's audio before locking your phone to keep the same voice throughout the queue.")
                 }
+                .listRowBackground(AppTheme.surface)
             }
+            .scrollContentBackground(.hidden)
+            .background(AppTheme.canvas)
             .navigationTitle("Up next")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -62,6 +66,7 @@ struct ListeningQueueSheet: View {
             }
         }
         .presentationDragIndicator(.visible)
+        .appTheme()
     }
 }
 #endif

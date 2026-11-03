@@ -31,13 +31,13 @@ struct PlaylistView: View {
         let filteredItems = LibraryFilter(query: searchText, favoritesOnly: favoritesOnly).apply(to: allItems)
         let completedItems = filteredItems.filter { $0.status == PlaylistItem.Status.completed.rawValue || $0.progressPercent >= 1 }
         let inProgressItems = filteredItems.filter { item in
-            !completedItems.contains(where: { $0.persistentModelID == item.persistentModelID }) &&
             item.status == PlaylistItem.Status.inProgress.rawValue &&
             item.progressPercent < 1
         }
         let unreadItems = filteredItems.filter { item in
-            !completedItems.contains(where: { $0.persistentModelID == item.persistentModelID }) &&
-            !inProgressItems.contains(where: { $0.persistentModelID == item.persistentModelID })
+            item.status != PlaylistItem.Status.completed.rawValue &&
+            item.status != PlaylistItem.Status.inProgress.rawValue &&
+            item.progressPercent < 1
         }
         let displayOrder = unreadItems + inProgressItems + (selecting ? completedItems : [])
         let selectedItems = displayOrder.filter { selection.contains($0.persistentModelID) }
@@ -60,7 +60,7 @@ struct PlaylistView: View {
                 } actions: {
                     if let addContent {
                         Button("Add an article", action: addContent)
-                            .buttonStyle(.borderedProminent).controlSize(.large)
+                            .buttonStyle(ThemeButtonStyle()).controlSize(.large)
                     }
                 }
             } else if filteredItems.isEmpty {
@@ -112,6 +112,8 @@ struct PlaylistView: View {
                         }
                     }
                 }
+                .scrollContentBackground(.hidden)
+                .background(AppTheme.canvas)
                 #if os(iOS)
                 .listStyle(.insetGrouped)
                 .scrollDismissesKeyboard(.interactively)
@@ -120,9 +122,11 @@ struct PlaylistView: View {
                 #endif
             }
         }
+        .background(AppTheme.canvas)
         .navigationTitle("Library")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(AppTheme.canvas, for: .navigationBar)
         #endif
         .toolbar {
             if !displayOrder.isEmpty {
@@ -150,7 +154,7 @@ struct PlaylistView: View {
                         } label: {
                             Label("Remove from library", systemImage: "trash").labelStyle(.iconOnly)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(ThemeButtonStyle(primary: false))
                         .controlSize(.large)
                         .disabled(removableItems.isEmpty)
                         .confirmationDialog(
@@ -179,7 +183,7 @@ struct PlaylistView: View {
                         } label: {
                             Text(playTitle).frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(ThemeButtonStyle())
                         .controlSize(.large)
                         .disabled(queueableItems.isEmpty || viewModel.isLoading)
                     }
@@ -191,15 +195,15 @@ struct PlaylistView: View {
                         Label("Save selected audio offline", systemImage: "arrow.down.circle")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(ThemeButtonStyle(primary: false))
                     .disabled(selectedItems.isEmpty || !viewModel.isModelLoaded)
                     if !viewModel.isModelLoaded {
                         Text("Waiting for the voice engine to load")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(AppTheme.textSecondary)
                     }
                 }
                 .padding(16)
-                .background(.bar)
+                .background(AppTheme.surface)
             }
         }
         .navigationDestination(item: $selectedItem) { _ in
@@ -245,6 +249,7 @@ struct PlaylistView: View {
             .accessibilityValue(isExpanded.wrappedValue ? Text("Expanded") : Text("Collapsed"))
             .accessibilityHint(isExpanded.wrappedValue ? Text("Collapse section") : Text("Expand section"))
         }
+        .listRowBackground(AppTheme.surface)
     }
 
     private func libraryRow(_ item: PlaylistItem) -> some View {
@@ -257,7 +262,7 @@ struct PlaylistView: View {
             if selecting {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(selected ? AppTheme.accentPrimary : AppTheme.textSecondary)
                     .padding(.trailing, 8)
                     .accessibilityHidden(true)
             }
@@ -269,7 +274,7 @@ struct PlaylistView: View {
                 }
             } label: {
                 VStack(alignment: .leading, spacing: 6) {
-                    PlaylistRowView(item: item, isPlaying: isPlaying, isInQueue: queued && !selecting)
+                    PlaylistRowView(item: item, isPlaying: isPlaying, isInQueue: queued && !selecting, speed: viewModel.speed)
                     OfflineAudioProgressView(manager: viewModel.offlineAudio, id: viewModel.offlineAudioID(for: item))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -281,10 +286,10 @@ struct PlaylistView: View {
             if selecting && queued {
                 Text("In queue")
                     .font(.caption2.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.accentPrimary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color(.tertiarySystemFill), in: Capsule())
+                    .background(AppTheme.accentPrimarySubtle, in: Capsule())
             } else if !selecting {
                 LibraryFavoriteButton(item: item, compact: true)
             }
@@ -296,7 +301,7 @@ struct PlaylistView: View {
             } label: {
                 Label(item.isFavorite ? "Unstar" : "Star", systemImage: item.isFavorite ? "star.slash" : "star.fill")
             }
-            .tint(.yellow)
+            .tint(AppTheme.cta)
         }
         .contextMenu {
             OfflineAudioMenuActions(manager: viewModel.offlineAudio, id: viewModel.offlineAudioID(for: item),
@@ -399,26 +404,26 @@ struct CompletedSummaryRow: View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.green.opacity(0.12))
+                    .fill(AppTheme.accentPrimarySubtle)
                     .frame(width: 32, height: 32)
                 Image(systemName: "checkmark")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(AppTheme.success)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Completed Articles")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.textPrimary)
 
                 if isFiltered && completedCount != totalCompletedCount {
                     Text("\(completedCount) matching (\(totalCompletedCount) total)")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 } else {
                     Text(completedCount == 1 ? "1 article finished" : "\(completedCount) articles finished")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
             }
 
@@ -426,10 +431,10 @@ struct CompletedSummaryRow: View {
 
             Text("\(completedCount)")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppTheme.accentPrimary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
-                .background(Color(.tertiarySystemFill), in: Capsule())
+                .background(AppTheme.accentPrimarySubtle, in: Capsule())
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
@@ -486,7 +491,10 @@ struct CompletedArticlesView: View {
                     } header: {
                         Text("\(completedItems.count) completed")
                     }
+                    .listRowBackground(AppTheme.surface)
                 }
+                .scrollContentBackground(.hidden)
+                .background(AppTheme.canvas)
                 #if os(iOS)
                 .listStyle(.insetGrouped)
                 .scrollDismissesKeyboard(.interactively)
@@ -548,7 +556,8 @@ struct CompletedArticlesView: View {
             } label: {
                 PlaylistRowView(
                     item: item,
-                    isPlaying: viewModel.currentPlaylistItemID == item.persistentModelID && (viewModel.isPlaying || viewModel.isPreparing)
+                    isPlaying: viewModel.currentPlaylistItemID == item.persistentModelID && (viewModel.isPlaying || viewModel.isPreparing),
+                    speed: viewModel.speed
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -564,7 +573,7 @@ struct CompletedArticlesView: View {
             } label: {
                 Label(item.isFavorite ? "Unstar" : "Star", systemImage: item.isFavorite ? "star.slash" : "star.fill")
             }
-            .tint(.yellow)
+            .tint(AppTheme.cta)
         }
         .contextMenu {
             Button {
@@ -633,13 +642,94 @@ struct PlaylistRowView: View {
     let item: PlaylistItem
     var isPlaying: Bool = false
     var isInQueue: Bool = false
+    var speed: Float = 1
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        #if os(iOS)
+        phoneRow
+        #else
+        desktopRow
+        #endif
+    }
+
+    #if os(iOS)
+    private var phoneRow: some View {
+        HStack(alignment: .top, spacing: 12) {
+            if !dynamicTypeSize.isAccessibilitySize {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AppTheme.accentPrimarySubtle)
+                        .frame(width: 36, height: 36)
+                    Image(systemName: badgeIcon)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(badgeColor)
+                }
+                .accessibilityHidden(true)
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(item.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 6) {
+                    Text(item.librarySource)
+                        .lineLimit(1)
+                    if isPlaying {
+                        Image(systemName: "waveform")
+                            .foregroundStyle(AppTheme.accentPrimary)
+                            .accessibilityLabel("Playing")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(AppTheme.textSecondary)
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        LibraryDurationLabel(item: item, speed: speed)
+                        listeningStatus
+                    }
+                    VStack(alignment: .leading, spacing: 5) {
+                        LibraryDurationLabel(item: item, speed: speed)
+                        listeningStatus
+                    }
+                }
+
+                if isInQueue {
+                    Label("In queue", systemImage: "text.badge.plus")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 6)
+    }
+
+    @ViewBuilder private var listeningStatus: some View {
+        if item.progressPercent >= 1 || item.status == PlaylistItem.Status.completed.rawValue {
+            Label("Completed", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(AppTheme.success)
+                .font(.caption)
+                .fixedSize()
+        } else if item.progressPercent > 0 {
+            Text("\(Int(item.progressPercent * 100))% complete")
+                .foregroundStyle(AppTheme.accentPrimary)
+                .font(.caption.monospacedDigit())
+                .fixedSize()
+        }
+    }
+    #endif
+
+    private var desktopRow: some View {
         HStack(alignment: .center, spacing: 12) {
             // Source icon badge
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(badgeColor.opacity(0.12))
+                    .fill(AppTheme.accentPrimarySubtle)
                     .frame(width: 32, height: 32)
                 Image(systemName: badgeIcon)
                     .font(.system(size: 14, weight: .semibold))
@@ -651,86 +741,87 @@ struct PlaylistRowView: View {
                 HStack(spacing: 6) {
                     Text(item.title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(AppTheme.textPrimary)
                         .lineLimit(2)
 
                     if isPlaying {
                         Image(systemName: "waveform")
                             .font(.caption2.weight(.bold))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(AppTheme.accentPrimary)
                     }
                 }
 
                 HStack(spacing: 5) {
                     Text(item.librarySource)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
 
                     if isInQueue {
                         Text("•")
                             .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(AppTheme.textMuted)
 
                         Label("In queue", systemImage: "text.badge.plus")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
 
                     if item.progressPercent > 0 && item.progressPercent < 1.0 {
                         Text("•")
                             .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(AppTheme.textMuted)
 
                         HStack(spacing: 4) {
                             Capsule()
-                                .fill(Color.secondary.opacity(0.2))
+                                .fill(AppTheme.borderSubtle)
                                 .frame(width: 32, height: 4)
                                 .overlay(alignment: .leading) {
                                     Capsule()
-                                        .fill(Color.accentColor)
+                                        .fill(AppTheme.accentPrimaryFill)
                                         .frame(width: 32 * max(0.08, min(1.0, item.progressPercent)), height: 4)
                                 }
 
                             Text("\(Int(item.progressPercent * 100))%")
                                 .font(.caption2.monospacedDigit().weight(.medium))
-                                .foregroundStyle(Color.accentColor)
+                                .foregroundStyle(AppTheme.accentPrimary)
                         }
                     } else if item.status == PlaylistItem.Status.queued.rawValue {
                         Text("•")
                             .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(AppTheme.textMuted)
 
                         Label("Saved", systemImage: "arrow.down.circle.fill")
                             .font(.caption2)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(AppTheme.success)
                     } else if item.progressPercent >= 1.0 || item.status == PlaylistItem.Status.completed.rawValue {
                         Text("•")
                             .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(AppTheme.textMuted)
 
                         Label("Completed", systemImage: "checkmark.circle.fill")
                             .font(.caption2)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(AppTheme.success)
                     }
 
                     Text("•")
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(AppTheme.textMuted)
 
                     let timeDate = (item.progressPercent > 0 || item.status == PlaylistItem.Status.completed.rawValue) ? item.lastPlayed : item.dateAdded
                     Text(timeDate, style: .relative)
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(AppTheme.textMuted)
                         + Text(" ago")
                         .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(AppTheme.textMuted)
                 }
                 .lineLimit(1)
             }
 
             Spacer(minLength: 4)
+            LibraryDurationLabel(item: item, speed: speed)
         }
         .padding(.vertical, 3)
     }
@@ -744,10 +835,6 @@ struct PlaylistRowView: View {
     }
 
     private var badgeColor: Color {
-        switch item.sourceType {
-        case "url": return .blue
-        case "pdf": return .red
-        default: return .orange
-        }
+        AppTheme.accentPrimary
     }
 }

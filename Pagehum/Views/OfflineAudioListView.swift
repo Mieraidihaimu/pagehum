@@ -45,7 +45,7 @@ struct OfflineAudioListView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("^[\(entries.count) article](inflect: true)").font(.headline)
                     Text("Select saved articles to listen or free up storage.")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .font(.subheadline).foregroundStyle(AppTheme.textSecondary)
                 }
                 Spacer()
                 Button(selecting ? "Cancel" : "Select") {
@@ -61,7 +61,10 @@ struct OfflineAudioListView: View {
             } else {
                 List(entries) { entry in
                     audioRow(entry)
+                        .listRowBackground(AppTheme.surface)
                 }
+                .scrollContentBackground(.hidden)
+                .background(AppTheme.canvas)
                 .listStyle(.plain)
             }
         }
@@ -86,27 +89,27 @@ struct OfflineAudioListView: View {
                         Button(role: .destructive) { confirmingRemoval = true } label: {
                             Label("Delete \(removable.count)", systemImage: "trash")
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(ThemeButtonStyle(primary: false))
                         .disabled(removable.isEmpty)
                         Button { play(playable) } label: {
                             Label(appending ? "Add \(playable.count) to queue" : "Play \(playable.count)", systemImage: "play.fill")
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(ThemeButtonStyle())
                         .disabled(playable.isEmpty || viewModel.isLoading)
                     }
                     if selected.contains(where: { !$0.canPlay }) {
                         Text("Playback requires a completed save and its article in your library.")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(AppTheme.textSecondary)
                     }
                     if removable.count < selected.count {
                         Text("Audio in use is kept until you finish listening or remove it from the queue.")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(AppTheme.textSecondary)
                     }
                 }
                 .controlSize(.large)
                 .padding(16)
-                .background(.bar)
+                .background(AppTheme.surface)
             }
         }
         .confirmationDialog(Text(AttributedString(localized: "Delete offline audio for ^[\(removable.count) article](inflect: true)?")), isPresented: $confirmingRemoval, titleVisibility: .visible) {
@@ -144,18 +147,18 @@ struct OfflineAudioListView: View {
         HStack(spacing: 12) {
             if selecting {
                 Image(systemName: selection.contains(entry.id) ? "checkmark.circle.fill" : "circle")
-                    .font(.title2).foregroundStyle(Color.accentColor)
+                    .font(.title2).foregroundStyle(AppTheme.accentPrimary)
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text(entry.title).font(.headline).lineLimit(2)
                 OfflineAudioProgressView(manager: manager, id: entry.displayRecord.request.id)
                 if entry.records.count > 1 {
-                    Text("^[\(entry.records.count) saved voice](inflect: true)").font(.caption).foregroundStyle(.secondary)
+                    Text("^[\(entry.records.count) saved voice](inflect: true)").font(.caption).foregroundStyle(AppTheme.textSecondary)
                 }
                 if entry.item == nil {
-                    Text("Article no longer in your library").font(.caption).foregroundStyle(.secondary)
+                    Text("Article no longer in your library").font(.caption).foregroundStyle(AppTheme.textSecondary)
                 } else if isQueued(entry) {
-                    Text("In listening queue").font(.caption).foregroundStyle(.secondary)
+                    Text("In listening queue").font(.caption).foregroundStyle(AppTheme.textSecondary)
                 }
             }
             Spacer(minLength: 0)

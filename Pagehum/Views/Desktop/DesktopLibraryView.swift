@@ -56,13 +56,14 @@ struct DesktopLibraryView: View {
                 }
                 LibrarySearchControls(query: $searchText, favoritesOnly: $favoritesOnly, compact: true)
                 HStack(spacing: 12) {
-                    Picker("Status", selection: $statusFilter) {
-                        Text("All").tag(PlaylistItem.Status?.none)
-                        Text("In progress").tag(PlaylistItem.Status?.some(.inProgress))
-                        Text("Saved").tag(PlaylistItem.Status?.some(.queued))
-                        Text("Completed").tag(PlaylistItem.Status?.some(.completed))
+                    ThemeSegmentedPicker(title: "Status", options: [PlaylistItem.Status?.none, .some(.inProgress), .some(.queued), .some(.completed)], selection: $statusFilter) { status in
+                        switch status {
+                        case nil: Text("All")
+                        case .inProgress: Text("In progress")
+                        case .queued: Text("Saved")
+                        case .completed: Text("Completed")
+                        }
                     }
-                    .pickerStyle(.segmented).labelsHidden()
                     .frame(maxWidth: 380)
                     Spacer(minLength: 0)
                     Text("^[\(filteredItems.count) article](inflect: true)")
@@ -173,7 +174,10 @@ struct DesktopLibraryView: View {
                     Image(systemName: item.sourceType == "url" ? "globe" : "doc.text")
                         .foregroundStyle(DesktopStyle.secondary).frame(width: 16)
                         .accessibilityHidden(true)
-                    Text(item.title).fontWeight(.medium).lineLimit(1).help(item.title)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.title).fontWeight(.medium).lineLimit(1).help(item.title)
+                        LibraryDurationLabel(item: item, speed: viewModel.speed)
+                    }
                     if item.persistentModelID == viewModel.currentPlaylistItemID {
                         Image(systemName: "waveform").foregroundStyle(DesktopStyle.accent)
                             .help("Current article").accessibilityLabel("Current article")
@@ -197,7 +201,7 @@ struct DesktopLibraryView: View {
                         .foregroundStyle(DesktopStyle.secondary)
                 } else if item.libraryProgress > 0 {
                     HStack(spacing: 6) {
-                        ProgressView(value: item.libraryProgress).tint(DesktopStyle.accent)
+                        ProgressView(value: item.libraryProgress).tint(AppTheme.accentPrimaryFill)
                             .frame(width: 42)
                             .accessibilityHidden(true)
                         Text(item.libraryProgress, format: .percent.precision(.fractionLength(0)))
@@ -233,7 +237,9 @@ struct DesktopLibraryView: View {
             .width(60)
         }
         .font(.system(size: 13))
-        .tableStyle(.inset(alternatesRowBackgrounds: true))
+        .tableStyle(.inset(alternatesRowBackgrounds: false))
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.canvas)
         .contextMenu(forSelectionType: PersistentIdentifier.self) { identifiers in
             articleActions(articles.filter { identifiers.contains($0.persistentModelID) })
         } primaryAction: { identifiers in
@@ -302,7 +308,7 @@ struct DesktopArticleRow: View {
                     .font(.system(size: 18))
                     .foregroundStyle(DesktopStyle.secondary)
                     .frame(width: 40, height: 44)
-                    .background(DesktopStyle.border.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
+                    .background(AppTheme.accentPrimarySubtle, in: RoundedRectangle(cornerRadius: 8))
                 VStack(alignment: .leading, spacing: 6) {
                     Text(item.title).font(.system(size: 15, weight: .medium)).lineLimit(2)
                     HStack(spacing: 6) {
@@ -311,7 +317,7 @@ struct DesktopArticleRow: View {
                         Text(item.dateAdded, format: .dateTime.day().month(.abbreviated))
                     }.font(.caption).foregroundStyle(DesktopStyle.secondary)
                     if progress > 0 && progress < 1 {
-                        ProgressView(value: progress).tint(DesktopStyle.accent)
+                        ProgressView(value: progress).tint(AppTheme.accentPrimaryFill)
                             .accessibilityLabel("Listening progress")
                     }
                 }
@@ -328,7 +334,7 @@ struct DesktopArticleRow: View {
                 }.font(.callout).foregroundStyle(DesktopStyle.accent)
             }
             .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? DesktopStyle.accent.opacity(0.13) : hovering ? DesktopStyle.border : DesktopStyle.panel.opacity(0.65), in: RoundedRectangle(cornerRadius: 10))
+            .background(isSelected ? AppTheme.accentPrimarySubtle : hovering ? AppTheme.elevated : DesktopStyle.panel, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isSelected ? DesktopStyle.accent : DesktopStyle.border))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }

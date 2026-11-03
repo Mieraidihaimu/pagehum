@@ -956,7 +956,7 @@ final class ReaderModel: ObservableObject {
     }
 
     func offlineAudioID(for item: PlaylistItem) -> String {
-        OfflineAudioRequest.identifier(textID: OfflineAudioRequest.textIdentifier(item.fullText), voice: selectedVoice)
+        OfflineAudioRequest.identifier(textID: item.offlineTextID, voice: selectedVoice)
     }
 
     private func currentOfflineRequest() -> OfflineAudioRequest {

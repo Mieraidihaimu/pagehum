@@ -8,34 +8,18 @@ import AppKit
 
 extension Color {
     static var platformGroupedBackground: Color {
-        #if os(iOS)
-        Color(.systemGroupedBackground)
-        #else
-        Color(.windowBackgroundColor)
-        #endif
+        AppTheme.canvas
     }
 
     static var secondaryGroupedBackground: Color {
-        #if os(iOS)
-        Color(.secondarySystemGroupedBackground)
-        #else
-        Color(.controlBackgroundColor)
-        #endif
+        AppTheme.surface
     }
 
     static var tertiaryFill: Color {
-        #if os(iOS)
-        Color(.tertiarySystemFill)
-        #else
-        Color(.controlBackgroundColor)
-        #endif
+        AppTheme.elevated
     }
 
     static var platformGray: Color {
-        #if os(iOS)
-        Color(.systemGray)
-        #else
-        Color.gray
-        #endif
+        AppTheme.textMuted
     }
 }

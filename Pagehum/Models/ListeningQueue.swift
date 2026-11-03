@@ -17,7 +17,7 @@ final class ListeningQueue: ObservableObject {
             id = item.persistentModelID
             title = item.title
             remainingCharacters = ListeningQueue.remainingCharacters(in: item)
-            textID = OfflineAudioRequest.textIdentifier(item.fullText)
+            textID = item.offlineTextID
         }
     }
 
@@ -181,20 +181,29 @@ final class ListeningQueue: ObservableObject {
     }
 
     static func remainingCharacters(in item: PlaylistItem) -> Int {
-        let segmented = ArticleSegmenter.segment(item.fullText, splitProse: ReaderModel.splitIntoSentences)
         let completed = item.progressPercent >= 1 || item.status == PlaylistItem.Status.completed.rawValue
-        let index: Int
-        if completed { index = 0 }
-        else if let offset = item.playbackTextOffset {
-            index = segmented.sentenceStartOffsetsUTF16.lastIndex(where: { $0 <= offset }) ?? 0
-        } else { index = max(0, item.lastSentenceIndex) }
-        return segmented.sentences.dropFirst(min(index, segmented.sentences.count)).reduce(0) { $0 + $1.count }
+        // Completed articles restart from the beginning when queued again.
+        if completed { return item.libraryCharacterCount }
+        if let offset = item.playbackTextOffset, offset > 0 {
+            // Resume offsets use UTF-16. Count the remaining text directly instead of
+            // tokenizing the whole article just to display a rough duration.
+            let text = item.fullText as NSString
+            let remaining = text.substring(from: min(offset, text.length))
+            return ArticleSegmenter.strippingMarkers(remaining).count
+        }
+        // Legacy articles have only sentence-based progress; a proportion is sufficient
+        // for an estimate and leaves precise resume migration to playback.
+        return Int(ceil(Double(item.libraryCharacterCount) * (1 - item.libraryProgress)))
     }
 
-    static func durationLabel(characters: Int, speed: Float) -> String {
+    static func durationLabel(characters: Int, speed: Float, compact: Bool = false) -> String {
         let seconds = Double(characters) / 13 / Double(max(speed, 0.1))
-        if seconds < 60 { return "Under 1 min (est.)" }
+        if seconds < 60 { return compact ? "<1 min" : "Under 1 min (est.)" }
         let minutes = Int(ceil(seconds / 60))
+        if compact {
+            if minutes < 60 { return "~\(minutes) min" }
+            return minutes % 60 == 0 ? "~\(minutes / 60) hr" : "~\(minutes / 60) hr \(minutes % 60) min"
+        }
         if minutes < 60 { return "About \(minutes) min" }
         return minutes % 60 == 0 ? "About \(minutes / 60) hr" : "About \(minutes / 60) hr \(minutes % 60) min"
     }

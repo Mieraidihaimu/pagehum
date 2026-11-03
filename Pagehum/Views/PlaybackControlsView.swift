@@ -51,7 +51,7 @@ struct PlaybackControlsView: View {
                 } label: {
                     Image(systemName: "gobackward.20")
                         .font(.system(size: 18, weight: .regular))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(AppTheme.textPrimary)
                         .frame(width: 36, height: 36)
                         .contentShape(Circle())
                 }
@@ -62,28 +62,23 @@ struct PlaybackControlsView: View {
                     viewModel.togglePlayback()
                 } label: {
                     ZStack {
-                        Circle()
-                            .fill(Color.accentColor.gradient)
-                            .frame(width: 40, height: 40)
-                            .shadow(color: Color.accentColor.opacity(0.35), radius: 6, y: 2)
-
                         if viewModel.isPreparing {
                             ProgressView()
                                 .controlSize(.small)
-                                .tint(.white)
+                                .tint(AppTheme.onAccent)
                         } else if viewModel.isPlaying {
                             Image(systemName: "pause.fill")
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(AppTheme.onAccent)
                         } else {
                             Image(systemName: "play.fill")
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(AppTheme.onAccent)
                                 .offset(x: 1.5)
                         }
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ThemePlayButtonStyle(diameter: 40))
                 .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
 
                 // 4. Skip forward 20s
@@ -92,7 +87,7 @@ struct PlaybackControlsView: View {
                 } label: {
                     Image(systemName: "goforward.20")
                         .font(.system(size: 18, weight: .regular))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(AppTheme.textPrimary)
                         .frame(width: 36, height: 36)
                         .contentShape(Circle())
                 }
@@ -111,26 +106,22 @@ struct PlaybackControlsView: View {
             .frame(height: 50)
         }
         .frame(maxWidth: 440)
-        .background(
-            ZStack {
-                Capsule().fill(.ultraThinMaterial)
-                Capsule().fill(Color.platformGroupedBackground.opacity(0.12))
-            }
-        )
+        .background(AppTheme.surface, in: Capsule())
         .clipShape(Capsule())
         .overlay(
             Capsule()
-                .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
+                .strokeBorder(AppTheme.borderSubtle, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.16), radius: 14, y: 5)
+        .shadow(color: AppTheme.cardShadow, radius: 12, y: 4)
         .overlay(alignment: .top) {
             if isDragging {
                 Text(dragTooltipText)
                     .font(.caption2.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppTheme.textPrimary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Color.black.opacity(0.85), in: Capsule())
+                    .background(AppTheme.elevated, in: Capsule())
+                    .overlay(Capsule().strokeBorder(AppTheme.borderSubtle))
                     .offset(y: -36)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
@@ -159,14 +150,14 @@ struct PlaybackControlsView: View {
             ZStack(alignment: .leading) {
                 // Background track
                 Rectangle()
-                    .fill(Color.secondary.opacity(0.15))
+                    .fill(AppTheme.accentPrimarySubtle)
                     .frame(height: isDragging ? 5 : 3)
 
                 // Progress track
                 Rectangle()
                     .fill(
                         LinearGradient(
-                            colors: [Color.accentColor, Color.accentColor.opacity(0.85)],
+                            colors: [AppTheme.accentPrimaryFill, AppTheme.accentPrimaryFill.opacity(0.85)],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -176,8 +167,8 @@ struct PlaybackControlsView: View {
                 // Drag indicator thumb
                 if isDragging {
                     Circle()
-                        .fill(.white)
-                        .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                        .fill(AppTheme.accentPrimaryFill)
+                        .shadow(color: AppTheme.cardShadow, radius: 2, y: 1)
                         .frame(width: 9, height: 9)
                         .offset(x: max(0, min(geo.size.width - 9, geo.size.width * displayProgress - 4.5)))
                 }
@@ -222,10 +213,10 @@ struct PlaybackControlsView: View {
         } label: {
             Text(currentSpeedLabel)
                 .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
+                .foregroundStyle(AppTheme.accentPrimary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
-                .background(Color.secondary.opacity(0.15), in: Capsule())
+                .background(AppTheme.accentPrimarySubtle, in: Capsule())
         } primaryAction: {
             cycleSpeed()
         }
@@ -243,20 +234,20 @@ struct PlaybackControlsView: View {
             VStack(alignment: .trailing, spacing: 1) {
                 Text(showRemainingTime ? "-\(remainingTimeText)" : elapsedTimeText)
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.textPrimary)
 
                 if viewModel.isPreparing {
                     Text("Preparing")
                         .font(.system(size: 8, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 } else if viewModel.playbackFailureCount > 0 {
                     Text("\(viewModel.playbackFailureCount) skipped")
                         .font(.system(size: 8, weight: .medium))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(AppTheme.warning)
                 } else {
                     Text(showRemainingTime ? "remaining" : "elapsed")
                         .font(.system(size: 8, weight: .medium))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(AppTheme.textMuted)
                 }
             }
         }
@@ -272,17 +263,17 @@ struct PlaybackControlsView: View {
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: queue.failure != nil ? "exclamationmark.circle.fill" : "list.bullet")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(queue.failure != nil ? .orange : Color.accentColor)
+                        .foregroundStyle(queue.failure != nil ? AppTheme.warning : AppTheme.accentPrimary)
                         .frame(width: 32, height: 32)
                         .contentShape(Circle())
 
                     if queue.upcoming.count > 0 && queue.failure == nil {
                         Text("\(queue.upcoming.count)")
                             .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AppTheme.accentPrimary)
                             .padding(.horizontal, 3)
                             .padding(.vertical, 1)
-                            .background(Color.accentColor, in: Capsule())
+                            .background(AppTheme.accentPrimarySubtle, in: Capsule())
                             .offset(x: 4, y: -2)
                     }
                 }
@@ -294,7 +285,7 @@ struct PlaybackControlsView: View {
             } label: {
                 Image(systemName: "arrow.counterclockwise")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.textSecondary)
                     .frame(width: 32, height: 32)
                     .contentShape(Circle())
             }
@@ -311,22 +302,22 @@ struct PlaybackControlsView: View {
         } label: {
             ZStack {
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .fill(AppTheme.surface)
 
                 Circle()
-                    .stroke(Color.secondary.opacity(0.2), style: StrokeStyle(lineWidth: 3))
+                    .stroke(AppTheme.borderSubtle, style: StrokeStyle(lineWidth: 3))
 
                 Circle()
                     .trim(from: 0, to: viewModel.progress)
-                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .stroke(AppTheme.accentPrimary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                     .rotationEffect(.degrees(-90))
 
                 Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppTheme.textPrimary)
             }
             .frame(width: 48, height: 48)
-            .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+            .shadow(color: AppTheme.cardShadow, radius: 12, y: 4)
         }
         .accessibilityLabel("Show playback controls")
         .accessibilityValue(viewModel.isPlaying ? "Playing" : "Paused")

@@ -65,10 +65,8 @@ struct DesktopPlayerView: View {
                             if viewModel.isPreparing { ProgressView().controlSize(.small) }
                             else { Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill") }
                         }
-                        .frame(width: 40, height: 40)
-                        .foregroundStyle(DesktopStyle.sidebar)
-                        .background(DesktopStyle.text, in: Circle())
                     }
+                    .buttonStyle(ThemePlayButtonStyle(diameter: 40))
                     .help(viewModel.isPlaying ? "Pause" : "Play")
                     .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
                     .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
@@ -77,6 +75,7 @@ struct DesktopPlayerView: View {
                     }.help("Forward 20 seconds").accessibilityLabel("Forward 20 seconds")
                 }
                 .buttonStyle(.plain)
+                .foregroundStyle(AppTheme.accentPrimary)
                 .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
 
                 Picker("Playback speed", selection: $viewModel.speed) {
@@ -123,6 +122,7 @@ struct DesktopPlayerView: View {
                     else { seeking = false; seek(to: seekProgress) }
                 })
                 .controlSize(.small)
+                .tint(AppTheme.accentPrimaryFill)
                 .accessibilityLabel("Article position")
                 .accessibilityValue("\(Int((seeking ? seekProgress : progress) * 100)) percent")
                 .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)

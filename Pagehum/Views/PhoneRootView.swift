@@ -5,18 +5,19 @@ struct PhoneRootView: View {
     private enum Tab: Hashable { case add, library, listen, settings }
 
     @ObservedObject var viewModel: ReaderModel
-    @Binding var navigateToReader: Bool
+    @Binding var navigateToLibrary: Bool
     @State private var selectedTab: Tab = .add
+    @State private var isKeyboardPresented = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
             browsingTab {
-                HomeView(viewModel: viewModel, usesTabNavigation: true, openReader: openReader)
+                HomeView(viewModel: viewModel, usesTabNavigation: true, openReader: openReader, openLibrary: openLibrary)
             }
             .tabItem { Label("Add", systemImage: "plus.circle") }
             .tag(Tab.add)
 
-            browsingTab {
+            browsingTab(showsMiniPlayer: false) {
                 PlaylistView(viewModel: viewModel, addContent: { selectedTab = .add }, openReader: openReader)
             }
             .tabItem { Label("Library", systemImage: "books.vertical") }
@@ -32,7 +33,7 @@ struct PhoneRootView: View {
                         Text("Add an article or choose one from your library.")
                     } actions: {
                         Button("Add an article") { selectedTab = .add }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(ThemeButtonStyle())
                             .controlSize(.large)
                         Button("Open library") { selectedTab = .library }
                     }
@@ -43,31 +44,45 @@ struct PhoneRootView: View {
             .tag(Tab.listen)
 
             browsingTab {
-                SettingsView(viewModel: viewModel, openReader: openReader)
+                SettingsView(viewModel: viewModel, openReader: openReader, openLibrary: openLibrary)
             }
             .tabItem { Label("Settings", systemImage: "gearshape") }
             .tag(Tab.settings)
         }
-        .onChange(of: navigateToReader) { _, requested in
+        .toolbarBackground(AppTheme.surface, for: .tabBar)
+        .toolbarBackground(AppTheme.canvas, for: .navigationBar)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            isKeyboardPresented = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isKeyboardPresented = false
+        }
+        .onChange(of: navigateToLibrary) { _, requested in
             if requested {
-                selectedTab = .listen
-                navigateToReader = false
+                openLibrary()
+                navigateToLibrary = false
             }
         }
     }
 
-    private func browsingTab<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        // Reserve actual layout space so Library's selection actions and pushed
-        // settings screens stay above the player, including on older iOS versions.
+    private func browsingTab<Content: View>(showsMiniPlayer: Bool = true, @ViewBuilder content: () -> Content) -> some View {
+        // Reserve space only in tabs that show the mini-player; Library gets
+        // the full height for its articles and selection actions.
         VStack(spacing: 0) {
             NavigationStack { content() }
-            PhoneMiniPlayer(viewModel: viewModel, openReader: openReader)
+            if showsMiniPlayer && !isKeyboardPresented {
+                PhoneMiniPlayer(viewModel: viewModel, openReader: openReader)
+            }
         }
-        .background(Color.platformGroupedBackground)
+        .background(AppTheme.canvas)
     }
 
     private func openReader() {
         selectedTab = .listen
+    }
+
+    private func openLibrary() {
+        selectedTab = .library
     }
 }
 #endif

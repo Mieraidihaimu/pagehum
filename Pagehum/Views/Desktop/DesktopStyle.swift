@@ -3,22 +3,15 @@ import AppKit
 import SwiftUI
 
 enum DesktopStyle {
-    static let canvas = adaptive(light: (0.969, 0.969, 0.961), dark: (0.125, 0.129, 0.133))
-    static let sidebar = adaptive(light: (0.933, 0.933, 0.925), dark: (0.106, 0.110, 0.118))
-    static let panel = adaptive(light: (1, 1, 1), dark: (0.161, 0.169, 0.180))
-    static let border = adaptive(light: (0.855, 0.859, 0.867), dark: (0.239, 0.251, 0.267))
-    static let text = adaptive(light: (0.110, 0.114, 0.122), dark: (0.949, 0.941, 0.922))
-    static let secondary = adaptive(light: (0.388, 0.400, 0.427), dark: (0.686, 0.698, 0.722))
-    static let accent = adaptive(light: (0.035, 0.420, 0.851), dark: (0.510, 0.722, 1))
-    static let action = Color(red: 0.035, green: 0.420, blue: 0.851)
+    static let canvas = AppTheme.canvas
+    static let sidebar = AppTheme.surface
+    static let panel = AppTheme.surface
+    static let border = AppTheme.borderSubtle
+    static let text = AppTheme.textPrimary
+    static let secondary = AppTheme.textSecondary
+    static let accent = AppTheme.accentPrimary
+    static let action = AppTheme.cta
     static let speeds: [Float] = [0.75, 1, 1.25, 1.5, 2, 2.25, 2.5, 3]
-
-    private static func adaptive(light: (Double, Double, Double), dark: (Double, Double, Double)) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            let rgb = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
-            return NSColor(srgbRed: rgb.0, green: rgb.1, blue: rgb.2, alpha: 1)
-        })
-    }
 
     static func speedLabel(_ speed: Float) -> String {
         "\(speed.formatted(.number.precision(.fractionLength(0...2))))×"
@@ -36,17 +29,22 @@ enum DesktopStyle {
 struct DesktopButtonStyle: ButtonStyle {
     var primary = false
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovering = false
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        let active = isEnabled && (configuration.isPressed || isHovering)
+        return configuration.label
             .font(.system(size: 13, weight: .medium))
             .padding(.horizontal, 14)
             .frame(minHeight: 36)
-            .foregroundStyle(primary ? .white : DesktopStyle.text)
-            .background(primary ? DesktopStyle.action : DesktopStyle.panel, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(primary ? .clear : DesktopStyle.border))
-            .brightness(configuration.isPressed ? -0.08 : 0)
+            .foregroundStyle(primary ? AppTheme.onAccent : active ? AppTheme.accentPrimaryHover : DesktopStyle.accent)
+            .background(primary ? (active ? AppTheme.ctaHover : AppTheme.cta) : AppTheme.accentPrimarySubtle, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(primary ? .clear : AppTheme.borderAccent))
+            .shadow(color: primary && isEnabled && isHovering ? AppTheme.ctaGlow : .clear, radius: 16)
             .opacity(isEnabled ? 1 : 0.45)
+            .onHover { isHovering = $0 }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: active)
     }
 }
 

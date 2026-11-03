@@ -3,6 +3,7 @@ import SwiftUI
 /// Lets the user choose which Hacker News stories to import.
 struct TechBlogBrowseView: View {
     @ObservedObject var viewModel: ReaderModel
+    var openLibrary: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var sort: TechBlogSort = .newest
@@ -47,6 +48,7 @@ struct TechBlogBrowseView: View {
         .task { await reload() }
         .onChange(of: showingSettings) { _, showing in reloadIfFiltersChanged(showing) }
         .sheet(item: $previewStory) { storyPreview($0) }
+        .appTheme()
         #else
         NavigationStack {
             content
@@ -64,12 +66,13 @@ struct TechBlogBrowseView: View {
                     }
                 }
                 .navigationDestination(isPresented: $showingSettings) {
-                    TechBlogImportSettingsView(viewModel: viewModel)
+                    TechBlogImportSettingsView(viewModel: viewModel, openLibrary: finishImport)
                 }
         }
         .task { await reload() }
         .onChange(of: showingSettings) { _, showing in reloadIfFiltersChanged(showing) }
         .sheet(item: $previewStory) { storyPreview($0) }
+        .appTheme()
         #endif
     }
 
@@ -81,14 +84,12 @@ struct TechBlogBrowseView: View {
                     Text("Choose your next read").font(.headline)
                     Spacer()
                     Text("^[\(stories.count) story](inflect: true)")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(AppTheme.textSecondary)
                 }
                 searchField
-                Picker("Sort by", selection: $sort) {
-                    ForEach(TechBlogSort.allCases) { Text($0.title).tag($0) }
+                ThemeSegmentedPicker(title: "Sort by", options: TechBlogSort.allCases, selection: $sort) {
+                    Text($0.title)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
             }
             .padding(16)
             Divider()
@@ -109,13 +110,13 @@ struct TechBlogBrowseView: View {
                 .disabled(viewModel.isLoading)
             }
             Divider()
-            footer.padding(16).background(.bar)
+            footer.padding(16).background(AppTheme.surface)
         }
     }
 
     private var searchField: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textSecondary)
             TextField("Search titles and sites", text: $query)
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()
@@ -127,14 +128,14 @@ struct TechBlogBrowseView: View {
                 #endif
             if !query.isEmpty {
                 Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(AppTheme.textSecondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Clear search")
             }
         }
         .padding(10)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+        .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 10))
     }
 
     @ViewBuilder private var emptyState: some View {
@@ -175,7 +176,7 @@ struct TechBlogBrowseView: View {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: saved ? "checkmark.circle" : selected ? "checkmark.circle.fill" : "circle")
                         .font(.title3)
-                        .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                        .foregroundStyle(selected ? AppTheme.accentPrimary : AppTheme.textSecondary)
                         .frame(width: 28, height: 28)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 6) {
@@ -183,14 +184,15 @@ struct TechBlogBrowseView: View {
                             Text(story.site).lineLimit(1)
                             if saved {
                                 Text("Saved").fontWeight(.medium)
+                                    .foregroundStyle(AppTheme.accentPrimary)
                                     .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(.quaternary, in: Capsule())
+                                    .background(AppTheme.accentPrimarySubtle, in: Capsule())
                             }
                         }
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(AppTheme.textSecondary)
                         Text(story.title)
                             .font(.body.weight(.medium))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(AppTheme.textPrimary)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                         ViewThatFits(in: .horizontal) {
@@ -200,7 +202,7 @@ struct TechBlogBrowseView: View {
                                 Text(story.submittedAt, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
                             }
                         }
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(AppTheme.textSecondary)
                     }
                     Spacer(minLength: 0)
                 }
@@ -218,15 +220,15 @@ struct TechBlogBrowseView: View {
                 Image(systemName: "doc.text.magnifyingglass")
                     .font(.body)
                     .frame(width: 44, height: 44)
-                    .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    .background(AppTheme.accentPrimarySubtle, in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(AppTheme.accentPrimary)
             .accessibilityLabel("Preview \(story.title)")
             .help("Preview article")
         }
         .padding(.horizontal, 16)
-        .background(selected ? Color.accentColor.opacity(0.06) : Color.clear)
+        .background(selected ? AppTheme.accentPrimarySubtle : Color.clear)
     }
 
     private func storyMetadata(_ story: TechBlogStory) -> some View {
@@ -247,7 +249,7 @@ struct TechBlogBrowseView: View {
                 Spacer(minLength: 0)
                 if viewModel.isInLibrary(story) {
                     Label("Saved to library", systemImage: "checkmark.circle")
-                        .font(.callout).foregroundStyle(.secondary)
+                        .font(.callout).foregroundStyle(AppTheme.textSecondary)
                 } else {
                     Button {
                         toggleSelection(story)
@@ -255,7 +257,7 @@ struct TechBlogBrowseView: View {
                         Label(selection.contains(story.id) ? "Selected" : "Select article",
                               systemImage: selection.contains(story.id) ? "checkmark.circle.fill" : "plus.circle")
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(ThemeButtonStyle())
                     .controlSize(.large)
                     .disabled(viewModel.isLoading)
                 }
@@ -270,13 +272,13 @@ struct TechBlogBrowseView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            URLImportStatusView(viewModel: viewModel)
+            URLImportStatusView(viewModel: viewModel, openLibrary: finishImport)
             if let message = viewModel.techBlogMessage {
-                Text(message).font(.callout).foregroundStyle(.secondary)
+                Text(message).font(.callout).foregroundStyle(AppTheme.textSecondary)
             }
             if let error = viewModel.errorMessage {
                 Label(error, systemImage: "exclamationmark.circle")
-                    .font(.callout).foregroundStyle(.orange)
+                    .font(.callout).foregroundStyle(AppTheme.warning)
             }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
@@ -304,7 +306,7 @@ struct TechBlogBrowseView: View {
             let visibleIDs = Set(TechBlogDiscovery.browse(viewModel.techBlogStories, query: query, sort: sort).map(\.id))
             let hiddenCount = selectedStories.filter { !visibleIDs.contains($0.id) }.count
             if hiddenCount > 0 {
-                Text("\(hiddenCount) outside this search").font(.caption).foregroundStyle(.secondary)
+                Text("\(hiddenCount) outside this search").font(.caption).foregroundStyle(AppTheme.textSecondary)
             }
         }
     }
@@ -322,6 +324,10 @@ struct TechBlogBrowseView: View {
                 await viewModel.importTechBlogStories(selectedStories)
                 // Keep failed articles selected so retrying doesn't require finding them again.
                 selection = Set(selectedStories.map(\.id))
+                if let result = viewModel.importResult, result.failures.isEmpty,
+                   result.imported > 0 || result.skipped > 0 {
+                    finishImport?()
+                }
             }
         } label: {
             if isImportingSelection {
@@ -335,10 +341,18 @@ struct TechBlogBrowseView: View {
         #if os(macOS)
         .buttonStyle(DesktopButtonStyle(primary: true))
         #else
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(ThemeButtonStyle())
         .controlSize(.large)
         #endif
         .disabled(selectedStories.isEmpty || viewModel.isLoading)
+    }
+
+    private var finishImport: (() -> Void)? {
+        guard let openLibrary else { return nil }
+        return {
+            dismiss()
+            openLibrary()
+        }
     }
 
     private var refreshButton: some View {

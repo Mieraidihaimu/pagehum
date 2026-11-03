@@ -18,7 +18,7 @@ struct ReaderView: View {
                             if desktopLayout || showsArticleHeading {
                                 VStack(alignment: .leading, spacing: 16) {
                                     if let site = viewModel.content?.siteName ?? viewModel.content?.source.webURL?.host() {
-                                        Text(site.uppercased()).font(.caption).tracking(1.6).foregroundStyle(.secondary)
+                                        Text(site.uppercased()).font(.caption).tracking(1.6).foregroundStyle(AppTheme.textSecondary)
                                     }
                                     Text(viewModel.content?.title ?? "Reader")
                                         .font(desktopLayout ? .system(size: 36, weight: .medium) : .title.weight(.semibold))
@@ -39,7 +39,7 @@ struct ReaderView: View {
                                             .font(.subheadline.weight(.medium))
                                     }
                                 }
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppTheme.textSecondary)
                                 .padding(.bottom, 12)
                             }
                             ForEach(Array(viewModel.sentences.enumerated()), id: \.offset) { index, sentence in
@@ -77,7 +77,7 @@ struct ReaderView: View {
                         .padding(.bottom, showsPlaybackControls ? 76 : 36)
                         .frame(maxWidth: .infinity)
                     }
-                    .background(Color.platformGroupedBackground.opacity(0.5))
+                    .background(AppTheme.canvas)
                     .onAppear {
                         if viewModel.currentSentenceIndex > 0 {
                             proxy.scrollTo(viewModel.currentSentenceIndex, anchor: .center)
@@ -100,7 +100,7 @@ struct ReaderView: View {
         .navigationTitle(viewModel.content?.title ?? "Reader")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbarBackground(AppTheme.canvas, for: .navigationBar)
         #endif
     }
 }
@@ -138,7 +138,7 @@ struct SentenceView: View {
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isCurrent ? Color.accentColor.opacity(0.06) : .clear)
+                .fill(isCurrent ? AppTheme.accentPrimarySubtle : .clear)
         )
         .animation(.easeInOut(duration: 0.3), value: currentIndex)
     }
@@ -146,10 +146,10 @@ struct SentenceView: View {
     private var isCurrent: Bool { index == currentIndex && isPlaying }
 
     private var textColor: Color {
-        if !isPlaying { return .primary }
-        if index == currentIndex { return .primary }
-        if index < currentIndex { return .secondary }
-        return .primary.opacity(0.8)
+        if !isPlaying { return AppTheme.textPrimary }
+        if index == currentIndex { return AppTheme.textPrimary }
+        if index < currentIndex { return AppTheme.textSecondary }
+        return AppTheme.textPrimary
     }
 
     private var highlightedSentence: some View {
@@ -161,9 +161,9 @@ struct SentenceView: View {
             let (wordIdx, word) = pair
             let isActive = wordIdx == activeWordIndex
             let styledWord = Text(word + " ")
-                .foregroundColor(isActive ? .accentColor : .primary)
+                .foregroundColor(isActive ? AppTheme.ctaText : AppTheme.textPrimary)
                 .fontWeight(isActive ? .semibold : .regular)
-                .underline(isActive, color: .accentColor.opacity(0.5))
+                .underline(isActive, color: AppTheme.ctaText)
             return result + styledWord
         }
         .font(readerFont)

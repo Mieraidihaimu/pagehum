@@ -61,6 +61,50 @@ struct LibraryStoreTests {
         #expect(saved.title == item.title)
         #expect(saved.playbackTextOffset == 16)
         #expect(saved.isFavorite)
+        #expect(saved.libraryCharacterCount == item.libraryCharacterCount)
         #expect(model.librarySaveError == nil)
+    }
+
+    @Test
+    func articleLengthExcludesEncodedCodeAndInvalidatesMetadataWhenTextChanges() {
+        let code = ArticleSegmenter.marker(for: CodeBlock(language: "swift", source: String(repeating: "let value = 1\n", count: 1_000)))
+        let item = PlaylistItem(title: "Code article", sourceType: "text", fullText: "Before \(code) after.")
+        #expect(item.libraryCharacterCount == "Before   after.".count)
+        let originalID = item.offlineTextID
+
+        item.fullText = "A different article with café and 👩🏽‍💻."
+        #expect(item.libraryCharacterCount == item.fullText.count)
+        #expect(item.offlineTextID != originalID)
+        #expect(item.offlineTextID == OfflineAudioRequest.textIdentifier(item.fullText))
+
+        let previousID = item.offlineTextID
+        item.fullText = String(repeating: "b", count: item.fullText.count)
+        #expect(item.offlineTextID != previousID)
+        #expect(item.libraryCharacterCount == item.fullText.count)
+
+        item.fullText = "Café"
+        let composedID = item.offlineTextID
+        item.fullText = "Cafe\u{301}"
+        #expect(item.offlineTextID != composedID)
+        #expect(item.offlineTextID == OfflineAudioRequest.textIdentifier(item.fullText))
+    }
+
+    @Test
+    func restoredArticlesCacheMetadataWithoutWritingToTheStore() throws {
+        let container = try ModelContainer(for: PlaylistItem.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let item = PlaylistItem(title: "Older article", sourceType: "text", fullText: "Existing library text.")
+        container.mainContext.insert(item)
+        try container.mainContext.save()
+        let context = ModelContext(container)
+        let restored = try #require(context.fetch(FetchDescriptor<PlaylistItem>()).first)
+
+        #expect(restored.libraryCharacterCount == item.fullText.count)
+        #expect(restored.libraryCharacterCount == item.fullText.count)
+        _ = restored.offlineTextID
+        #expect(!context.hasChanges)
+
+        restored.fullText = "Updated text."
+        #expect(restored.libraryCharacterCount == "Updated text.".count)
     }
 }

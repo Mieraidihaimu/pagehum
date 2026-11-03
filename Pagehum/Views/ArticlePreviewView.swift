@@ -54,7 +54,8 @@ struct ArticlePreviewView<Actions: View>: View {
                         Text("Loading preview…").font(.callout)
                     }
                     .padding(12)
-                    .background(.regularMaterial, in: Capsule())
+                    .background(AppTheme.elevated, in: Capsule())
+                    .overlay(Capsule().strokeBorder(AppTheme.borderSubtle))
                     .padding(.top, 16)
                     .accessibilityElement(children: .combine)
                 }
@@ -64,7 +65,7 @@ struct ArticlePreviewView<Actions: View>: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(16)
         }
-        .background(Color.platformGroupedBackground)
+        .appTheme()
         #if os(macOS)
         .frame(minWidth: 640, idealWidth: 800, minHeight: 480, idealHeight: 680)
         #else

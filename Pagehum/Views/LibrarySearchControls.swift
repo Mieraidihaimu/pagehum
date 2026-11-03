@@ -14,13 +14,15 @@ struct LibrarySearchControls: View {
             Button { favoritesOnly.toggle() } label: {
                 Image(systemName: favoritesOnly ? "star.fill" : "star")
                     .font(.title3)
-                    .foregroundStyle(favoritesOnly ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(AppTheme.ctaText)
                     .frame(width: 44, height: 44)
-                    .background(favoritesOnly ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    .background(AppTheme.ctaSubtle, in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(favoritesOnly ? AppTheme.ctaText : .clear))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Starred only")
             .accessibilityValue(favoritesOnly ? "On" : "Off")
+            .accessibilityAddTraits(favoritesOnly ? .isSelected : [])
         }
         #else
         if compact {
@@ -39,7 +41,7 @@ struct LibrarySearchControls: View {
 
     private var searchField: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textSecondary)
             TextField("Search titles, sources, and text", text: $query)
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()
@@ -52,7 +54,7 @@ struct LibrarySearchControls: View {
                 #endif
             if !query.isEmpty {
                 Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(AppTheme.textSecondary)
                         #if os(iOS)
                         .frame(width: 44, height: 44)
                         #endif
@@ -68,14 +70,16 @@ struct LibrarySearchControls: View {
         #else
         .padding(compact ? 8 : 12)
         #endif
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: compact ? 6 : 10))
+        .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: compact ? 6 : 10))
     }
 
     private var favoritesToggle: some View {
-        Toggle(isOn: $favoritesOnly) {
+        Button { favoritesOnly.toggle() } label: {
             Label("Starred only", systemImage: favoritesOnly ? "star.fill" : "star")
         }
-        .toggleStyle(.button)
+        .buttonStyle(ThemeButtonStyle(primary: false, minHeight: 36, secondaryAccent: .rose))
+        .accessibilityValue(favoritesOnly ? "On" : "Off")
+        .accessibilityAddTraits(favoritesOnly ? .isSelected : [])
     }
 }
 
@@ -118,12 +122,13 @@ struct LibraryFavoriteButton: View {
             }
         } label: {
             Image(systemName: item.isFavorite ? "star.fill" : "star")
-                .foregroundStyle(item.isFavorite ? Color.yellow : Color.secondary)
+                .foregroundStyle(AppTheme.ctaText)
                 #if os(iOS)
                 .frame(width: 44, height: 44)
                 #else
                 .frame(width: compact ? 28 : 44, height: compact ? 28 : 44)
                 #endif
+                .background(item.isFavorite ? AppTheme.ctaSubtle : .clear, in: Circle())
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

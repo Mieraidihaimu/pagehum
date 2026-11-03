@@ -1,16 +1,17 @@
 // Modified for Pagehum: unified application and command-line naming.
 import SwiftUI
 
-func importLinksTitle(_ count: Int) -> LocalizedStringKey {
+func importLinksTitle(_ count: Int, opensReader: Bool = true) -> LocalizedStringKey {
     switch count {
     case 0: "Import links"
-    case 1: "Import & open"
+    case 1: opensReader ? "Import & open" : "Import article"
     default: "Import ^[\(count) link](inflect: true)"
     }
 }
 
 struct URLInputHint: View {
     let text: String
+    var opensReader = true
 
     var body: some View {
         let count = URLImportParser.urls(in: text).count
@@ -24,20 +25,25 @@ struct URLInputHint: View {
                 } else if count == 0 {
                     Text("No web links found. Try a link like example.com/article.")
                 } else if count == 1 {
-                    Text("1 article ready. Opens for reading after import.")
+                    if opensReader {
+                        Text("1 article ready. Opens for reading after import.")
+                    } else {
+                        Text("1 article ready. Saves to your library after import.")
+                    }
                 } else {
                     Text("^[\(count) unique link](inflect: true) ready to save to your library.")
                 }
             }
         }
         .font(.caption)
-        .foregroundStyle(count == 0 && hasText ? Color.orange : Color.secondary)
+        .foregroundStyle(count == 0 && hasText ? AppTheme.warning : AppTheme.textSecondary)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 struct URLImportStatusView: View {
     @ObservedObject var viewModel: ReaderModel
+    var openLibrary: (() -> Void)? = nil
 
     var body: some View {
         if let progress = viewModel.importProgress {
@@ -51,7 +57,7 @@ struct URLImportStatusView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Label(result.summary, systemImage: result.failures.isEmpty ? "checkmark.circle" : "exclamationmark.triangle")
                     .font(.callout)
-                    .foregroundStyle(result.failures.isEmpty ? Color.secondary : Color.orange)
+                    .foregroundStyle(result.failures.isEmpty ? AppTheme.textSecondary : AppTheme.warning)
                 if !result.failures.isEmpty {
                     DisclosureGroup("Failed links") {
                         ScrollView {
@@ -59,7 +65,7 @@ struct URLImportStatusView: View {
                                 ForEach(result.failures) { failure in
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(failure.url.absoluteString).textSelection(.enabled)
-                                        Text(failure.message).foregroundStyle(.secondary)
+                                        Text(failure.message).foregroundStyle(AppTheme.textSecondary)
                                     }
                                     .font(.caption).frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.vertical, 4)
@@ -70,7 +76,11 @@ struct URLImportStatusView: View {
                     }
                     Button("Retry failed links") {
                         let links = result.failures.map { $0.url.absoluteString }.joined(separator: "\n")
-                        Task { await viewModel.importURLs(from: links) }
+                        Task {
+                            if let result = await viewModel.importURLs(from: links), result.failures.isEmpty {
+                                openLibrary?()
+                            }
+                        }
                     }
                     .disabled(viewModel.isLoading)
                 }

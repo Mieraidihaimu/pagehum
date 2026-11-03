@@ -5,6 +5,7 @@ struct SettingsView: View {
 
     @ObservedObject var viewModel: ReaderModel
     var openReader: (() -> Void)? = nil
+    var openLibrary: (() -> Void)? = nil
     @State private var cacheSize = AudioCacheManager.formattedSize()
     @State private var cacheFileCount = AudioCacheManager.fileCount()
     @State private var showClearConfirmation = false
@@ -16,11 +17,12 @@ struct SettingsView: View {
         List {
             Section("Content") {
                 NavigationLink {
-                    TechBlogImportSettingsView(viewModel: viewModel)
+                    TechBlogImportSettingsView(viewModel: viewModel, openLibrary: openLibrary)
                 } label: {
                     TechBlogSettingsLabel()
                 }
             }
+            .listRowBackground(AppTheme.surface)
             Section {
                 NavigationLink {
                     StatsView()
@@ -30,14 +32,15 @@ struct SettingsView: View {
             } header: {
                 Text("Activity")
             }
+            .listRowBackground(AppTheme.surface)
 
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Playback Speed", systemImage: "gauge.with.needle")
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
 
-                    HStack(spacing: 6) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 8)], spacing: 8) {
                         ForEach(Array(zip(speeds, speedLabels)), id: \.0) { spd, label in
                             Button {
                                 withAnimation(.spring(response: 0.3)) { viewModel.speed = spd }
@@ -47,10 +50,11 @@ struct SettingsView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 11)
                                     .background(
-                                        viewModel.speed == spd ? Color.accentColor : Color.tertiaryFill,
+                                        viewModel.speed == spd ? AppTheme.accentPrimarySubtle : AppTheme.elevated,
                                         in: RoundedRectangle(cornerRadius: 10)
                                     )
-                                    .foregroundStyle(viewModel.speed == spd ? .white : .primary)
+                                    .foregroundStyle(viewModel.speed == spd ? AppTheme.accentPrimary : AppTheme.textSecondary)
+                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(viewModel.speed == spd ? AppTheme.borderFocus : AppTheme.borderSubtle))
                             }
                             .buttonStyle(.plain)
                         }
@@ -60,20 +64,21 @@ struct SettingsView: View {
             } header: {
                 Text("Playback")
             }
+            .listRowBackground(AppTheme.surface)
 
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Label("Text Size", systemImage: "textformat.size")
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppTheme.textSecondary)
                         Spacer()
                         Text("\(Int(viewModel.textSize))pt")
                             .font(.subheadline.monospacedDigit().weight(.medium))
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(AppTheme.accentPrimary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(Color.accentColor.opacity(0.1), in: Capsule())
+                            .background(AppTheme.accentPrimarySubtle, in: Capsule())
                     }
 
                     HStack(spacing: 14) {
@@ -82,29 +87,30 @@ struct SettingsView: View {
                                 .font(.title2)
                                 .symbolRenderingMode(.hierarchical)
                         }
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
 
                         Slider(value: $viewModel.textSize, in: 12...32, step: 1)
-                            .tint(.accentColor)
+                            .tint(AppTheme.accentPrimaryFill)
 
                         Button { viewModel.textSize = min(32, viewModel.textSize + 2) } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
                                 .symbolRenderingMode(.hierarchical)
                         }
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                     }
 
                     Text("The quick brown fox jumps over the lazy dog.")
                         .font(.system(size: CGFloat(viewModel.textSize), design: .serif))
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.platformGroupedBackground, in: RoundedRectangle(cornerRadius: 12))
+                        .background(AppTheme.canvas, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .padding(.vertical, 4)
             } header: {
                 Text("Reader")
             }
+            .listRowBackground(AppTheme.surface)
 
             Section {
                 Picker("Selected Voice", selection: $viewModel.selectedVoice) {
@@ -125,6 +131,7 @@ struct SettingsView: View {
             } footer: {
                 if let notice = viewModel.speechEngineNotice { Text(notice) }
             }
+            .listRowBackground(AppTheme.surface)
 
             Section {
                 NavigationLink {
@@ -134,11 +141,11 @@ struct SettingsView: View {
                 }
                 LabeledContent("Cached Audio") {
                     Text(cacheSize)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
                 LabeledContent("Audio Files") {
                     Text("\(cacheFileCount)")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
                 Button(role: .destructive) {
                     showClearConfirmation = true
@@ -148,7 +155,7 @@ struct SettingsView: View {
                         Spacer()
                         if cacheFileCount == 0 {
                             Text("Empty")
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(AppTheme.textMuted)
                         }
                     }
                 }
@@ -158,24 +165,29 @@ struct SettingsView: View {
             } footer: {
                 Text("Generated audio files are stored locally for offline playback.")
             }
+            .listRowBackground(AppTheme.surface)
+
 
             Section {
                 LabeledContent("Version") {
                     Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
                 LabeledContent("TTS Engine") {
                     Text(viewModel.speechEngineNotice == nil ? "Kokoro 82M" : "System voices")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
                 LabeledContent("Audio") {
                     Text("24 kHz, mono")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
             } header: {
                 Text("About")
             }
+            .listRowBackground(AppTheme.surface)
         }
+        .scrollContentBackground(.hidden)
+        .background(AppTheme.canvas)
         .navigationTitle("Settings")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)

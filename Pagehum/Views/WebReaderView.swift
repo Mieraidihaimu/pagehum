@@ -7,6 +7,7 @@ struct WebReaderView: View {
     @ObservedObject var viewModel: ReaderModel
     let url: URL
     var showsPlaybackControls = true
+    @Environment(\.colorScheme) private var colorScheme
 
     /// What to look for in the live page. For a code block this is a line of the source rather than
     /// the spoken announcement, so the page's own `<pre>` gets highlighted.
@@ -19,7 +20,8 @@ struct WebReaderView: View {
             WebViewContainer(
                 url: url,
                 currentSentence: currentSentence,
-                isPlaying: viewModel.isPlaying
+                isPlaying: viewModel.isPlaying,
+                highlightColor: AppTheme.webHighlightColor(for: colorScheme)
             )
             .id(url)
             #if os(iOS)
@@ -35,7 +37,7 @@ struct WebReaderView: View {
         .navigationTitle(viewModel.content?.title ?? "Reader")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbarBackground(AppTheme.canvas, for: .navigationBar)
         #endif
     }
 }
@@ -44,6 +46,7 @@ private struct WebViewContainer {
     let url: URL
     let currentSentence: String?
     let isPlaying: Bool
+    let highlightColor: String
 
     fileprivate static func createWebView(url: URL, coordinator: Coordinator) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -51,6 +54,13 @@ private struct WebViewContainer {
         config.allowsInlineMediaPlayback = true
         #endif
         let webView = WKWebView(frame: .zero, configuration: config)
+        #if os(iOS)
+        webView.isOpaque = false
+        webView.backgroundColor = UIColor(AppTheme.canvas)
+        webView.underPageBackgroundColor = UIColor(AppTheme.canvas)
+        #else
+        webView.underPageBackgroundColor = NSColor(AppTheme.canvas)
+        #endif
         webView.allowsBackForwardNavigationGestures = true
         webView.navigationDelegate = coordinator
         webView.load(URLRequest(url: url))
@@ -59,7 +69,9 @@ private struct WebViewContainer {
     }
 
     fileprivate func updateWebView(_ webView: WKWebView, coordinator: Coordinator) {
+        coordinator.highlightColor = highlightColor
         guard coordinator.isReady else { return }
+        coordinator.applyTheme()
         if isPlaying, let sentence = currentSentence {
             highlightSentence(sentence, in: webView)
         } else if !isPlaying {
@@ -82,16 +94,38 @@ private struct WebViewContainer {
     final class Coordinator: NSObject, WKNavigationDelegate {
         weak var webView: WKWebView?
         var isReady = false
+        var highlightColor: String
+        private var appliedHighlightColor: String?
+
+        init(highlightColor: String) {
+            self.highlightColor = highlightColor
+        }
+
+        func applyTheme() {
+            guard highlightColor != appliedHighlightColor,
+                  let data = try? JSONSerialization.data(withJSONObject: [highlightColor]),
+                  let json = String(data: data, encoding: .utf8) else { return }
+            webView?.evaluateJavaScript("window.__pagehumSetTheme(\(json.dropFirst().dropLast()));", completionHandler: nil)
+            appliedHighlightColor = highlightColor
+        }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             webView.evaluateJavaScript(Self.highlightJS) { _, _ in
                 self.isReady = true
+                self.appliedHighlightColor = nil
+                self.applyTheme()
             }
         }
 
         static let highlightJS = """
         (function() {
             var currentMark = null;
+            var highlightColor = '';
+
+            window.__pagehumSetTheme = function(color) {
+                highlightColor = color;
+                if (currentMark) currentMark.style.backgroundColor = color;
+            };
 
             function escapeRegex(s) {
                 return s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
@@ -144,7 +178,7 @@ private struct WebViewContainer {
                 var el = findTextInBody(sentence);
                 if (el) {
                     currentMark = el;
-                    el.style.backgroundColor = 'rgba(0, 122, 255, 0.12)';
+                    el.style.backgroundColor = highlightColor;
                     el.style.borderRadius = '4px';
                     el.style.transition = 'background-color 0.3s ease';
                 }
@@ -165,7 +199,7 @@ private struct WebViewContainer {
 
 #if os(iOS)
 extension WebViewContainer: UIViewRepresentable {
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeCoordinator() -> Coordinator { Coordinator(highlightColor: highlightColor) }
 
     func makeUIView(context: Context) -> WKWebView {
         Self.createWebView(url: url, coordinator: context.coordinator)
@@ -177,7 +211,7 @@ extension WebViewContainer: UIViewRepresentable {
 }
 #else
 extension WebViewContainer: NSViewRepresentable {
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeCoordinator() -> Coordinator { Coordinator(highlightColor: highlightColor) }
 
     func makeNSView(context: Context) -> WKWebView {
         Self.createWebView(url: url, coordinator: context.coordinator)

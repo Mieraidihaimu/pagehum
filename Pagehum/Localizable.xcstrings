@@ -17,10 +17,93 @@
     "-%@" : {
 
     },
+    "1 article ready. Saves to your library after import." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 篇文章已就绪，导入后将保存到资料库。"
+          }
+        }
+      }
+    },
+    "Add a link, a PDF, or your own text." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加链接、PDF 或你自己的文字。"
+          }
+        }
+      }
+    },
+    "Import article" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导入文章"
+          }
+        }
+      }
+    },
+    "Link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接"
+          }
+        }
+      }
+    },
+    "PDF" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF"
+          }
+        }
+      }
+    },
+    "Save text to library" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将文字保存到资料库"
+          }
+        }
+      }
+    },
+    "What would you like to listen to?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你想听点什么？"
+          }
+        }
+      }
+    },
+    "Your text" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的文字"
+          }
+        }
+      }
+    },
     "·" : {
 
     },
     "/ Hacker News" : {
+
+    },
+    "/ Offline Audio" : {
 
     },
     "%@" : {
@@ -142,7 +225,14 @@
 
     },
     "%lld%% complete" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已完成 %lld%%"
+          }
+        }
+      }
     },
     "%lldh %lldm" : {
       "localizations" : {
@@ -607,7 +697,13 @@
     "Est. %@ left" : {
 
     },
+    "Estimated listening time" : {
+
+    },
     "Estimated listening time at %@, based on the remaining text. Updates as sentences advance; actual duration varies by voice and pauses." : {
+
+    },
+    "Estimated listening time at the current playback speed, based on article text." : {
 
     },
     "Estimated time remaining" : {
@@ -1498,7 +1594,14 @@
       }
     },
     "Text to read aloud" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "朗读文字"
+          }
+        }
+      }
     },
     "The current article stays in your library." : {
 

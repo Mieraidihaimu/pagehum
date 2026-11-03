@@ -13,7 +13,7 @@ struct StatsView: View {
             }
             .padding(20)
         }
-        .background(Color.platformGroupedBackground)
+        .appTheme()
         .navigationTitle("Listening Stats")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
@@ -30,7 +30,7 @@ struct StatsView: View {
         return VStack(spacing: 8) {
             Image(systemName: "headphones.circle.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(.cyan)
+                .foregroundStyle(AppTheme.accentPrimary)
                 .symbolRenderingMode(.hierarchical)
 
             if hours > 0 {
@@ -43,12 +43,11 @@ struct StatsView: View {
 
             Text("Total Listening Time")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
-        .background(.background, in: RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+        .themeCard(cornerRadius: 20)
     }
 
     // MARK: - Streaks
@@ -57,8 +56,8 @@ struct StatsView: View {
         let (current, longest) = calculateStreaks()
 
         return HStack(spacing: 16) {
-            streakItem(value: current, label: "Current Streak", icon: "flame.fill", color: .orange)
-            streakItem(value: longest, label: "Longest Streak", icon: "trophy.fill", color: .yellow)
+            streakItem(value: current, label: "Current Streak", icon: "flame.fill", color: AppTheme.ctaText)
+            streakItem(value: longest, label: "Longest Streak", icon: "trophy.fill", color: AppTheme.accentPrimary)
         }
     }
 
@@ -71,15 +70,14 @@ struct StatsView: View {
                 .font(.system(size: 24, weight: .bold, design: .rounded))
             Text(label)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppTheme.textSecondary)
             Text(value == 1 ? "day" : "days")
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(AppTheme.textMuted)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(.background, in: RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+        .themeCard(cornerRadius: 16)
     }
 
     private func calculateStreaks() -> (current: Int, longest: Int) {
@@ -126,7 +124,7 @@ struct StatsView: View {
             HStack(spacing: 4) {
                 Text("Less")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.textSecondary)
                 ForEach(0..<5, id: \.self) { level in
                     RoundedRectangle(cornerRadius: 2)
                         .fill(legendColor(level))
@@ -134,22 +132,21 @@ struct StatsView: View {
                 }
                 Text("More")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(.background, in: RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+        .themeCard(cornerRadius: 20)
     }
 
     private func legendColor(_ level: Int) -> Color {
         switch level {
-        case 0: return Color.platformGray
-        case 1: return Color.accentColor.opacity(0.25)
-        case 2: return Color.accentColor.opacity(0.5)
-        case 3: return Color.accentColor.opacity(0.75)
-        default: return Color.accentColor
+        case 0: return AppTheme.elevated
+        case 1: return AppTheme.accentPrimaryFill.opacity(0.25)
+        case 2: return AppTheme.accentPrimaryFill.opacity(0.5)
+        case 3: return AppTheme.accentPrimaryFill.opacity(0.75)
+        default: return AppTheme.accentPrimaryFill
         }
     }
 }
@@ -212,13 +209,13 @@ private struct ContributionGridView: View {
     }
 
     private func colorForSeconds(_ seconds: Double, max: Double) -> Color {
-        guard seconds > 0 else { return Color.platformGray }
+        guard seconds > 0 else { return AppTheme.elevated }
         let ratio = seconds / max
         switch ratio {
-        case ..<0.25: return Color.accentColor.opacity(0.25)
-        case ..<0.50: return Color.accentColor.opacity(0.5)
-        case ..<0.75: return Color.accentColor.opacity(0.75)
-        default: return Color.accentColor
+        case ..<0.25: return AppTheme.accentPrimaryFill.opacity(0.25)
+        case ..<0.50: return AppTheme.accentPrimaryFill.opacity(0.5)
+        case ..<0.75: return AppTheme.accentPrimaryFill.opacity(0.75)
+        default: return AppTheme.accentPrimaryFill
         }
     }
 }

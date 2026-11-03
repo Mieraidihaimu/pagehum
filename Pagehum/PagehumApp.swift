@@ -7,7 +7,7 @@ struct PagehumApp: App {
     @StateObject private var model = ReaderModel()
     @StateObject private var library = LibraryStore()
     @Environment(\.scenePhase) private var scenePhase
-    @State private var navigateToReader = false
+    @State private var navigateAfterImport = false
     @State private var importingSharedURL = false
     @State private var sharedImportFailed = false
 
@@ -16,11 +16,12 @@ struct PagehumApp: App {
             if let modelContainer = library.container {
                 Group {
                     #if os(macOS)
-                    DesktopRootView(viewModel: model, navigateToReader: $navigateToReader)
+                    DesktopRootView(viewModel: model, navigateToReader: $navigateAfterImport)
                     #else
-                    PhoneRootView(viewModel: model, navigateToReader: $navigateToReader)
+                    PhoneRootView(viewModel: model, navigateToLibrary: $navigateAfterImport)
                     #endif
                 }
+                .appTheme()
                 .safeAreaInset(edge: .top) {
                     if let message = model.librarySaveError {
                         VStack(alignment: .leading, spacing: 8) {
@@ -30,7 +31,8 @@ struct PagehumApp: App {
                         .font(.callout)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
-                        .background(.orange.opacity(0.18))
+                        .foregroundStyle(AppTheme.warning)
+                        .background(AppTheme.ctaSubtle)
                     }
                 }
                 .onOpenURL { url in
@@ -64,8 +66,9 @@ struct PagehumApp: App {
                     Text(library.errorMessage ?? "The library could not be initialized.")
                 } actions: {
                     Button("Try again") { library.retry() }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(ThemeButtonStyle())
                 }
+                .appTheme()
             }
         }
         #if os(macOS)
@@ -119,7 +122,7 @@ struct PagehumApp: App {
         importingSharedURL = true
         Task {
             await model.loadPendingSharedURL()
-            navigateToReader = model.errorMessage == nil && model.content != nil
+            navigateAfterImport = model.errorMessage == nil && model.content != nil
             sharedImportFailed = model.errorMessage != nil
             importingSharedURL = false
         }

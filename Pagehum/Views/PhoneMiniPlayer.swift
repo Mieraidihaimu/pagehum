@@ -7,6 +7,7 @@ struct PhoneMiniPlayer: View {
     @ObservedObject private var queue: ListeningQueue
     var openReader: () -> Void
     @State private var showsQueue = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(viewModel: ReaderModel, openReader: @escaping () -> Void) {
         self.viewModel = viewModel
@@ -25,52 +26,62 @@ struct PhoneMiniPlayer: View {
 
     var body: some View {
         if let title = queue.current?.title ?? viewModel.content?.title {
-            HStack(spacing: 8) {
-                Button(action: openReader) {
-                    HStack(spacing: 10) {
-                        Image(systemName: viewModel.isPlaying ? "waveform" : "headphones")
-                            .font(.title3)
-                            .foregroundStyle(Color.accentColor)
-                            .frame(width: 36, height: 40)
-                            .accessibilityHidden(true)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                            Text(status).font(.caption).foregroundStyle(queue.failure == nil ? Color.secondary : .orange)
-                                .lineLimit(1)
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Button(action: openReader) {
+                        HStack(spacing: 10) {
+                            if !dynamicTypeSize.isAccessibilitySize {
+                                Image(systemName: viewModel.isPlaying ? "waveform" : "headphones")
+                                    .font(.title3)
+                                    .foregroundStyle(AppTheme.accentPrimary)
+                                    .frame(width: 36, height: 40)
+                                    .accessibilityHidden(true)
+                            }
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(title).font(.subheadline.weight(.semibold))
+                                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                                Text(status).font(.caption).foregroundStyle(queue.failure == nil ? AppTheme.textSecondary : AppTheme.warning)
+                                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                     }
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Open Listen: \(title)")
-                .accessibilityValue(Text(status))
+                    .accessibilityLabel("Open Listen: \(title)")
+                    .accessibilityValue(Text(status))
 
-                Button { viewModel.togglePlayback() } label: {
-                    Group {
-                        if viewModel.isPreparing { ProgressView() }
-                        else {
-                            Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.title3)
+                    Button { viewModel.togglePlayback() } label: {
+                        Group {
+                            if viewModel.isPreparing { ProgressView() }
+                            else {
+                                Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
+                                    .font(.system(size: 20, weight: .semibold))
+                            }
+                        }
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
+                    .accessibilityLabel(viewModel.isPreparing ? "Cancel preparation" : viewModel.isPlaying ? "Pause" : "Play")
+
+                    if queue.isActive {
+                        PhoneQueueButton(count: queue.upcoming.count, needsAttention: queue.failure != nil) {
+                            showsQueue = true
                         }
                     }
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
                 }
-                .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
-                .accessibilityLabel(viewModel.isPreparing ? "Cancel preparation" : viewModel.isPlaying ? "Pause" : "Play")
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
 
-                if queue.isActive {
-                    PhoneQueueButton(count: queue.upcoming.count, needsAttention: queue.failure != nil) {
-                        showsQueue = true
-                    }
-                }
+                ProgressView(value: min(1, max(0, viewModel.progress)))
+                    .tint(AppTheme.accentPrimaryFill)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 8)
+                    .accessibilityHidden(true)
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.primary.opacity(0.06)))
+            .themeCard(cornerRadius: 18)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .sheet(isPresented: $showsQueue) {
@@ -90,9 +101,10 @@ struct PhoneQueueButton: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: needsAttention ? "exclamationmark.circle" : "list.bullet")
+                    .font(.system(size: 20))
                 Text(count.formatted()).font(.caption.weight(.semibold).monospacedDigit())
             }
-            .foregroundStyle(needsAttention ? Color.orange : Color.accentColor)
+            .foregroundStyle(needsAttention ? AppTheme.warning : AppTheme.accentPrimary)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
         }

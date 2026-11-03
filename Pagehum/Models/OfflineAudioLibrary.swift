@@ -16,7 +16,7 @@ enum OfflineAudioLibrary {
 
     static func entries(records: [OfflineAudioStore.Record], items: [PlaylistItem], preferredVoice: String) -> [Entry] {
         let itemsByText = Dictionary(grouping: items.filter { !$0.isDeleted }) {
-            OfflineAudioRequest.textIdentifier($0.fullText)
+            $0.offlineTextID
         }
         return Dictionary(grouping: records, by: { $0.request.textID }).map { textID, records in
             let sorted = records.sorted {

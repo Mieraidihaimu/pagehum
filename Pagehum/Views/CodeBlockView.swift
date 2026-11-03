@@ -48,12 +48,12 @@ struct CodeBlockView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color.secondaryGroupedBackground)
+                .fill(AppTheme.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(
-                    isCurrent ? Color.accentColor.opacity(0.55) : Color.platformGray.opacity(0.22),
+                    isCurrent ? AppTheme.borderFocus : AppTheme.borderSubtle,
                     lineWidth: isCurrent ? 2 : 1
                 )
         )
@@ -68,15 +68,15 @@ struct CodeBlockView: View {
         HStack(spacing: 8) {
             Image(systemName: "chevron.left.forwardslash.chevron.right")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(isCurrent ? Color.accentColor : .secondary)
+                .foregroundStyle(isCurrent ? AppTheme.accentPrimary : AppTheme.textSecondary)
 
             Text(block.displayLanguage ?? "Code")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(isCurrent ? Color.accentColor : .secondary)
+                .foregroundStyle(isCurrent ? AppTheme.accentPrimary : AppTheme.textSecondary)
 
             Text(block.lineCount == 1 ? "1 line" : "\(block.lineCount) lines")
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(AppTheme.textMuted)
 
             Spacer(minLength: 8)
 
@@ -84,7 +84,7 @@ struct CodeBlockView: View {
                 Label(didCopy ? "Copied" : "Copy", systemImage: didCopy ? "checkmark" : "doc.on.doc")
                     .labelStyle(.iconOnly)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(didCopy ? Color.green : .secondary)
+                    .foregroundStyle(didCopy ? AppTheme.success : AppTheme.textSecondary)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
             }
@@ -105,7 +105,7 @@ struct CodeBlockView: View {
         ScrollView(.horizontal, showsIndicators: true) {
             Text(visibleSource)
                 .font(codeFont)
-                .foregroundStyle(.primary)
+                .foregroundStyle(AppTheme.textPrimary)
                 .textSelection(.enabled)
                 .lineSpacing(2)
                 .padding(.horizontal, 12)
@@ -123,7 +123,7 @@ struct CodeBlockView: View {
                 Text(isExpanded ? "Show less" : "Show all \(block.lineCount) lines")
             }
             .font(.caption.weight(.medium))
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(AppTheme.accentPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .contentShape(Rectangle())

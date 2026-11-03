@@ -15,11 +15,11 @@ struct VoiceModelDownloadView: View {
                         Text(fraction, format: .percent.precision(.fractionLength(0)))
                     }
                 case .failed(let message):
-                    Label(message, systemImage: "exclamationmark.circle").foregroundStyle(.orange)
+                    Label(message, systemImage: "exclamationmark.circle").foregroundStyle(AppTheme.warning)
                     downloadButton(title: "Try again")
                 case .idle:
                     Text("Using system voices. Download natural voices for clearer, more human speech.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                     downloadButton(title: "Download natural voices (\(sizeLabel))")
                 }
             }

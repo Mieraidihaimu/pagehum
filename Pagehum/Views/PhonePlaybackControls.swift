@@ -5,6 +5,8 @@ struct PhonePlaybackControls: View {
     @ObservedObject var viewModel: ReaderModel
     @ObservedObject private var queue: ListeningQueue
     @ObservedObject private var offlineAudio: OfflineAudioManager
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var isScrubbing = false
     @State private var scrubProgress = 0.0
     @State private var showsQueue = false
@@ -25,10 +27,46 @@ struct PhonePlaybackControls: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            playButton
-            speedMenu
-            progressControl
+        VStack(spacing: 8) {
+            if verticalSizeClass == .compact && !dynamicTypeSize.isAccessibilitySize {
+                HStack(spacing: 12) {
+                    transportButtons
+                    progressControl
+                    speedMenu
+                    queueAndActions
+                }
+            } else {
+                HStack(alignment: .center, spacing: 12) {
+                    progressControl
+                    queueAndActions
+                }
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        speedMenu
+                        Spacer(minLength: 0)
+                        transportButtons
+                        Spacer(minLength: 0)
+                        // Balance the speed control so Play stays centered.
+                        Color.clear.frame(width: 52, height: 1).accessibilityHidden(true)
+                    }
+                    VStack(spacing: 4) {
+                        transportButtons
+                        speedMenu
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .themeCard(cornerRadius: 18)
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showsQueue) {
+            ListeningQueueSheet(viewModel: viewModel, queue: queue)
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var queueAndActions: some View {
+        HStack(spacing: 4) {
             if queue.isActive {
                 PhoneQueueButton(count: queue.upcoming.count, needsAttention: queue.failure != nil) {
                     showsQueue = true
@@ -36,15 +74,41 @@ struct PhonePlaybackControls: View {
             }
             actionsMenu
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.primary.opacity(0.06)))
-        .buttonStyle(.plain)
-        .sheet(isPresented: $showsQueue) {
-            ListeningQueueSheet(viewModel: viewModel, queue: queue)
-                .presentationDragIndicator(.visible)
+    }
+
+    private var transportButtons: some View {
+        HStack(spacing: 16) {
+            Button { viewModel.skipBackward() } label: {
+                skipSymbol("gobackward")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Back 20 seconds")
+            .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
+
+            playButton
+
+            Button { viewModel.skipForward() } label: {
+                skipSymbol("goforward")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Forward 20 seconds")
+            .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
         }
+        .foregroundStyle(AppTheme.accentPrimary)
+    }
+
+    private func skipSymbol(_ name: String) -> some View {
+        // SF Symbols has no 20-second variant of these arrows.
+        Image(systemName: name)
+            .font(.system(size: 28))
+            .overlay {
+                Text(20, format: .number)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .offset(y: 2)
+            }
+            .accessibilityHidden(true)
     }
 
     private var speedMenu: some View {
@@ -57,8 +121,9 @@ struct PhonePlaybackControls: View {
         } label: {
             Text("\(viewModel.speed.formatted())×")
                 .font(.callout.weight(.semibold))
-                .lineLimit(1).minimumScaleFactor(0.6)
-                .frame(width: 52, height: 44)
+                .foregroundStyle(AppTheme.accentPrimary)
+                .fixedSize()
+                .frame(minWidth: 52, minHeight: 44)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel("Playback speed")
@@ -72,7 +137,8 @@ struct PhonePlaybackControls: View {
                 isScrubbing = editing
                 if !editing { seek(to: scrubProgress) }
             })
-            .frame(minHeight: 28)
+            .frame(minHeight: 44)
+            .tint(AppTheme.accentPrimaryFill)
             .accessibilityLabel("Article position")
             .accessibilityValue("\(Int(displayProgress * 100)) percent")
             .accessibilityHint("Est. \(timeText(estimatedDuration * (1 - displayProgress))) left")
@@ -86,16 +152,25 @@ struct PhonePlaybackControls: View {
                     Text(status)
                 } else if viewModel.playbackFailureCount > 0 {
                     Text("\(viewModel.playbackFailureCount) sentences skipped")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(AppTheme.warning)
                 } else {
-                    Text("\(timeText(estimatedDuration * displayProgress)) / \(timeText(estimatedDuration))")
-                        .accessibilityLabel("Est. \(timeText(estimatedDuration * (1 - displayProgress))) left")
+                    ViewThatFits(in: .horizontal) {
+                        HStack {
+                            Text(timeText(estimatedDuration * displayProgress))
+                                .fixedSize()
+                            Spacer(minLength: 4)
+                            Text("−\(timeText(estimatedDuration * (1 - displayProgress)))")
+                                .fixedSize()
+                        }
+                        Text("\(timeText(estimatedDuration * displayProgress)) / \(timeText(estimatedDuration))")
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Est. \(timeText(estimatedDuration * (1 - displayProgress))) left")
                 }
             }
-            .font(.caption2.monospacedDigit())
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.75)
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(AppTheme.textSecondary)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
         }
         .frame(maxWidth: .infinity)
     }
@@ -131,9 +206,9 @@ struct PhonePlaybackControls: View {
         } label: {
             Image(systemName: queue.failure != nil || viewModel.playbackFailureCount > 0
                   ? "exclamationmark.circle" : "ellipsis")
-                .font(.title3)
+                .font(.system(size: 20))
                 .foregroundStyle(queue.failure != nil || viewModel.playbackFailureCount > 0
-                                 ? Color.orange : Color.primary)
+                                 ? AppTheme.warning : AppTheme.accentPrimary)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
@@ -143,20 +218,18 @@ struct PhonePlaybackControls: View {
 
     private var playButton: some View {
         Button { viewModel.togglePlayback() } label: {
-            ZStack {
-                Circle().fill(Color.accentColor.gradient)
+            Group {
                 if viewModel.isPreparing {
-                    ProgressView().tint(.white)
+                    ProgressView().tint(AppTheme.onAccent)
                 } else {
                     Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.title3.weight(.semibold)).foregroundStyle(.white)
+                        .font(.system(size: 22, weight: .semibold)).foregroundStyle(AppTheme.onAccent)
                 }
             }
-            .frame(width: 44, height: 44)
         }
+        .buttonStyle(ThemePlayButtonStyle())
         .accessibilityLabel(viewModel.isPreparing ? "Cancel preparation" : viewModel.isPlaying ? "Pause" : "Play")
         .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
-        .opacity(!viewModel.canPlayCurrentContent || viewModel.isLoading ? 0.4 : 1)
     }
 
     private var displayProgress: Double { isScrubbing ? scrubProgress : min(1, max(0, viewModel.progress)) }
