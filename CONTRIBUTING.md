@@ -1,6 +1,6 @@
 # Contributing to Pagehum
 
-Build instructions and requirements are in [README.md](README.md). Run `./scripts/download-models.sh` before building. Keep downloaded weights, build output, personal Xcode state, and signing credentials out of commits.
+Build instructions and requirements are in [README.md](README.md). Run `./scripts/download-models.sh` before app Debug builds or CLI synthesis. The fast maintenance checks and iPhone release verification do not require model downloads. Keep downloaded weights, build output, personal Xcode state, and signing credentials out of commits.
 
 ## Changes
 
@@ -10,11 +10,31 @@ Useful areas for contribution include reader extraction, accessibility, playback
 
 ## Verification
 
+Start every change with the fast, offline checks (Python 3.11+ and Bash):
+
+```sh
+python3 scripts/check-maintenance.py
+```
+
+This checks shell/Python syntax, parses app and extension plists, privacy manifests,
+entitlements, asset catalogs, localization JSON, dependency lockfiles, and shared schemes,
+then runs archive-verifier regression tests against small synthetic archives. It works from
+any working directory, without Xcode, model downloads, or third-party Python packages.
+GitHub Actions runs it on Linux and macOS for every pull request and push to `main`.
+
+Choose the additional checks that exercise the behavior you changed:
+
+| Change | Additional verification |
+| --- | --- |
+| App, share extension, playback, or persistence | `./scripts/verify-ios.sh`; physical-device checks for GPU/background behavior |
+| CLI, model lookup, or bundled resources | Build CLI, run `scripts/test-cli.py`, then verify synthesis from a relocated CLI directory |
+| Archive validation rules | Add positive/negative cases in `scripts/tests/test_verify_ios_archive.py`; run `./scripts/verify-ios.sh` against a real archive |
+| Workflow or dependency configuration | Review workflow triggers/permissions and check the resulting GitHub Actions runs |
+
 For the iPhone release, run `./scripts/verify-ios.sh`. It runs simulator tests and verifies an
 unsigned Release archive, using the pinned dependency lockfile. It needs Xcode 26.2+ with an
 installed iPhone simulator and Metal toolchain. It does not need downloaded voice models.
 See [the iPhone release runbook](docs/IOS_RELEASE.md) for artifacts, overrides, and device checks.
-
 
 Run the Mac tests (local ad-hoc signing omits development-only entitlements). The launch machine currently stalls before executing the app tests; see [release notes](docs/RELEASE_NOTES.md) for that limitation:
 
@@ -40,3 +60,22 @@ The two historical playback-state failures, `transitionsFromPreparingThroughAudi
 ## Compatibility
 
 Pagehum keeps the previous bundle identifiers, shared app group, persistent storage keys, and `speechly://` URL compatibility to preserve existing development installations. For a separately signed device installation, configure a matching app group in the app, share extension, and Swift code, together with your own bundle identifiers.
+
+## Routine maintenance
+
+Dependabot checks GitHub Actions weekly, grouping minor/patch updates and leaving major
+updates separate. Review the release notes and CI results before merging these pull requests.
+See [GitHub's configuration reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
+
+Review Swift dependencies monthly and before releases. Versions are declared in both
+`Packages/SpeechCore/Package.swift` and `Pagehum.xcodeproj/project.pbxproj`; the app/CLI share
+the lockfile at `Pagehum.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+Update matching version requirements together, resolve packages with Xcode, and commit the
+updated lockfile. Swift dependencies remain a manual review because updating only the local
+package manifest does not update the app's pinned graph. Verify both the iPhone app and CLI,
+including real synthesis, when upgrading Kokoro, MLX, or their dependencies.
+
+When updating model assets, keep the revision and SHA-256 values in
+`scripts/download-models.sh` and `Pagehum/Speech/ModelStore.swift` aligned. Test setup and
+in-app downloads, and review third-party licenses/notices. When changing the Xcode version or
+runner in CI, update the requirements in this guide and `docs/IOS_RELEASE.md` together.

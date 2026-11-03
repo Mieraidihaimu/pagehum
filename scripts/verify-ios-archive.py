@@ -3,6 +3,7 @@
 import plistlib
 import sys
 from pathlib import Path
+from xml.parsers.expat import ExpatError
 
 
 def read_plist(path):
@@ -47,5 +48,5 @@ if __name__ == '__main__':
         sys.exit('Usage: verify-ios-archive.py PATH.xcarchive')
     try:
         verify(Path(sys.argv[1]))
-    except (OSError, ValueError, KeyError, plistlib.InvalidFileException) as error:
+    except (OSError, ValueError, KeyError, ExpatError, plistlib.InvalidFileException) as error:
         sys.exit(f'Archive verification failed: {error}')
