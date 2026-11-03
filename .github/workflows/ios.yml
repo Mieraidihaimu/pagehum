@@ -24,7 +24,7 @@ jobs:
         run: ./scripts/verify-ios.sh
       - name: Preserve test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: iphone-test-results
           path: .build/verification-results/Tests.xcresult
