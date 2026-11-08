@@ -1059,6 +1059,16 @@
         }
       }
     },
+    "Older articles" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "较早添加的文章"
+          }
+        }
+      }
+    },
     "On" : {
 
     },

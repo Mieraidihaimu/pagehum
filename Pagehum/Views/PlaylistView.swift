@@ -14,6 +14,7 @@ struct PlaylistView: View {
     @State private var unreadExpanded = true
     @State private var inProgressExpanded = true
     @State private var completedExpanded = true
+    @State private var olderExpanded = false
     @State private var selecting = false
     @State private var selection: Set<PersistentIdentifier> = []
     @State private var confirmingRemoval = false
@@ -28,18 +29,22 @@ struct PlaylistView: View {
     }
 
     var body: some View {
-        let filteredItems = LibraryFilter(query: searchText, favoritesOnly: favoritesOnly).apply(to: allItems)
-        let completedItems = filteredItems.filter { $0.status == PlaylistItem.Status.completed.rawValue || $0.progressPercent >= 1 }
-        let inProgressItems = filteredItems.filter { item in
+        let filter = LibraryFilter(query: searchText, favoritesOnly: favoritesOnly)
+        let filteredItems = filter.apply(to: allItems)
+        // Completed articles already have a summary row when browsing the library.
+        let inlineItems = selecting ? filteredItems : filteredItems.filter { $0.libraryProgress < 1 }
+        let (currentItems, olderItems) = filter.groupByAge(inlineItems)
+        let completedItems = (selecting ? currentItems : filteredItems).filter { $0.libraryProgress >= 1 }
+        let inProgressItems = currentItems.filter { item in
             item.status == PlaylistItem.Status.inProgress.rawValue &&
-            item.progressPercent < 1
+            item.libraryProgress < 1
         }
-        let unreadItems = filteredItems.filter { item in
-            item.status != PlaylistItem.Status.completed.rawValue &&
+        let unreadItems = currentItems.filter { item in
             item.status != PlaylistItem.Status.inProgress.rawValue &&
-            item.progressPercent < 1
+            item.libraryProgress < 1
         }
-        let displayOrder = unreadItems + inProgressItems + (selecting ? completedItems : [])
+        let displayOrder = (unreadExpanded ? unreadItems : []) + (inProgressExpanded ? inProgressItems : [])
+            + (selecting && completedExpanded ? completedItems : []) + (olderExpanded ? olderItems : [])
         let selectedItems = displayOrder.filter { selection.contains($0.persistentModelID) }
         let queueableItems = selectedItems.filter { !queue.contains($0.persistentModelID) }
         // The current article stays: its next progress save would touch a deleted model.
@@ -111,6 +116,17 @@ struct PlaylistView: View {
                             }
                         }
                     }
+
+                    if !olderItems.isEmpty {
+                        librarySection("Older articles", systemImage: "clock", count: olderItems.count,
+                                       isExpanded: $olderExpanded) {
+                            ForEach(olderItems) { item in
+                                libraryRow(item)
+                                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            }
+                            .onDelete { offsets in deleteItems(from: olderItems, at: offsets) }
+                        }
+                    }
                 }
                 .scrollContentBackground(.hidden)
                 .background(AppTheme.canvas)
@@ -129,7 +145,7 @@ struct PlaylistView: View {
         .toolbarBackground(AppTheme.canvas, for: .navigationBar)
         #endif
         .toolbar {
-            if !displayOrder.isEmpty {
+            if selecting || !filteredItems.isEmpty {
                 ToolbarItem(placement: .primaryAction) {
                     Button(selecting ? "Cancel" : "Select") {
                         selecting.toggle()
@@ -138,6 +154,7 @@ struct PlaylistView: View {
                 }
             }
         }
+        .onChange(of: displayOrder.map(\.persistentModelID)) { _, ids in selection.formIntersection(ids) }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if selecting {
                 VStack(spacing: 10) {
@@ -147,6 +164,7 @@ struct PlaylistView: View {
                         Button("Select all") {
                             selection = Set(displayOrder.map(\.persistentModelID))
                         }
+                        .disabled(displayOrder.isEmpty)
                     }
                     HStack(spacing: 12) {
                         Button(role: .destructive) {

@@ -30,4 +30,20 @@ struct LibraryFilter {
         }
         return sortOrder.isEmpty ? filteredItems : filteredItems.sorted(using: sortOrder)
     }
+
+    func groupByAge(_ items: [PlaylistItem], now: Date = .now) -> (current: [PlaylistItem], older: [PlaylistItem]) {
+        guard query.allSatisfy(\.isWhitespace), !favoritesOnly, status == nil else { return (items, []) }
+
+        let cutoff = now.addingTimeInterval(-3 * 24 * 60 * 60)
+        var current: [PlaylistItem] = []
+        var older: [PlaylistItem] = []
+        for item in items {
+            if item.sourceType == "url", item.dateAdded < cutoff {
+                older.append(item)
+            } else {
+                current.append(item)
+            }
+        }
+        return (current, older)
+    }
 }

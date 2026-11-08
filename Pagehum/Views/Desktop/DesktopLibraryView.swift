@@ -17,6 +17,7 @@ struct DesktopLibraryView: View {
     @State private var searchText = ""
     @State private var favoritesOnly = false
     @State private var statusFilter: PlaylistItem.Status?
+    @State private var olderExpanded = false
     @State private var sortOrder = [KeyPathComparator(\PlaylistItem.dateAdded, order: .reverse)]
 
     private var appending: Bool { queue.isActive || (viewModel.progress < 1 && (viewModel.isPlaying || viewModel.isPaused || viewModel.isPreparing)) }
@@ -26,9 +27,11 @@ struct DesktopLibraryView: View {
     }
 
     var body: some View {
-        let filteredItems = LibraryFilter(query: searchText, favoritesOnly: favoritesOnly,
-                                          status: statusFilter, sortOrder: sortOrder).apply(to: items)
-        let selectedItems = filteredItems.filter { selection.contains($0.persistentModelID) }
+        let filter = LibraryFilter(query: searchText, favoritesOnly: favoritesOnly, status: statusFilter, sortOrder: sortOrder)
+        let filteredItems = filter.apply(to: items)
+        let (currentItems, olderItems) = filter.groupByAge(filteredItems)
+        let visibleItems = olderExpanded ? currentItems + olderItems : currentItems
+        let selectedItems = visibleItems.filter { selection.contains($0.persistentModelID) }
         let queueableItems = selectedItems.filter { !isAlreadyQueued($0) }
         let removableItems = selectedItems.filter { $0.persistentModelID != viewModel.currentPlaylistItemID }
         let pendingRemoval = itemsToDelete.filter { $0.persistentModelID != viewModel.currentPlaylistItemID }
@@ -45,12 +48,12 @@ struct DesktopLibraryView: View {
                     }
                     .disabled(selectedItems.isEmpty || !viewModel.isModelLoaded).help("Save selected audio offline")
                     Button {
-                        selection = Set(filteredItems.map(\.persistentModelID))
+                        selection = Set(visibleItems.map(\.persistentModelID))
                     } label: {
                         Image(systemName: "checkmark.rectangle.stack").frame(width: 28, height: 28)
                     }
                     .buttonStyle(.borderless)
-                    .disabled(filteredItems.isEmpty)
+                    .disabled(visibleItems.isEmpty)
                     .help("Select all articles")
                     .accessibilityLabel("Select all articles")
                 }
@@ -81,7 +84,8 @@ struct DesktopLibraryView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 GeometryReader { geometry in
-                    articleTable(filteredItems, availableWidth: geometry.size.width)
+                    articleTable(currentItems, olderArticles: olderItems, visibleArticles: visibleItems,
+                                 availableWidth: geometry.size.width)
                         .overlay {
                             if filteredItems.isEmpty {
                                 ContentUnavailableView {
@@ -141,7 +145,7 @@ struct DesktopLibraryView: View {
         .onChange(of: queueableItems.map(\.persistentModelID)) { _, _ in
             selectedCharacters = queueableItems.reduce(0) { $0 + ListeningQueue.remainingCharacters(in: $1) }
         }
-        .onChange(of: filteredItems.map(\.persistentModelID)) { _, ids in selection.formIntersection(ids) }
+        .onChange(of: visibleItems.map(\.persistentModelID)) { _, ids in selection.formIntersection(ids) }
         .confirmationDialog(
             Text(AttributedString(localized: "Remove ^[\(pendingRemoval.count) article](inflect: true) from library?")),
             isPresented: $confirmingRemoval,
@@ -165,10 +169,11 @@ struct DesktopLibraryView: View {
         }
     }
 
-    private func articleTable(_ articles: [PlaylistItem], availableWidth: CGFloat) -> some View {
+    private func articleTable(_ articles: [PlaylistItem], olderArticles: [PlaylistItem],
+                              visibleArticles: [PlaylistItem], availableWidth: CGFloat) -> some View {
         let sourceWidth = min(140, max(76, availableWidth * 0.16))
         let fixedColumnsAndInsets: CGFloat = 104 + 72 + 60 + 100
-        return Table(articles, selection: $selection, sortOrder: $sortOrder) {
+        return Table(of: PlaylistItem.self, selection: $selection, sortOrder: $sortOrder) {
             TableColumn("Title", value: \PlaylistItem.title) { item in
                 HStack(spacing: 8) {
                     Image(systemName: item.sourceType == "url" ? "globe" : "doc.text")
@@ -235,20 +240,33 @@ struct DesktopLibraryView: View {
                 }
             }
             .width(60)
+        } rows: {
+            ForEach(articles) { TableRow($0) }
+            if !olderArticles.isEmpty {
+                Section(isExpanded: $olderExpanded) {
+                    ForEach(olderArticles) { TableRow($0) }
+                } header: {
+                    HStack(spacing: 6) {
+                        Text("Older articles")
+                        Text(olderArticles.count, format: .number).foregroundStyle(DesktopStyle.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
         }
         .font(.system(size: 13))
         .tableStyle(.inset(alternatesRowBackgrounds: false))
         .scrollContentBackground(.hidden)
         .background(AppTheme.canvas)
         .contextMenu(forSelectionType: PersistentIdentifier.self) { identifiers in
-            articleActions(articles.filter { identifiers.contains($0.persistentModelID) })
+            articleActions(visibleArticles.filter { identifiers.contains($0.persistentModelID) })
         } primaryAction: { identifiers in
-            if identifiers.count == 1, let item = articles.first(where: { identifiers.contains($0.persistentModelID) }) {
+            if identifiers.count == 1, let item = visibleArticles.first(where: { identifiers.contains($0.persistentModelID) }) {
                 openItem(item)
             }
         }
         .onDeleteCommand {
-            requestRemoval(articles.filter { selection.contains($0.persistentModelID) })
+            requestRemoval(visibleArticles.filter { selection.contains($0.persistentModelID) })
         }
         .onExitCommand { selection = [] }
         .accessibilityLabel("Library articles")
