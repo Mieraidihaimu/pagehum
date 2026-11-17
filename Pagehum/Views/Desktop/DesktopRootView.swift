@@ -139,7 +139,7 @@ struct DesktopRootView: View {
                     Label("Settings", systemImage: "chevron.left")
                 }
                 .buttonStyle(.borderless)
-                Text(showOfflineAudio ? "/ Offline Audio" : "/ Hacker News")
+                Text(showOfflineAudio ? "/ Offline Audio" : "/ Tech blogs")
                     .font(.system(size: 13)).foregroundStyle(DesktopStyle.secondary)
             } else {
                 Text(page.rawValue).font(.system(size: 13)).foregroundStyle(DesktopStyle.secondary)

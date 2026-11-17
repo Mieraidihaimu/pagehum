@@ -1,24 +1,43 @@
 import SwiftUI
 
-/// Lets the user choose which Hacker News stories to import.
+/// Lets the user choose which tech articles to import.
 struct TechBlogBrowseView: View {
     @ObservedObject var viewModel: ReaderModel
     var openLibrary: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var sort: TechBlogSort = .newest
-    @State private var selection: Set<Int> = []
+    @State private var selection: Set<TechBlogStory.ID> = []
     @State private var showingSettings = false
     @State private var loadedSettings: TechBlogSettings?
     @State private var previewStory: TechBlogStory?
     @State private var isImportingSelection = false
     @FocusState private var isSearching: Bool
 
+    private var source: TechBlogSource { viewModel.techBlogSettings.source }
+    private var showsCommunitySort: Bool { source != .blogFeeds }
+    private var visibleStories: [TechBlogStory] {
+        guard loadedSettings?.source == source else { return [] }
+        return TechBlogDiscovery.browse(viewModel.techBlogStories, query: query, sort: showsCommunitySort ? sort : .newest)
+    }
     private var selectedStories: [TechBlogStory] {
-        viewModel.techBlogStories.filter { selection.contains($0.id) && !viewModel.isInLibrary($0) }
+        guard loadedSettings?.source == source else { return [] }
+        return viewModel.techBlogStories.filter { selection.contains($0.id) && !viewModel.isInLibrary($0) }
     }
 
     var body: some View {
+        platformBody
+            .task { await reload() }
+            .onChange(of: showingSettings) { _, showing in reloadIfFiltersChanged(showing) }
+            .onChange(of: source) { _, _ in reloadIfFiltersChanged(showingSettings) }
+            .onChange(of: viewModel.isLoading) { _, loading in
+                if !loading { reloadIfFiltersChanged(showingSettings) }
+            }
+            .sheet(item: $previewStory) { storyPreview($0) }
+            .appTheme()
+    }
+
+    private var platformBody: some View {
         #if os(macOS)
         VStack(spacing: 0) {
             HStack(spacing: 12) {
@@ -29,7 +48,7 @@ struct TechBlogBrowseView: View {
                     .buttonStyle(.borderless)
                     Spacer()
                 } else {
-                    Text("Hacker News").font(.headline)
+                    Text("Tech blogs").font(.headline)
                     Spacer()
                     settingsButton
                     refreshButton
@@ -45,14 +64,10 @@ struct TechBlogBrowseView: View {
             }
         }
         .frame(minWidth: 620, idealWidth: 760, minHeight: 520, idealHeight: 680)
-        .task { await reload() }
-        .onChange(of: showingSettings) { _, showing in reloadIfFiltersChanged(showing) }
-        .sheet(item: $previewStory) { storyPreview($0) }
-        .appTheme()
         #else
         NavigationStack {
             content
-                .navigationTitle("Hacker News")
+                .navigationTitle("Tech blogs")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
@@ -69,27 +84,26 @@ struct TechBlogBrowseView: View {
                     TechBlogImportSettingsView(viewModel: viewModel, openLibrary: finishImport)
                 }
         }
-        .task { await reload() }
-        .onChange(of: showingSettings) { _, showing in reloadIfFiltersChanged(showing) }
-        .sheet(item: $previewStory) { storyPreview($0) }
-        .appTheme()
         #endif
     }
 
     private var content: some View {
-        let stories = TechBlogDiscovery.browse(viewModel.techBlogStories, query: query, sort: sort)
+        let stories = visibleStories
         return VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Choose your next read").font(.headline)
-                    Spacer()
-                    Text("^[\(stories.count) story](inflect: true)")
-                        .font(.caption).foregroundStyle(AppTheme.textSecondary)
+                ThemeSegmentedPicker(title: "Source", options: TechBlogSource.allCases,
+                                     selection: $viewModel.techBlogSettings.source) { source in
+                    Text(source.title)
                 }
+                .disabled(viewModel.isLoading)
                 searchField
-                ThemeSegmentedPicker(title: "Sort by", options: TechBlogSort.allCases, selection: $sort) {
-                    Text($0.title)
+                if showsCommunitySort {
+                    ThemeSegmentedPicker(title: "Sort by", options: TechBlogSort.allCases, selection: $sort) {
+                        Text($0.title)
+                    }
                 }
+                Text("^[\(stories.count) story](inflect: true)")
+                    .font(.caption).foregroundStyle(AppTheme.textSecondary)
             }
             .padding(16)
             Divider()
@@ -139,7 +153,7 @@ struct TechBlogBrowseView: View {
     }
 
     @ViewBuilder private var emptyState: some View {
-        if viewModel.isLoading {
+        if viewModel.isLoading || loadedSettings?.source != source {
             ProgressView("Loading stories…")
         } else if viewModel.techBlogStories.isEmpty && viewModel.errorMessage != nil {
             ContentUnavailableView {
@@ -151,9 +165,15 @@ struct TechBlogBrowseView: View {
             ContentUnavailableView {
                 Label("No matching stories", systemImage: "newspaper")
             } description: {
-                Text("Try a longer time window or lower minimums in filters.")
+                Text(showsCommunitySort
+                     ? "Try a longer time window or lower minimums in filters."
+                     : "Refresh the blog feeds or choose another source.")
             } actions: {
-                Button("Adjust filters") { showingSettings = true }
+                if showsCommunitySort {
+                    Button("Adjust filters") { showingSettings = true }
+                } else {
+                    Button("Refresh") { Task { await reload() } }
+                }
             }
         } else {
             ContentUnavailableView {
@@ -198,8 +218,10 @@ struct TechBlogBrowseView: View {
                         ViewThatFits(in: .horizontal) {
                             storyMetadata(story)
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("\(story.score.formatted()) points · \(story.comments.formatted()) comments")
-                                Text(story.submittedAt, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
+                                if let score = story.score, let comments = story.comments {
+                                    Text("\(score.formatted()) points · \(comments.formatted()) comments")
+                                }
+                                Text(story.date, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
                             }
                         }
                         .font(.caption).foregroundStyle(AppTheme.textSecondary)
@@ -211,7 +233,7 @@ struct TechBlogBrowseView: View {
             }
             .buttonStyle(.plain)
             .disabled(saved)
-            .accessibilityLabel("\(story.title), \(story.site), \(story.score) points, \(story.comments) comments")
+            .accessibilityLabel(storyAccessibilityLabel(story))
             .accessibilityValue(saved ? "Saved" : selected ? "Selected" : "Not selected")
             .accessibilityHint(saved ? "Already in your library" : "Choose this article to import")
             .accessibilityAddTraits(selected ? .isSelected : [])
@@ -233,19 +255,30 @@ struct TechBlogBrowseView: View {
 
     private func storyMetadata(_ story: TechBlogStory) -> some View {
         HStack(spacing: 12) {
-            Label("\(story.score.formatted())", systemImage: "arrow.up")
-                .accessibilityLabel("\(story.score) points")
-            Label("\(story.comments.formatted())", systemImage: "bubble.right")
-                .accessibilityLabel("\(story.comments) comments")
-            Text(story.submittedAt, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
+            if let score = story.score, let comments = story.comments {
+                Label("\(score.formatted())", systemImage: "arrow.up")
+                    .accessibilityLabel("\(score) points")
+                Label("\(comments.formatted())", systemImage: "bubble.right")
+                    .accessibilityLabel("\(comments) comments")
+            }
+            Text(story.date, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
         }
+    }
+
+    private func storyAccessibilityLabel(_ story: TechBlogStory) -> Text {
+        if let score = story.score, let comments = story.comments {
+            return Text("\(story.title), \(story.site), \(score) points, \(comments) comments")
+        }
+        return Text("\(story.title), \(story.site)")
     }
 
     private func storyPreview(_ story: TechBlogStory) -> some View {
         ArticlePreviewView(title: story.title, url: story.url) {
             HStack(spacing: 12) {
-                Link("HN discussion", destination: URL(string: "https://news.ycombinator.com/item?id=\(story.id)")!)
-                    .font(.callout)
+                if let discussionURL = story.discussionURL {
+                    Link("Discussion", destination: discussionURL)
+                        .font(.callout)
+                }
                 Spacer(minLength: 0)
                 if viewModel.isInLibrary(story) {
                     Label("Saved to library", systemImage: "checkmark.circle")
@@ -303,7 +336,7 @@ struct TechBlogBrowseView: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(selectedStories.isEmpty ? "Choose articles to import" : "\(selectedStories.count) selected")
                 .font(.callout.weight(.semibold))
-            let visibleIDs = Set(TechBlogDiscovery.browse(viewModel.techBlogStories, query: query, sort: sort).map(\.id))
+            let visibleIDs = Set(visibleStories.map(\.id))
             let hiddenCount = selectedStories.filter { !visibleIDs.contains($0.id) }.count
             if hiddenCount > 0 {
                 Text("\(hiddenCount) outside this search").font(.caption).foregroundStyle(AppTheme.textSecondary)
@@ -374,11 +407,12 @@ struct TechBlogBrowseView: View {
     }
 
     private func reloadIfFiltersChanged(_ showingSettings: Bool) {
-        guard !showingSettings, viewModel.techBlogSettings != loadedSettings else { return }
+        guard !showingSettings, !viewModel.isLoading, viewModel.techBlogSettings != loadedSettings else { return }
         Task { await reload() }
     }
 
     private func reload() async {
+        guard !viewModel.isLoading else { return }
         selection.removeAll()
         loadedSettings = viewModel.techBlogSettings
         await viewModel.loadTechBlogStories()

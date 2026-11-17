@@ -16,7 +16,7 @@ A native reader for Mac and iPhone, with local speech generation and a Mac comma
 
 Turn articles, PDFs, and pasted text into a listening library. Follow along while Pagehum reads, queue up your next article, or export narration from the terminal as M4A or WAV.
 
-Speech is generated on your device using **Kokoro and Apple's MLX framework**. No speech API key or cloud TTS service is required. Web imports and Hacker News discovery use the network; downloaded text and model assets can be used for local synthesis.
+Speech is generated on your device using **Kokoro and Apple's MLX framework**. No speech API key or cloud TTS service is required. Web imports and tech blog discovery use the network; downloaded text and model assets can be used for local synthesis.
 
 [Listen to a short Pagehum voice sample](https://github.com/Mieraidihaimu/pagehum/releases/download/v0.1.0/pagehum-sample.m4a).
 
@@ -25,7 +25,7 @@ Speech is generated on your device using **Kokoro and Apple's MLX framework**. N
 - **Listen to your reading list.** Import a web article, PDF, or pasted text into the app.
 - **Read along.** Use the reader, playback controls, and text highlighting.
 - **Keep a library and queue.** Search saved content and choose what plays next.
-- **Listen to Hacker News.** Browse stories by points, comments, and site, or import the top picks in one tap.
+- **Discover tech blogs.** Choose Hacker News, Lobsters, or direct feeds from GitHub Engineering, Cloudflare Engineering, Julia Evans, and Martin Fowler. Preview articles before saving them or import several in one tap.
 - **Export audio from your Mac.** Feed the CLI text, a file, stdin, or an article URL; get M4A or WAV.
 - **Choose English voices.** The CLI supports American and British English voice styles and lists them with `pagehum voices`.
 
@@ -110,7 +110,7 @@ Article URL / PDF / text           Text / file / stdin / URL
 ## Current limits
 
 - Web extraction can fail on dynamic, blocked, or non-article pages. It does not bypass login or paywalls.
-- Hacker News discovery runs on request; there is no scheduled background import.
+- Tech blog discovery runs on request.
 - English is the supported CLI language set. Voice quality and pronunciation depend on the model and input.
 - This is an early project. See [contribution and test notes](CONTRIBUTING.md) before working on playback or packaging.
 

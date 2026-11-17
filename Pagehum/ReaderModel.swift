@@ -123,6 +123,7 @@ final class ReaderModel: ObservableObject {
         didSet { techBlogSettings.save() }
     }
     @Published private(set) var techBlogStories: [TechBlogStory] = []
+    private var loadedTechBlogSource: TechBlogSource?
     @Published private(set) var savedTechBlogKeys: Set<String> = []
     var modelContext: ModelContext?
     @Published var currentPlaylistItemID: PersistentIdentifier?
@@ -629,17 +630,17 @@ final class ReaderModel: ObservableObject {
         }
         let settings = techBlogSettings.validated
         isLoading = true
-        importProgress = "Finding matching articles on Hacker News…"
+        importProgress = "Finding articles in \(settings.source.title)…"
         defer { isLoading = false; importProgress = nil }
         do {
             let result = try await discovery.discover(settings: settings)
             try Task.checkCancellation()
             // Exclude saved articles and duplicate submissions before applying the import cap.
             let urls = TechBlogDiscovery.unsaved(result.stories, savedKeys: try libraryURLKeys(ctx)).map(\.url)
-            let warning = result.failedItemCount == 0 ? "" : " " + Self.uncheckedStoriesWarning(result.failedItemCount)
+            let warning = result.failedItemCount == 0 ? "" : " " + Self.discoveryWarning(result.failedItemCount, source: settings.source)
             guard !urls.isEmpty else {
                 techBlogMessage = (result.stories.isEmpty
-                    ? "No articles matched this scan. Try scanning more stories or widening your filters."
+                    ? "No articles matched. Try another source or adjust your filters."
                     : "All matching articles are already in your library.") + warning
                 return
             }
@@ -662,15 +663,20 @@ final class ReaderModel: ObservableObject {
             errorMessage = "The library is not ready. Please try again."
             return
         }
+        let settings = techBlogSettings.validated
+        if loadedTechBlogSource != settings.source { techBlogStories = [] }
         isLoading = true
-        importProgress = "Loading Hacker News stories…"
+        importProgress = "Loading stories from \(settings.source.title)…"
         defer { isLoading = false; importProgress = nil }
         do {
-            let result = try await discovery.discover(settings: techBlogSettings.validated)
+            let result = try await discovery.discover(settings: settings)
             try Task.checkCancellation()
             savedTechBlogKeys = try libraryURLKeys(ctx)
             techBlogStories = result.stories
-            if result.failedItemCount > 0 { techBlogMessage = Self.uncheckedStoriesWarning(result.failedItemCount) }
+            loadedTechBlogSource = settings.source
+            if result.failedItemCount > 0 {
+                techBlogMessage = Self.discoveryWarning(result.failedItemCount, source: settings.source)
+            }
         } catch {
             // Closing the browser cancels loading; that isn't an error worth showing.
             if !Task.isCancelled { errorMessage = error.localizedDescription }
@@ -695,8 +701,12 @@ final class ReaderModel: ObservableObject {
         })
     }
 
-    private static func uncheckedStoriesWarning(_ count: Int) -> String {
-        "Couldn’t check \(count) HN \(count == 1 ? "story" : "stories"); try again to refresh."
+    private static func discoveryWarning(_ count: Int, source: TechBlogSource) -> String {
+        switch source {
+        case .hackerNews: "Couldn’t check \(count) HN \(count == 1 ? "story" : "stories"). Try refreshing."
+        case .lobsters: "Some Lobsters stories couldn’t be loaded. Try refreshing."
+        case .blogFeeds: "Couldn’t load \(count) blog \(count == 1 ? "feed" : "feeds"). Try refreshing."
+        }
     }
 
     func saveForLater(_ urlString: String) async {

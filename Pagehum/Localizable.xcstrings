@@ -87,6 +87,9 @@
         }
       }
     },
+    "Your source applies to browsing and one-tap imports." : {
+
+    },
     "Your text" : {
       "localizations" : {
         "zh-Hans" : {
@@ -98,9 +101,6 @@
       }
     },
     "·" : {
-
-    },
-    "/ Hacker News" : {
 
     },
     "/ Offline Audio" : {
@@ -161,6 +161,16 @@
     },
     "%@ times" : {
 
+    },
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
     },
     "%@, %@, %lld points, %lld comments" : {
       "localizations" : {
@@ -433,6 +443,9 @@
     "Back 20 seconds" : {
 
     },
+    "Blog feeds" : {
+
+    },
     "Browse" : {
 
     },
@@ -492,9 +505,6 @@
 
     },
     "Choose this article to import" : {
-
-    },
-    "Choose your next read" : {
 
     },
     "Clear" : {
@@ -662,6 +672,12 @@
     "Discard link" : {
 
     },
+    "Discovery" : {
+
+    },
+    "Discussion" : {
+
+    },
     "Done" : {
 
     },
@@ -754,7 +770,7 @@
     "Forward 20 seconds" : {
 
     },
-    "Freshness is based on the Hacker News submission date. The article itself may be older." : {
+    "Freshness uses the submission date. The article itself may be older." : {
 
     },
     "Generated audio files are stored locally for offline playback." : {
@@ -778,10 +794,10 @@
         }
       }
     },
-    "Hacker News" : {
+    "GitHub Engineering, Cloudflare Engineering, Julia Evans, and Martin Fowler" : {
 
     },
-    "HN discussion" : {
+    "Hacker News" : {
 
     },
     "https://example.com/article" : {
@@ -813,7 +829,7 @@
     "Import links" : {
 
     },
-    "Import top %lld" : {
+    "Import up to %lld articles" : {
 
     },
     "Importing…" : {
@@ -950,16 +966,13 @@
     "Mark as Unread" : {
 
     },
-    "Matching articles are saved to your library, ready to listen." : {
-
-    },
     "Maximum articles" : {
 
     },
     "Minimum comments" : {
 
     },
-    "Minimum HN score" : {
+    "Minimum points" : {
 
     },
     "More" : {
@@ -1226,9 +1239,6 @@
     "Please try starring this article again." : {
 
     },
-    "Preferences save automatically and apply to imports from Add Content." : {
-
-    },
     "Preparing" : {
 
     },
@@ -1311,6 +1321,9 @@
 
     },
     "Refresh" : {
+
+    },
+    "Refresh the blog feeds or choose another source." : {
 
     },
     "remaining" : {
@@ -1405,7 +1418,7 @@
     "Saved" : {
 
     },
-    "Saved links are skipped. Scanning more stories may take longer." : {
+    "Saved links are skipped." : {
 
     },
     "Saved offline" : {
@@ -1531,6 +1544,9 @@
     "Source" : {
 
     },
+    "Sources, filters, and import limits" : {
+
+    },
     "Star" : {
 
     },
@@ -1568,9 +1584,6 @@
     "Story filters" : {
 
     },
-    "Story filters and import limits" : {
-
-    },
     "Submitted within" : {
 
     },
@@ -1578,6 +1591,9 @@
 
     },
     "Tap the star beside an article to find it here." : {
+
+    },
+    "Tech blogs" : {
 
     },
     "Text" : {
@@ -1614,6 +1630,9 @@
       }
     },
     "The current article stays in your library." : {
+
+    },
+    "The five latest posts from each blog are ordered by publication date." : {
 
     },
     "The quick brown fox jumps over the lazy dog." : {

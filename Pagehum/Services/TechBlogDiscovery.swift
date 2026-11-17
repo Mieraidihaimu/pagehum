@@ -1,6 +1,19 @@
 // Modified for Pagehum: unified application and command-line naming.
 import Foundation
 
+nonisolated enum TechBlogSource: String, CaseIterable, Codable, Sendable, Identifiable {
+    case hackerNews, lobsters, blogFeeds
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .hackerNews: "Hacker News"
+        case .lobsters: "Lobsters"
+        case .blogFeeds: "Blog feeds"
+        }
+    }
+}
+
 nonisolated enum TechBlogFeed: String, CaseIterable, Codable, Sendable, Identifiable {
     case top, new
     var id: String { rawValue }
@@ -20,11 +33,14 @@ nonisolated enum TechBlogSort: String, CaseIterable, Sendable, Identifiable {
 }
 
 nonisolated struct TechBlogSettings: Codable, Equatable, Sendable {
+    var source: TechBlogSource = .hackerNews
     var feed: TechBlogFeed = .top
     var storyCount = 100
     var freshnessDays = 3
     var minimumScore = 0
     var minimumComments = 0
+    var lobstersMinimumScore = 0
+    var lobstersMinimumComments = 0
     var importLimit = 10
 
     static let storageKey = "techBlogImportSettings"
@@ -35,6 +51,8 @@ nonisolated struct TechBlogSettings: Codable, Equatable, Sendable {
         value.freshnessDays = min(7, max(1, freshnessDays))
         value.minimumScore = min(1000, max(0, minimumScore))
         value.minimumComments = min(1000, max(0, minimumComments))
+        value.lobstersMinimumScore = min(1000, max(0, lobstersMinimumScore))
+        value.lobstersMinimumComments = min(1000, max(0, lobstersMinimumComments))
         value.importLimit = min(50, max(1, importLimit))
         return value
     }
@@ -55,11 +73,14 @@ nonisolated extension TechBlogSettings {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let fallback = Self()
+        source = try container.decodeIfPresent(TechBlogSource.self, forKey: .source) ?? fallback.source
         feed = try container.decodeIfPresent(TechBlogFeed.self, forKey: .feed) ?? fallback.feed
         storyCount = try container.decodeIfPresent(Int.self, forKey: .storyCount) ?? fallback.storyCount
         freshnessDays = try container.decodeIfPresent(Int.self, forKey: .freshnessDays) ?? fallback.freshnessDays
         minimumScore = try container.decodeIfPresent(Int.self, forKey: .minimumScore) ?? fallback.minimumScore
         minimumComments = try container.decodeIfPresent(Int.self, forKey: .minimumComments) ?? fallback.minimumComments
+        lobstersMinimumScore = try container.decodeIfPresent(Int.self, forKey: .lobstersMinimumScore) ?? fallback.lobstersMinimumScore
+        lobstersMinimumComments = try container.decodeIfPresent(Int.self, forKey: .lobstersMinimumComments) ?? fallback.lobstersMinimumComments
         importLimit = try container.decodeIfPresent(Int.self, forKey: .importLimit) ?? fallback.importLimit
     }
 }
@@ -76,13 +97,23 @@ nonisolated struct HackerNewsItem: Decodable, Sendable {
     var descendants: Int? = nil
 }
 
+nonisolated private struct LobstersStory: Decodable, Sendable {
+    let shortId: String
+    let createdAt: String
+    let title: String
+    let url: String?
+    let score: Int
+    let commentCount: Int
+}
+
 nonisolated struct TechBlogStory: Sendable, Identifiable {
-    let id: Int
+    let id: String
     let title: String
     let url: URL
-    let score: Int
-    let comments: Int
-    let submittedAt: Date
+    var score: Int? = nil
+    var comments: Int? = nil
+    let date: Date
+    var discussionURL: URL? = nil
 
     var site: String {
         let host = url.host?.lowercased() ?? ""
@@ -100,16 +131,21 @@ nonisolated protocol TechBlogDiscovering: Sendable {
 }
 
 nonisolated enum TechBlogDiscoveryError: LocalizedError {
-    case unavailable
-    var errorDescription: String? { "Couldn’t fetch stories from Hacker News. Please try again." }
+    case unavailable(TechBlogSource)
+
+    var errorDescription: String? {
+        switch self {
+        case .unavailable(let source): "Couldn’t fetch stories from \(source.title). Please try again."
+        }
+    }
 }
 
-/// Fetches only HN metadata. Article extraction remains in the library importer.
+/// Fetches story metadata. Article extraction remains in the library importer.
 nonisolated struct TechBlogDiscovery: TechBlogDiscovering {
     typealias Loader = @Sendable (URL) async throws -> Data
     private let load: Loader
     private let now: @Sendable () -> Date
-    private static let baseURL = URL(string: "https://hacker-news.firebaseio.com/v0/")!
+    private static let hackerNewsAPI = URL(string: "https://hacker-news.firebaseio.com/v0/")!
 
     init(load: @escaping Loader = { try await TechBlogDiscovery.fetch($0) }, now: @escaping @Sendable () -> Date = { Date() }) {
         self.load = load
@@ -121,7 +157,7 @@ nonisolated struct TechBlogDiscovery: TechBlogDiscovering {
         request.setValue("Pagehum/1.0", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw TechBlogDiscoveryError.unavailable
+            throw URLError(.badServerResponse)
         }
         return data
     }
@@ -129,7 +165,21 @@ nonisolated struct TechBlogDiscovery: TechBlogDiscovering {
     func discover(settings: TechBlogSettings) async throws -> TechBlogDiscoveryResult {
         let settings = settings.validated
         try Task.checkCancellation()
-        let data = try await load(Self.baseURL.appendingPathComponent("\(settings.feed.rawValue)stories.json"))
+        do {
+            switch settings.source {
+            case .hackerNews: return try await hackerNews(settings)
+            case .lobsters: return try await lobsters(settings)
+            case .blogFeeds: return try await blogFeeds()
+            }
+        } catch {
+            try Task.checkCancellation()
+            if error is CancellationError { throw error }
+            throw TechBlogDiscoveryError.unavailable(settings.source)
+        }
+    }
+
+    private func hackerNews(_ settings: TechBlogSettings) async throws -> TechBlogDiscoveryResult {
+        let data = try await load(Self.hackerNewsAPI.appendingPathComponent("\(settings.feed.rawValue)stories.json"))
         let ids = try JSONDecoder().decode([Int].self, from: data)
         var seen = Set<Int>()
         let selected = Array(ids.filter { $0 > 0 && seen.insert($0).inserted }.prefix(settings.storyCount))
@@ -139,7 +189,7 @@ nonisolated struct TechBlogDiscovery: TechBlogDiscovering {
                 group.addTask {
                     do {
                         try Task.checkCancellation()
-                        let data = try await load(Self.baseURL.appendingPathComponent("item/\(id).json"))
+                        let data = try await load(Self.hackerNewsAPI.appendingPathComponent("item/\(id).json"))
                         return try JSONDecoder().decode(HackerNewsItem?.self, from: data)
                     } catch {
                         try Task.checkCancellation()
@@ -161,11 +211,73 @@ nonisolated struct TechBlogDiscovery: TechBlogDiscovering {
             return (items, failed)
         }
         try Task.checkCancellation()
-        if !selected.isEmpty && loaded.0.isEmpty { throw TechBlogDiscoveryError.unavailable }
+        if !selected.isEmpty && loaded.0.isEmpty { throw TechBlogDiscoveryError.unavailable(.hackerNews) }
         return TechBlogDiscoveryResult(
             stories: Self.filter(loaded.0, settings: settings, now: now()),
             failedItemCount: loaded.1
         )
+    }
+
+    private func lobsters(_ settings: TechBlogSettings) async throws -> TechBlogDiscoveryResult {
+        let path = settings.feed == .top ? "hottest.json" : "newest.json"
+        let data = try await load(URL(string: "https://lobste.rs/\(path)")!)
+        try Task.checkCancellation()
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let items = try decoder.decode([LobstersStory].self, from: data)
+        let now = now()
+        let cutoff = now.addingTimeInterval(-Double(settings.freshnessDays) * 86400)
+        let iso = ISO8601DateFormatter()
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let stories = items.compactMap { item -> TechBlogStory? in
+            guard let rawURL = item.url, let url = Self.articleURL(rawURL), !Self.isBlocked(url), url.host?.lowercased() != "lobste.rs",
+                  !item.title.isEmpty,
+                  let date = fractional.date(from: item.createdAt) ?? iso.date(from: item.createdAt),
+                  (cutoff...now).contains(date),
+                  item.score >= settings.lobstersMinimumScore,
+                  item.commentCount >= settings.lobstersMinimumComments else { return nil }
+            let discussion = URL(string: "https://lobste.rs/s/")?.appendingPathComponent(item.shortId)
+            return TechBlogStory(id: "lobsters:\(item.shortId)", title: item.title, url: url,
+                                 score: item.score, comments: item.commentCount, date: date, discussionURL: discussion)
+        }
+        // The hottest feed already ranks stories using Lobsters' voting and tag weights.
+        return TechBlogDiscoveryResult(stories: Self.unsaved(stories, savedKeys: []))
+    }
+
+    private func blogFeeds() async throws -> TechBlogDiscoveryResult {
+        let now = now()
+        return try await withThrowingTaskGroup(of: [TechBlogStory]?.self) { group in
+            for url in TechBlogSyndication.feeds {
+                group.addTask {
+                    do {
+                        let data = try await load(url)
+                        try Task.checkCancellation()
+                        return try TechBlogSyndication.stories(from: data, feedURL: url, now: now)
+                    } catch {
+                        try Task.checkCancellation()
+                        if error is CancellationError { throw error }
+                        return nil
+                    }
+                }
+            }
+            var stories: [TechBlogStory] = []
+            var failed = 0
+            for try await batch in group {
+                if let batch { stories.append(contentsOf: batch) } else { failed += 1 }
+            }
+            try Task.checkCancellation()
+            if failed == TechBlogSyndication.feeds.count { throw TechBlogDiscoveryError.unavailable(.blogFeeds) }
+            let ordered = Self.browse(stories, query: "", sort: .newest)
+            return TechBlogDiscoveryResult(stories: Self.unsaved(ordered, savedKeys: []), failedItemCount: failed)
+        }
+    }
+
+    static func articleURL(_ rawURL: String, relativeTo baseURL: URL? = nil) -> URL? {
+        guard !rawURL.isEmpty, let url = URL(string: rawURL, relativeTo: baseURL)?.absoluteURL,
+              let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme),
+              let host = url.host, !host.isEmpty else { return nil }
+        return url
     }
 
     static func isBlocked(_ url: URL) -> Bool {
@@ -179,19 +291,18 @@ nonisolated struct TechBlogDiscovery: TechBlogDiscovering {
         return items.compactMap { item -> TechBlogStory? in
             guard item.type == "story", item.dead != true, item.deleted != true,
                   let title = item.title, !title.isEmpty,
-                  let rawURL = item.url, let url = URL(string: rawURL),
-                  let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme),
-                  let host = url.host, !host.isEmpty, !isBlocked(url),
+                  let rawURL = item.url, let url = articleURL(rawURL), !isBlocked(url),
                   let time = item.time, time.isFinite,
                   time >= cutoff.timeIntervalSince1970, time <= now.timeIntervalSince1970,
                   (item.score ?? 0) >= settings.minimumScore,
                   (item.descendants ?? 0) >= settings.minimumComments else { return nil }
-            return TechBlogStory(id: item.id, title: title, url: url, score: item.score ?? 0,
-                                comments: item.descendants ?? 0, submittedAt: Date(timeIntervalSince1970: time))
+            return TechBlogStory(id: String(item.id), title: title, url: url, score: item.score ?? 0,
+                                 comments: item.descendants ?? 0, date: Date(timeIntervalSince1970: time),
+                                 discussionURL: URL(string: "https://news.ycombinator.com/item?id=\(item.id)"))
         }.sorted {
-            if settings.feed == .top && $0.score != $1.score { return $0.score > $1.score }
-            if $0.submittedAt != $1.submittedAt { return $0.submittedAt > $1.submittedAt }
-            return $0.id < $1.id
+            if settings.feed == .top && $0.score != $1.score { return ($0.score ?? 0) > ($1.score ?? 0) }
+            if $0.date != $1.date { return $0.date > $1.date }
+            return $0.id.compare($1.id, options: .numeric) == .orderedAscending
         }
     }
 
@@ -210,12 +321,12 @@ nonisolated struct TechBlogDiscovery: TechBlogDiscovering {
             }
         }.sorted { a, b in
             switch sort {
-            case .points where a.score != b.score: return a.score > b.score
-            case .comments where a.comments != b.comments: return a.comments > b.comments
+            case .points where a.score != b.score: return (a.score ?? 0) > (b.score ?? 0)
+            case .comments where a.comments != b.comments: return (a.comments ?? 0) > (b.comments ?? 0)
             default: break
             }
-            if a.submittedAt != b.submittedAt { return a.submittedAt > b.submittedAt }
-            return a.id < b.id
+            if a.date != b.date { return a.date > b.date }
+            return a.id.compare(b.id, options: .numeric) == .orderedAscending
         }
     }
 }

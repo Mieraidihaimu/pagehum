@@ -33,11 +33,11 @@ struct TechBlogDiscoveryTests {
         var offTopic = item(11); offTopic.title = "Gardening"
         let items = [newer, good, stale, dead, deleted, job, blocked, invalid, undated, future, offTopic]
         var settings = TechBlogSettings()
-        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == [1, 11, 2])
+        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == ["1", "11", "2"])
         settings.feed = .new
-        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == [2, 1, 11])
+        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == ["2", "1", "11"])
         settings.minimumScore = 50
-        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == [1, 11])
+        #expect(TechBlogDiscovery.filter(items, settings: settings, now: now).map(\.id) == ["1", "11"])
     }
 
     @Test
@@ -47,7 +47,7 @@ struct TechBlogDiscoveryTests {
         var settings = TechBlogSettings()
         #expect(TechBlogDiscovery.filter([quiet, busy], settings: settings, now: now).map(\.comments) == [0, 40])
         settings.minimumComments = 10
-        #expect(TechBlogDiscovery.filter([quiet, busy], settings: settings, now: now).map(\.id) == [2])
+        #expect(TechBlogDiscovery.filter([quiet, busy], settings: settings, now: now).map(\.id) == ["2"])
     }
 
     @Test
@@ -58,11 +58,11 @@ struct TechBlogDiscoveryTests {
             story(3, "Gardening", "https://blog.rust-lang.org/c", score: 50, comments: 10, age: 7200),
         ]
         #expect(stories[0].site == "example.com")
-        #expect(TechBlogDiscovery.browse(stories, query: "", sort: .points).map(\.id) == [1, 3, 2])
-        #expect(TechBlogDiscovery.browse(stories, query: "", sort: .comments).map(\.id) == [2, 3, 1])
-        #expect(TechBlogDiscovery.browse(stories, query: "", sort: .newest).map(\.id) == [2, 1, 3])
-        #expect(TechBlogDiscovery.browse(stories, query: "RUST", sort: .points).map(\.id) == [3, 2])
-        #expect(TechBlogDiscovery.browse(stories, query: "example postgres", sort: .points).map(\.id) == [1])
+        #expect(TechBlogDiscovery.browse(stories, query: "", sort: .points).map(\.id) == ["1", "3", "2"])
+        #expect(TechBlogDiscovery.browse(stories, query: "", sort: .comments).map(\.id) == ["2", "3", "1"])
+        #expect(TechBlogDiscovery.browse(stories, query: "", sort: .newest).map(\.id) == ["2", "1", "3"])
+        #expect(TechBlogDiscovery.browse(stories, query: "RUST", sort: .points).map(\.id) == ["3", "2"])
+        #expect(TechBlogDiscovery.browse(stories, query: "example postgres", sort: .points).map(\.id) == ["1"])
         #expect(TechBlogDiscovery.browse(stories, query: "example rust", sort: .points).isEmpty)
     }
 
@@ -75,7 +75,7 @@ struct TechBlogDiscoveryTests {
             story(4, "Second", "https://example.com/second"),
         ]
         let saved: Set = [URLImportParser.key(for: try #require(URL(string: "https://example.com/saved")))]
-        #expect(TechBlogDiscovery.unsaved(stories, savedKeys: saved).map(\.id) == [2, 4])
+        #expect(TechBlogDiscovery.unsaved(stories, savedKeys: saved).map(\.id) == ["2", "4"])
     }
 
     @Test
@@ -85,6 +85,8 @@ struct TechBlogDiscoveryTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         #expect(TechBlogSettings.load(from: defaults) == TechBlogSettings())
         var settings = TechBlogSettings()
+        settings.source = .lobsters
+        settings.lobstersMinimumScore = 5
         settings.feed = .new
         settings.minimumScore = 70
         settings.minimumComments = 20
@@ -94,6 +96,8 @@ struct TechBlogDiscoveryTests {
         // Saved before topic filters were removed and comment filters were added.
         let legacy = #"{"topics":["ai"],"feed":"new","storyCount":100,"freshnessDays":3,"minimumScore":70,"importLimit":5}"#
         defaults.set(Data(legacy.utf8), forKey: TechBlogSettings.storageKey)
+        settings.source = .hackerNews
+        settings.lobstersMinimumScore = 0
         settings.minimumComments = 0
         #expect(TechBlogSettings.load(from: defaults) == settings)
         defaults.set(Data("bad json".utf8), forKey: TechBlogSettings.storageKey)
@@ -137,6 +141,73 @@ struct TechBlogDiscoveryTests {
         }
     }
 
+    @Test
+    func lobstersPreservesFeedOrderAndUsesItsOwnThresholds() async throws {
+        var settings = TechBlogSettings()
+        settings.source = .lobsters
+        settings.minimumScore = 500
+        settings.lobstersMinimumComments = 2
+        let now = now
+        let discovery = TechBlogDiscovery(load: { url in
+            #expect(url.absoluteString == "https://lobste.rs/hottest.json")
+            return Data("""
+            [
+              {"short_id":"abc123","created_at":"2027-01-14T01:59:00.123-06:00","title":"First",
+               "url":"https://example.com/first","score":18,"comment_count":2},
+              {"short_id":"def456","created_at":"2027-01-14T01:58:00-06:00","title":"Second",
+               "url":"https://example.com/second","score":30,"comment_count":5},
+              {"short_id":"ghi789","created_at":"2027-01-14T01:59:00-06:00","title":"Self post",
+               "url":"","score":8,"comment_count":2},
+              {"short_id":"jkl012","created_at":"2027-01-14T01:59:00-06:00","title":"Quiet",
+               "url":"https://example.com/quiet","score":8,"comment_count":1}
+            ]
+            """.utf8)
+        }, now: { now })
+        let result = try await discovery.discover(settings: settings)
+        #expect(result.stories.map(\.title) == ["First", "Second"])
+        #expect(result.stories.first?.discussionURL?.absoluteString == "https://lobste.rs/s/abc123")
+        #expect(result.stories.first?.comments == 2)
+    }
+
+    @Test
+    func blogDiscoveryReadsRSSAndAtomAndKeepsResultsWhenSomeFeedsFail() async throws {
+        var settings = TechBlogSettings()
+        settings.source = .blogFeeds
+        settings.minimumScore = 1000
+        settings.minimumComments = 1000
+        let now = now
+        let discovery = TechBlogDiscovery(load: { url in
+            switch url.host {
+            case "github.blog":
+                return Data("""
+                <rss version="2.0"><channel>
+                  <item><title><![CDATA[Rust & Swift]]></title><link>https://github.blog/test</link>
+                    <pubDate>Tue, 01 Dec 2026 10:00:00 +0000</pubDate></item>
+                </channel></rss>
+                """.utf8)
+            case "martinfowler.com":
+                return Data("""
+                <feed xmlns="http://www.w3.org/2005/Atom">
+                  <entry><title>Atom &amp; RSS</title><link rel="self" href="/feed.atom"/>
+                    <link rel="alternate" href="/articles/test.html"/>
+                    <published>2026-12-02T10:00:00Z</published><updated>2026-12-03T10:00:00Z</updated>
+                  </entry>
+                </feed>
+                """.utf8)
+            case "jvns.ca":
+                return Data("<html></html>".utf8)
+            default:
+                throw URLError(.timedOut)
+            }
+        }, now: { now })
+        let result = try await discovery.discover(settings: settings)
+        #expect(result.failedItemCount == 2)
+        #expect(result.stories.map(\.title) == ["Atom & RSS", "Rust & Swift"])
+        #expect(result.stories.first?.url.absoluteString == "https://martinfowler.com/articles/test.html")
+        #expect(result.stories.first?.date == ISO8601DateFormatter().date(from: "2026-12-02T10:00:00Z"))
+        #expect(result.stories.allSatisfy { $0.score == nil && $0.discussionURL == nil })
+    }
+
     private func item(_ id: Int, score: Int = 50, comments: Int? = nil) -> HackerNewsItem {
         HackerNewsItem(id: id, type: "story", title: "Postgres internals", url: "https://example.com/\(id)",
                        score: score, time: now.timeIntervalSince1970 - 60, descendants: comments)
@@ -144,8 +215,8 @@ struct TechBlogDiscoveryTests {
 
     private func story(_ id: Int, _ title: String, _ link: String, score: Int = 50, comments: Int = 0,
                        age: TimeInterval = 60) -> TechBlogStory {
-        TechBlogStory(id: id, title: title, url: URL(string: link)!, score: score, comments: comments,
-                      submittedAt: now.addingTimeInterval(-age))
+        TechBlogStory(id: String(id), title: title, url: URL(string: link)!, score: score, comments: comments,
+                      date: now.addingTimeInterval(-age))
     }
 }
 
@@ -255,8 +326,8 @@ nonisolated private struct FixedDiscovery: TechBlogDiscovering {
     let paths: [String]
     func discover(settings: TechBlogSettings) async throws -> TechBlogDiscoveryResult {
         TechBlogDiscoveryResult(stories: paths.enumerated().map { index, path in
-            TechBlogStory(id: index, title: "LLM", url: URL(string: "https://example.com/\(path)")!,
-                         score: 50, comments: 0, submittedAt: Date())
+            TechBlogStory(id: String(index), title: "LLM", url: URL(string: "https://example.com/\(path)")!,
+                         score: 50, comments: 0, date: Date())
         }, failedItemCount: 1)
     }
 }
