@@ -16,9 +16,6 @@ struct PlaybackControlsView: View {
         queue = viewModel.listeningQueue
     }
 
-    private let speeds: [Float] = [0.75, 1.0, 1.25, 1.5, 2.0, 2.25, 2.5, 3.0]
-    private let speedLabels = ["0.75x", "1x", "1.25x", "1.5x", "2x", "2.25x", "2.5x", "3x"]
-
     var body: some View {
         Group {
             if isExpanded {
@@ -196,22 +193,9 @@ struct PlaybackControlsView: View {
 
     private var speedMenuButton: some View {
         Menu {
-            ForEach(speeds.indices, id: \.self) { index in
-                Button {
-                    withAnimation(.spring(response: 0.3)) {
-                        viewModel.speed = speeds[index]
-                    }
-                } label: {
-                    HStack {
-                        Text(speedLabels[index])
-                        if viewModel.speed == speeds[index] {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
+            PlayerSpeedOptions(speed: $viewModel.speed)
         } label: {
-            Text(currentSpeedLabel)
+            Text(PlaybackSpeed.label(viewModel.speed))
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(AppTheme.accentPrimary)
                 .padding(.horizontal, 8)
@@ -220,9 +204,10 @@ struct PlaybackControlsView: View {
         } primaryAction: {
             cycleSpeed()
         }
+        .menuOrder(.fixed)
         .buttonStyle(.plain)
         .accessibilityLabel("Playback speed")
-        .accessibilityValue(currentSpeedLabel)
+        .accessibilityValue(PlaybackSpeed.label(viewModel.speed))
     }
 
     private var timeBadge: some View {
@@ -331,14 +316,9 @@ struct PlaybackControlsView: View {
 
     // MARK: - Helpers
 
-    private var currentSpeedLabel: String {
-        speedLabels[speeds.firstIndex(of: viewModel.speed) ?? 1]
-    }
-
     private func cycleSpeed() {
-        let currentIndex = speeds.firstIndex(of: viewModel.speed) ?? 1
-        let nextIndex = (currentIndex + 1) % speeds.count
-        withAnimation(.spring(response: 0.3)) { viewModel.speed = speeds[nextIndex] }
+        let next = PlaybackSpeed.playerPresets.first { $0 > viewModel.speed } ?? 1
+        withAnimation(.spring(response: 0.3)) { viewModel.speed = next }
     }
 
     private var displayProgress: Double {

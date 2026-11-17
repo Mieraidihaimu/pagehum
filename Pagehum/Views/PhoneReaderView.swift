@@ -17,7 +17,7 @@ struct PhoneReaderView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PhonePlaybackControls(viewModel: viewModel)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.vertical, 3)
                 .background(AppTheme.canvas)
         }
         .navigationTitle(viewModel.content?.title ?? "Reader")

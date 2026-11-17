@@ -78,10 +78,13 @@ struct DesktopPlayerView: View {
                 .foregroundStyle(AppTheme.accentPrimary)
                 .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
 
-                Picker("Playback speed", selection: $viewModel.speed) {
-                    ForEach(DesktopStyle.speeds, id: \.self) { speed in Text(DesktopStyle.speedLabel(speed)).tag(speed) }
+                Menu(PlaybackSpeed.label(viewModel.speed)) {
+                    PlayerSpeedOptions(speed: $viewModel.speed)
                 }
-                .labelsHidden().frame(width: 76)
+                .menuOrder(.fixed)
+                .frame(width: 76)
+                .accessibilityLabel("Playback speed")
+                .accessibilityValue(PlaybackSpeed.label(viewModel.speed))
                 .help("Playback speed")
                 Menu {
                     if let id = viewModel.currentOfflineAudioID {
@@ -128,7 +131,7 @@ struct DesktopPlayerView: View {
                 .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
                 Text(remainingTimeLabel)
                     .fixedSize(horizontal: true, vertical: false)
-                    .help("Estimated listening time at \(DesktopStyle.speedLabel(viewModel.speed)), based on the remaining text. Updates as sentences advance; actual duration varies by voice and pauses.")
+                    .help("Estimated listening time at \(PlaybackSpeed.label(viewModel.speed)), based on the remaining text. Updates as sentences advance; actual duration varies by voice and pauses.")
                     .accessibilityLabel("Estimated time remaining")
                     .accessibilityValue(remainingTimeLabel)
             }

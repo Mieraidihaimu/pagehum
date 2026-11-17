@@ -96,17 +96,15 @@ struct PagehumApp: App {
                 Divider()
 
                 Button("Faster") {
-                    let speeds: [Float] = [0.75, 1.0, 1.25, 1.5, 2.0, 2.25, 2.5, 3.0]
-                    if let idx = speeds.firstIndex(of: model.speed), idx + 1 < speeds.count {
-                        model.speed = speeds[idx + 1]
+                    if let faster = PlaybackSpeed.settingsOptions.first(where: { $0 > model.speed }) {
+                        model.speed = faster
                     }
                 }
                 .keyboardShortcut("]", modifiers: .command)
 
                 Button("Slower") {
-                    let speeds: [Float] = [0.75, 1.0, 1.25, 1.5, 2.0, 2.25, 2.5, 3.0]
-                    if let idx = speeds.firstIndex(of: model.speed), idx > 0 {
-                        model.speed = speeds[idx - 1]
+                    if let slower = PlaybackSpeed.settingsOptions.last(where: { $0 < model.speed }) {
+                        model.speed = slower
                     }
                 }
                 .keyboardShortcut("[", modifiers: .command)

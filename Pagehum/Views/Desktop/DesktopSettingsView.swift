@@ -36,7 +36,7 @@ struct DesktopSettingsView: View {
                 }
                 Spacer()
                 Picker("Playback speed", selection: $viewModel.speed) {
-                    ForEach(DesktopStyle.speeds, id: \.self) { speed in Text(DesktopStyle.speedLabel(speed)).tag(speed) }
+                    ForEach(PlaybackSpeed.settingsOptions, id: \.self) { speed in Text(PlaybackSpeed.label(speed)).tag(speed) }
                 }.labelsHidden().frame(width: 100)
             }
             row {

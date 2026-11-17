@@ -11,11 +11,6 @@ enum DesktopStyle {
     static let secondary = AppTheme.textSecondary
     static let accent = AppTheme.accentPrimary
     static let action = AppTheme.cta
-    static let speeds: [Float] = [0.75, 1, 1.25, 1.5, 2, 2.25, 2.5, 3]
-
-    static func speedLabel(_ speed: Float) -> String {
-        "\(speed.formatted(.number.precision(.fractionLength(0...2))))×"
-    }
 
     static func voiceLabel(_ voice: String) -> String {
         if let systemName = SystemSpeechEngine.displayName(for: voice) { return systemName }

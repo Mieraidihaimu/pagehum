@@ -6,7 +6,6 @@ struct PhonePlaybackControls: View {
     @ObservedObject private var queue: ListeningQueue
     @ObservedObject private var offlineAudio: OfflineAudioManager
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var isScrubbing = false
     @State private var scrubProgress = 0.0
     @State private var showsQueue = false
@@ -27,37 +26,30 @@ struct PhonePlaybackControls: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            if verticalSizeClass == .compact && !dynamicTypeSize.isAccessibilitySize {
-                HStack(spacing: 12) {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 4) {
+                    progressControl
+                    HStack(spacing: 2) {
+                        speedMenu
+                        Spacer(minLength: 0)
+                        transportButtons
+                        Spacer(minLength: 0)
+                        actionsMenu
+                    }
+                }
+            } else {
+                HStack(spacing: 4) {
                     transportButtons
                     progressControl
                     speedMenu
-                    queueAndActions
-                }
-            } else {
-                HStack(alignment: .center, spacing: 12) {
-                    progressControl
-                    queueAndActions
-                }
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        speedMenu
-                        Spacer(minLength: 0)
-                        transportButtons
-                        Spacer(minLength: 0)
-                        // Balance the speed control so Play stays centered.
-                        Color.clear.frame(width: 52, height: 1).accessibilityHidden(true)
-                    }
-                    VStack(spacing: 4) {
-                        transportButtons
-                        speedMenu
-                    }
+                    actionsMenu
                 }
             }
         }
-        .padding(12)
-        .themeCard(cornerRadius: 18)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .themeCard(cornerRadius: 14)
         .buttonStyle(.plain)
         .sheet(isPresented: $showsQueue) {
             ListeningQueueSheet(viewModel: viewModel, queue: queue)
@@ -65,19 +57,8 @@ struct PhonePlaybackControls: View {
         }
     }
 
-    private var queueAndActions: some View {
-        HStack(spacing: 4) {
-            if queue.isActive {
-                PhoneQueueButton(count: queue.upcoming.count, needsAttention: queue.failure != nil) {
-                    showsQueue = true
-                }
-            }
-            actionsMenu
-        }
-    }
-
     private var transportButtons: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 0) {
             Button { viewModel.skipBackward() } label: {
                 skipSymbol("gobackward")
                     .frame(width: 44, height: 44)
@@ -102,10 +83,10 @@ struct PhonePlaybackControls: View {
     private func skipSymbol(_ name: String) -> some View {
         // SF Symbols has no 20-second variant of these arrows.
         Image(systemName: name)
-            .font(.system(size: 28))
+            .font(.system(size: 22))
             .overlay {
                 Text(20, format: .number)
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
                     .offset(y: 2)
             }
             .accessibilityHidden(true)
@@ -113,19 +94,16 @@ struct PhonePlaybackControls: View {
 
     private var speedMenu: some View {
         Menu {
-            Picker("Playback speed", selection: $viewModel.speed) {
-                ForEach([Float(0.75), 1, 1.25, 1.5, 2, 2.25, 2.5, 3], id: \.self) { speed in
-                    Text("\(speed.formatted())×").tag(speed)
-                }
-            }
+            PlayerSpeedOptions(speed: $viewModel.speed)
         } label: {
-            Text("\(viewModel.speed.formatted())×")
+            Text(PlaybackSpeed.label(viewModel.speed))
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(AppTheme.accentPrimary)
                 .fixedSize()
-                .frame(minWidth: 52, minHeight: 44)
+                .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
+        .menuOrder(.fixed)
         .accessibilityLabel("Playback speed")
         .accessibilityValue("\(viewModel.speed.formatted()) times")
     }
@@ -137,7 +115,8 @@ struct PhonePlaybackControls: View {
                 isScrubbing = editing
                 if !editing { seek(to: scrubProgress) }
             })
-            .frame(minHeight: 44)
+            .controlSize(.small)
+            .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 44 : nil)
             .tint(AppTheme.accentPrimaryFill)
             .accessibilityLabel("Article position")
             .accessibilityValue("\(Int(displayProgress * 100)) percent")
@@ -162,15 +141,15 @@ struct PhonePlaybackControls: View {
                             Text("−\(timeText(estimatedDuration * (1 - displayProgress)))")
                                 .fixedSize()
                         }
-                        Text("\(timeText(estimatedDuration * displayProgress)) / \(timeText(estimatedDuration))")
+                        Text("−\(timeText(estimatedDuration * (1 - displayProgress)))")
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("Est. \(timeText(estimatedDuration * (1 - displayProgress))) left")
                 }
             }
-            .font(.caption.monospacedDigit())
+            .font(.caption2.monospacedDigit())
             .foregroundStyle(AppTheme.textSecondary)
-            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
         }
         .frame(maxWidth: .infinity)
     }
@@ -223,11 +202,11 @@ struct PhonePlaybackControls: View {
                     ProgressView().tint(AppTheme.onAccent)
                 } else {
                     Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 22, weight: .semibold)).foregroundStyle(AppTheme.onAccent)
+                        .font(.system(size: 17, weight: .semibold)).foregroundStyle(AppTheme.onAccent)
                 }
             }
         }
-        .buttonStyle(ThemePlayButtonStyle())
+        .buttonStyle(ThemePlayButtonStyle(diameter: 44))
         .accessibilityLabel(viewModel.isPreparing ? "Cancel preparation" : viewModel.isPlaying ? "Pause" : "Play")
         .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
     }

@@ -10,9 +10,6 @@ struct SettingsView: View {
     @State private var cacheFileCount = AudioCacheManager.fileCount()
     @State private var showClearConfirmation = false
 
-    private let speeds: [Float] = [0.75, 1.0, 1.25, 1.5, 2.0, 2.25, 2.5, 3.0]
-    private let speedLabels = ["0.75x", "1x", "1.25x", "1.5x", "2x", "2.25x", "2.5x", "3x"]
-
     var body: some View {
         List {
             Section("Content") {
@@ -41,22 +38,23 @@ struct SettingsView: View {
                         .foregroundStyle(AppTheme.textSecondary)
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 64), spacing: 8)], spacing: 8) {
-                        ForEach(Array(zip(speeds, speedLabels)), id: \.0) { spd, label in
+                        ForEach(PlaybackSpeed.settingsOptions, id: \.self) { speed in
                             Button {
-                                withAnimation(.spring(response: 0.3)) { viewModel.speed = spd }
+                                withAnimation(.spring(response: 0.3)) { viewModel.speed = speed }
                             } label: {
-                                Text(label)
+                                Text(PlaybackSpeed.label(speed))
                                     .font(.subheadline.weight(.semibold))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 11)
                                     .background(
-                                        viewModel.speed == spd ? AppTheme.accentPrimarySubtle : AppTheme.elevated,
+                                        viewModel.speed == speed ? AppTheme.accentPrimarySubtle : AppTheme.elevated,
                                         in: RoundedRectangle(cornerRadius: 10)
                                     )
-                                    .foregroundStyle(viewModel.speed == spd ? AppTheme.accentPrimary : AppTheme.textSecondary)
-                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(viewModel.speed == spd ? AppTheme.borderFocus : AppTheme.borderSubtle))
+                                    .foregroundStyle(viewModel.speed == speed ? AppTheme.accentPrimary : AppTheme.textSecondary)
+                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(viewModel.speed == speed ? AppTheme.borderFocus : AppTheme.borderSubtle))
                             }
                             .buttonStyle(.plain)
+                            .accessibilityAddTraits(viewModel.speed == speed ? .isSelected : [])
                         }
                     }
                 }

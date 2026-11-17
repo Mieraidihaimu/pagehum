@@ -108,7 +108,7 @@ struct DesktopLibraryView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("\(selectedItems.count) selected").font(.callout.weight(.medium))
                         if !queueableItems.isEmpty {
-                            Text("\(ListeningQueue.durationLabel(characters: selectedCharacters, speed: viewModel.speed)) at \(DesktopStyle.speedLabel(viewModel.speed))")
+                            Text("\(ListeningQueue.durationLabel(characters: selectedCharacters, speed: viewModel.speed)) at \(PlaybackSpeed.label(viewModel.speed))")
                                 .font(.caption).foregroundStyle(DesktopStyle.secondary)
                         }
                     }
