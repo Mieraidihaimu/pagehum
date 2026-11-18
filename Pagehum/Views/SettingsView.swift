@@ -12,6 +12,12 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            Section("Background progress") {
+                SettingsProgressView(viewModel: viewModel, openReader: openReader)
+                    .padding(.vertical, 4)
+            }
+            .listRowBackground(AppTheme.surface)
+
             Section("Content") {
                 NavigationLink {
                     TechBlogImportSettingsView(viewModel: viewModel, openLibrary: openLibrary)
@@ -165,6 +171,14 @@ struct SettingsView: View {
             }
             .listRowBackground(AppTheme.surface)
 
+            Section("Data") {
+                NavigationLink {
+                    LibraryBackupView(viewModel: viewModel)
+                } label: {
+                    Label("Library Backup", systemImage: "externaldrive")
+                }
+            }
+            .listRowBackground(AppTheme.surface)
 
             Section {
                 LabeledContent("Version") {

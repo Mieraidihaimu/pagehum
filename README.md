@@ -25,6 +25,7 @@ Speech is generated on your device using **Kokoro and Apple's MLX framework**. N
 - **Listen to your reading list.** Import a web article, PDF, or pasted text into the app.
 - **Read along.** Use the reader, playback controls, and text highlighting.
 - **Keep a library and queue.** Search saved content and choose what plays next.
+- **Back up your library.** Export and import saved posts, reading progress, favorites, and listening history from Settings → Library Backup. Audio and voice models are excluded.
 - **Discover tech blogs.** Choose Hacker News, Lobsters, or direct feeds from GitHub Engineering, Cloudflare Engineering, Julia Evans, and Martin Fowler. Preview articles before saving them or import several in one tap.
 - **Export audio from your Mac.** Feed the CLI text, a file, stdin, or an article URL; get M4A or WAV.
 - **Choose English voices.** The CLI supports American and British English voice styles and lists them with `pagehum voices`.
@@ -43,21 +44,33 @@ After extracting the CLI archive, open its `pagehum` directory in Terminal and r
 
 MLX speech generation does not run in the iOS Simulator; there the app falls back to Apple's built-in voices.
 
-```sh
-git clone https://github.com/Mieraidihaimu/pagehum.git
-cd pagehum
-./scripts/download-models.sh
-```
-
-The setup script downloads approximately **342 MB** of model and voice assets from a pinned upstream revision and verifies their SHA-256 checksums. Assets stay local and are excluded from Git. Git LFS is not required to clone Pagehum. Debug builds bundle these assets; Release builds leave them out and offer the same verified download in Settings, using system voices until it finishes.
-
 ### Build the app
 
-```sh
-open Pagehum.xcodeproj
-```
+1. Open Xcode once to finish setup. Install the Metal toolchain if needed.
 
-Select **Pagehum-macOS** or **Pagehum-iOS**. For device builds, choose your development team and configure your own app identifiers and shared app group in both the app and extension. The checked-in identifiers are retained for compatibility with existing development installations; the project does not include signing credentials.
+   ```sh
+   xcodebuild -downloadComponent MetalToolchain
+   ```
+
+2. Clone the source and run the model setup script from the repository root. A standard Git clone contains the source code. The Kokoro model and voice files are downloaded separately.
+
+   ```sh
+   git clone https://github.com/Mieraidihaimu/pagehum.git
+   cd pagehum
+   ./scripts/download-models.sh
+   ```
+
+   The script downloads about **342 MB** from a pinned upstream revision, verifies SHA-256 checksums, and saves `kokoro-v1_0.safetensors` and `voices.npz` in `Resources/`. Debug app builds and the CLI package use those files. If Xcode reports a missing model resource, rerun the script from the checkout you are building. It reuses files that pass verification.
+
+3. Open the project in Xcode.
+
+   ```sh
+   open Pagehum.xcodeproj
+   ```
+
+4. Select **Pagehum-macOS** and **My Mac**, or **Pagehum-iOS** and an iPhone simulator or connected iPhone. Press **⌘R** to build and run. If Xcode asks for signing, select your team under **Signing & Capabilities**. For a physical iPhone, set your own bundle identifiers for the app and share extension and configure the same app group in both targets and their Swift code. See [compatibility notes for development installs](CONTRIBUTING.md#compatibility).
+
+To build the app without downloading model files first, choose **Release** under **Product → Scheme → Edit Scheme → Run → Info**. Release builds use system voices until you select **Download natural voices** in Pagehum Settings on a supported device.
 
 ### Verify the iPhone release
 
@@ -74,7 +87,33 @@ for physical-device checks and TestFlight signing.
 Sharing a web link saves it for import when you next open Pagehum. The extension confirms
 that it saved the link; it does not launch the app. Failed imports keep the link available for retry.
 
+### Back up or transfer your library
+
+On iPhone and Mac, open **Settings → Library Backup → Export Library Backup** to save a
+JSON file. Choose iCloud Drive in the file picker to make it available on another device,
+then use **Import Library Backup** there. Import previews the record counts before merging
+and pauses playback when you confirm.
+
+The backup includes saved article/PDF text, source links or PDF names, dates, favorites,
+completion status, sentence/text resume positions, and daily listening totals. It excludes
+audio files, voice weights, original PDF files, playback queues, and device preferences.
+Backups contain your saved text and history, so store them somewhere you trust.
+
+Import preserves existing posts and matches on source type, source URL/name, and exact text.
+Matching posts keep the most recently played progress, the earliest added date, and favorites
+from either library. A changed article body is kept separately so resume offsets stay valid.
+For overlapping days, import keeps the higher listening total instead of adding totals;
+repeated imports do not double-count, but independent listening on two devices is not summed.
+Files are versioned and limited to 50 MB. See [backup format and iCloud notes](docs/LIBRARY_BACKUP.md).
+
+Automatic iCloud/CloudKit sync is not enabled. Apple's free Personal Team provisioning does
+not support app-level iCloud; it requires [Apple Developer Program membership](https://developer.apple.com/help/account/membership/program-enrollment/).
+Saving a backup to iCloud Drive through the system file picker works without adding iCloud
+capabilities to Pagehum.
+
 ### Use the command line
+
+Run `./scripts/download-models.sh` before building the CLI from source if you skipped the model setup above.
 
 ```sh
 ./scripts/build-cli.sh

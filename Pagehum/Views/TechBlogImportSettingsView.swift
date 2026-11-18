@@ -4,6 +4,7 @@ import SwiftUI
 /// A dedicated destination shared by Settings and the Add Content shortcut.
 struct TechBlogImportSettingsView: View {
     @ObservedObject var viewModel: ReaderModel
+    var openReader: (() -> Void)? = nil
     var openLibrary: (() -> Void)? = nil
 
     private var source: TechBlogSource { viewModel.techBlogSettings.source }
@@ -31,7 +32,7 @@ struct TechBlogImportSettingsView: View {
                     ForEach(TechBlogSource.allCases) { source in Text(source.title).tag(source) }
                 }
             }
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isImportBusy)
 
             if source == .blogFeeds {
                 settingsSection("Blog feeds", subtitle: "The five latest posts from each blog are ordered by publication date.") {
@@ -57,14 +58,15 @@ struct TechBlogImportSettingsView: View {
                     }
                 }
             }
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isImportBusy)
 
             VStack(alignment: .leading, spacing: 12) {
                 TechBlogImportButton(viewModel: viewModel, openLibrary: openLibrary)
                 if let message = viewModel.techBlogMessage {
                     Text(message).font(.callout).foregroundStyle(AppTheme.textSecondary)
                 }
-                URLImportStatusView(viewModel: viewModel, openLibrary: openLibrary)
+                URLImportStatusView(viewModel: viewModel, scope: openReader == nil ? .single : .all,
+                                    openReader: openReader, openLibrary: openLibrary)
                 if let error = viewModel.errorMessage {
                     Label(error, systemImage: "exclamationmark.circle")
                         .font(.callout).foregroundStyle(AppTheme.warning)
@@ -108,7 +110,7 @@ struct TechBlogImportSettingsView: View {
                 }
             }
         }
-        .disabled(viewModel.isLoading)
+        .disabled(viewModel.isImportBusy)
     }
 
     private func settingsSection<Content: View>(_ title: LocalizedStringKey, subtitle: LocalizedStringKey,
@@ -143,6 +145,7 @@ struct TechBlogSettingsLabel: View {
 /// Opens the article browser from Add Content.
 struct TechBlogQuickImportView: View {
     @ObservedObject var viewModel: ReaderModel
+    var openReader: (() -> Void)? = nil
     var openLibrary: (() -> Void)? = nil
     @State private var showBrowser = false
 
@@ -220,7 +223,7 @@ struct TechBlogQuickImportView: View {
                 #endif
             }
             .buttonStyle(.plain)
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isImportBusy)
 
             if let message = viewModel.techBlogMessage {
                 Text(message)
@@ -230,7 +233,9 @@ struct TechBlogQuickImportView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .sheet(isPresented: $showBrowser) { TechBlogBrowseView(viewModel: viewModel, openLibrary: openLibrary) }
+        .sheet(isPresented: $showBrowser) {
+            TechBlogBrowseView(viewModel: viewModel, openReader: openReader, openLibrary: openLibrary)
+        }
     }
 }
 
@@ -255,14 +260,13 @@ private struct TechBlogImportButton: View {
         Button {
             Task {
                 await viewModel.importLatestTechBlogs()
-                if let result = viewModel.importResult, result.failures.isEmpty,
-                   result.imported > 0 || result.skipped > 0 {
+                if let result = viewModel.importResult, result.singleItem != nil, result.failures.isEmpty {
                     openLibrary?()
                 }
             }
         } label: {
             Label("Import up to \(viewModel.techBlogSettings.importLimit) articles", systemImage: "square.and.arrow.down")
         }
-        .disabled(viewModel.isLoading)
+        .disabled(viewModel.isImportBusy)
     }
 }

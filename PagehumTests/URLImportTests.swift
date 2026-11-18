@@ -178,22 +178,68 @@ struct URLImportTests {
     }
 
     @Test
-    func failedSingleURLAndPartiallySuccessfulBatchDoNotOfferAnArticleToOpen() async throws {
+    func batchOffersFirstSavedArticleWhileRemainingLinksImport() async throws {
         let container = try ModelContainer(for: PlaylistItem.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-        let model = ReaderModel(loadModelOnInit: false, contentExtractor: ImportTestExtractor())
-        model.modelContext = ModelContext(container)
+        let context = ModelContext(container)
+        let extractor = ImportTestExtractor()
+        let model = ReaderModel(loadModelOnInit: false, contentExtractor: extractor)
+        model.modelContext = context
         model.content = ReadingContent(title: "Current", body: "Keep this text.", source: .text("Keep this text."))
         model.prepareTextPublic("Keep this text.")
+        context.insert(PlaylistItem(title: "Saved", sourceURL: "https://example.com/saved",
+                                    sourceType: "url", fullText: "Saved text."))
+        try context.save()
 
         let failed = try #require(await model.importURLs(from: "https://example.com/broken"))
         #expect(failed.singleItem == nil)
+        #expect(failed.firstImportedItem == nil)
         #expect(failed.failures.count == 1)
-        let batch = try #require(await model.importURLs(from: "https://example.com/article https://example.com/broken"))
-        #expect(batch.imported == 1)
+
+        extractor.beforeExtract = { url in
+            if url.path == "/first" {
+                #expect(model.batchImportProgress?.processed == 2)
+                #expect(model.batchImportProgress?.firstImportedItem == nil)
+            }
+            guard url.path == "/last" else { return }
+            let progress = try #require(model.batchImportProgress)
+            let first = try #require(progress.firstImportedItem)
+            #expect(progress.processed == 3)
+            #expect(progress.total == 4)
+            #expect(first.sourceURL == "https://example.com/first")
+            #expect(try context.fetchCount(FetchDescriptor<PlaylistItem>()) == 2)
+            #expect(model.isImportBusy)
+            #expect(!model.isLoading)
+            #expect(model.importResult == nil)
+            #expect(await model.importURLs(from: "https://example.com/competing") == nil)
+            #expect(model.content?.title == "Current")
+            #expect(model.openLibraryItem(first))
+            #expect(model.sentences == ["Imported article text."])
+        }
+        defer { extractor.beforeExtract = nil }
+
+        let batch = try #require(await model.importURLs(
+            from: "https://example.com/saved https://example.com/broken https://example.com/first https://example.com/last"
+        ))
+        #expect(batch.imported == 2)
+        #expect(batch.skipped == 1)
         #expect(batch.failures.count == 1)
         #expect(batch.singleItem == nil)
-        #expect(model.content?.title == "Current")
-        #expect(model.sentences == ["Keep this text."])
+        #expect(batch.firstImportedItem?.sourceURL == "https://example.com/first")
+        #expect(model.content?.source.webURL?.absoluteString == "https://example.com/first")
+        #expect(try context.fetchCount(FetchDescriptor<PlaylistItem>()) == 3)
+        #expect(model.batchImportProgress == nil)
+        #expect(!model.isImportBusy)
+
+        extractor.shouldFail = false
+        extractor.beforeExtract = { _ in
+            #expect(model.batchImportProgress?.total == 1)
+            #expect(!model.isLoading)
+        }
+        let retry = try #require(await model.retryFailedURLImport())
+        #expect(retry.isBatch)
+        #expect(retry.failures.isEmpty)
+        #expect(retry.firstImportedItem?.sourceURL == "https://example.com/broken")
+        #expect(model.content?.source.webURL?.absoluteString == "https://example.com/first")
     }
 
     @Test
@@ -213,10 +259,12 @@ struct URLImportTests {
 private final class ImportTestExtractor: ContentExtracting {
     var paths: [String] = []
     var shouldFail = true
+    var beforeExtract: ((URL) async throws -> Void)?
 
     func extract(from source: ContentSource) async throws -> ReadingContent {
         let url = try #require(source.webURL)
         paths.append(url.path)
+        try await beforeExtract?(url)
         if shouldFail && url.path == "/broken" { throw URLError(.cannotLoadFromNetwork) }
         return ReadingContent(title: url.lastPathComponent, body: "Imported article text.", source: source)
     }

@@ -136,7 +136,7 @@ struct HomeView: View {
                 }
                 #endif
 
-                TechBlogQuickImportView(viewModel: viewModel, openLibrary: openLibrary)
+                TechBlogQuickImportView(viewModel: viewModel, openReader: showReader, openLibrary: openLibrary)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
@@ -315,6 +315,7 @@ struct HomeView: View {
             actionButton(importLinksTitle(URLImportParser.urls(in: urlString).count, opensReader: openLibrary == nil), icon: "bookmark.fill") {
                 importLinks(urlString, fromText: false)
             }
+            .disabled(viewModel.isImportBusy)
             .disabled(URLImportParser.urls(in: urlString).isEmpty)
         }
     }
@@ -383,6 +384,7 @@ struct HomeView: View {
                 actionButton(importLinksTitle(URLImportParser.urls(in: pastedText).count, opensReader: openLibrary == nil), icon: "bookmark.fill") {
                     importLinks(pastedText, fromText: true)
                 }
+                .disabled(viewModel.isImportBusy)
             }
             if URLImportParser.urls(in: pastedText).isEmpty {
                 actionButton(textImportTitle, icon: "doc.text") { loadText() }
@@ -436,11 +438,15 @@ struct HomeView: View {
         isTextFieldFocused = false
         Task {
             if let result = await viewModel.importURLs(from: value), result.failures.isEmpty {
-                if fromText { pastedText = "" } else { urlString = "" }
+                if fromText {
+                    if pastedText == value { pastedText = "" }
+                } else if urlString == value {
+                    urlString = ""
+                }
+                guard let item = result.singleItem else { return }
                 if let openLibrary {
                     openLibrary()
-                } else if let item = result.singleItem,
-                   viewModel.openLibraryItem(item, preservingQueue: viewModel.currentPlaylistItemID == item.persistentModelID) {
+                } else if viewModel.openLibraryItem(item, preservingQueue: viewModel.currentPlaylistItemID == item.persistentModelID) {
                     showReader()
                 }
             }

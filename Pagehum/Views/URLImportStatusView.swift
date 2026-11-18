@@ -1,4 +1,5 @@
 // Modified for Pagehum: unified application and command-line naming.
+import SwiftData
 import SwiftUI
 
 func importLinksTitle(_ count: Int, opensReader: Bool = true) -> LocalizedStringKey {
@@ -42,22 +43,54 @@ struct URLInputHint: View {
 }
 
 struct URLImportStatusView: View {
+    enum Scope { case single, batch, all }
+
     @ObservedObject var viewModel: ReaderModel
+    var scope: Scope = .single
+    var openReader: (() -> Void)? = nil
     var openLibrary: (() -> Void)? = nil
+    var showsDismissButton = false
 
     var body: some View {
-        if let progress = viewModel.importProgress {
+        if let progress = viewModel.batchImportProgress {
+            if scope != .single {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 12) {
+                        Text("Importing articles… \(progress.processed) of \(progress.total)")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        openFirstArticleButton(progress.firstImportedItem)
+                    }
+                    ProgressView(value: Double(progress.processed), total: Double(progress.total))
+                        .accessibilityLabel("Batch import progress")
+                }
+                .font(.callout)
+            }
+        } else if let progress = viewModel.importProgress, scope != .batch {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
                 Text(progress)
             }
             .font(.callout)
             .accessibilityElement(children: .combine)
-        } else if let result = viewModel.importResult {
+        } else if let result = viewModel.importResult,
+                  scope == .all || (result.isBatch ? scope == .batch : scope == .single) {
             VStack(alignment: .leading, spacing: 8) {
-                Label(result.summary, systemImage: result.failures.isEmpty ? "checkmark.circle" : "exclamationmark.triangle")
-                    .font(.callout)
-                    .foregroundStyle(result.failures.isEmpty ? AppTheme.textSecondary : AppTheme.warning)
+                HStack(spacing: 12) {
+                    Label(result.summary, systemImage: result.failures.isEmpty ? "checkmark.circle" : "exclamationmark.triangle")
+                        .foregroundStyle(result.failures.isEmpty ? AppTheme.textSecondary : AppTheme.warning)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if result.isBatch {
+                        openFirstArticleButton(result.firstImportedItem)
+                    }
+                    if result.isBatch && showsDismissButton {
+                        Button("Dismiss import summary", systemImage: "xmark") {
+                            viewModel.dismissBatchImportResult()
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                    }
+                }
+                .font(.callout)
                 if !result.failures.isEmpty {
                     DisclosureGroup("Failed links") {
                         ScrollView {
@@ -75,16 +108,44 @@ struct URLImportStatusView: View {
                         .frame(height: min(160, CGFloat(result.failures.count) * 72))
                     }
                     Button("Retry failed links") {
-                        let links = result.failures.map { $0.url.absoluteString }.joined(separator: "\n")
                         Task {
-                            if let result = await viewModel.importURLs(from: links), result.failures.isEmpty {
+                            if let retry = await viewModel.retryFailedURLImport(),
+                               !retry.isBatch, retry.singleItem != nil, retry.failures.isEmpty {
                                 openLibrary?()
                             }
                         }
                     }
-                    .disabled(viewModel.isLoading)
+                    .buttonStyle(.borderless)
+                    .disabled(viewModel.isImportBusy)
                 }
             }
+        }
+    }
+
+    @ViewBuilder private func openFirstArticleButton(_ item: PlaylistItem?) -> some View {
+        if let item, item.modelContext != nil, !item.isDeleted,
+           viewModel.currentPlaylistItemID != item.persistentModelID, let openReader {
+            Button("Open first article") {
+                guard item.modelContext != nil, !item.isDeleted, viewModel.openLibraryItem(item) else { return }
+                openReader()
+            }
+            .buttonStyle(.borderless)
+            .disabled(viewModel.isLoading)
+        }
+    }
+}
+
+struct URLBatchImportBanner: View {
+    @ObservedObject var viewModel: ReaderModel
+    let openReader: () -> Void
+
+    var body: some View {
+        if viewModel.batchImportProgress != nil || viewModel.importResult?.isBatch == true {
+            URLImportStatusView(viewModel: viewModel, scope: .batch, openReader: openReader, showsDismissButton: true)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(AppTheme.surface)
+                .overlay(alignment: .bottom) { Divider() }
         }
     }
 }

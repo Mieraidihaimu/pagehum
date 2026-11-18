@@ -114,7 +114,7 @@ struct PagehumApp: App {
     }
 
     private func importSharedURL() {
-        guard !importingSharedURL, !model.isLoading, model.modelContext != nil else { return }
+        guard !importingSharedURL, !model.isImportBusy, model.modelContext != nil else { return }
         if model.pendingSharedURL == nil { model.checkForSharedURL() }
         guard model.pendingSharedURL != nil else { return }
         importingSharedURL = true

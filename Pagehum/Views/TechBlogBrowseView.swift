@@ -3,6 +3,7 @@ import SwiftUI
 /// Lets the user choose which tech articles to import.
 struct TechBlogBrowseView: View {
     @ObservedObject var viewModel: ReaderModel
+    var openReader: (() -> Void)? = nil
     var openLibrary: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
@@ -30,8 +31,8 @@ struct TechBlogBrowseView: View {
             .task { await reload() }
             .onChange(of: showingSettings) { _, showing in reloadIfFiltersChanged(showing) }
             .onChange(of: source) { _, _ in reloadIfFiltersChanged(showingSettings) }
-            .onChange(of: viewModel.isLoading) { _, loading in
-                if !loading { reloadIfFiltersChanged(showingSettings) }
+            .onChange(of: viewModel.isImportBusy) { _, busy in
+                if !busy { reloadIfFiltersChanged(showingSettings) }
             }
             .sheet(item: $previewStory) { storyPreview($0) }
             .appTheme()
@@ -58,7 +59,7 @@ struct TechBlogBrowseView: View {
             .padding(20)
             Divider()
             if showingSettings {
-                TechBlogImportSettingsView(viewModel: viewModel)
+                TechBlogImportSettingsView(viewModel: viewModel, openReader: finishOpening)
             } else {
                 content
             }
@@ -81,7 +82,7 @@ struct TechBlogBrowseView: View {
                     }
                 }
                 .navigationDestination(isPresented: $showingSettings) {
-                    TechBlogImportSettingsView(viewModel: viewModel, openLibrary: finishImport)
+                    TechBlogImportSettingsView(viewModel: viewModel, openReader: finishOpening, openLibrary: finishImport)
                 }
         }
         #endif
@@ -95,7 +96,7 @@ struct TechBlogBrowseView: View {
                                      selection: $viewModel.techBlogSettings.source) { source in
                     Text(source.title)
                 }
-                .disabled(viewModel.isLoading)
+                .disabled(viewModel.isImportBusy)
                 searchField
                 if showsCommunitySort {
                     ThemeSegmentedPicker(title: "Sort by", options: TechBlogSort.allCases, selection: $sort) {
@@ -121,7 +122,7 @@ struct TechBlogBrowseView: View {
                 #if os(iOS)
                 .scrollDismissesKeyboard(.interactively)
                 #endif
-                .disabled(viewModel.isLoading)
+                .disabled(viewModel.isImportBusy)
             }
             Divider()
             footer.padding(16).background(AppTheme.surface)
@@ -153,7 +154,7 @@ struct TechBlogBrowseView: View {
     }
 
     @ViewBuilder private var emptyState: some View {
-        if viewModel.isLoading || loadedSettings?.source != source {
+        if viewModel.isImportBusy || loadedSettings?.source != source {
             ProgressView("Loading stories…")
         } else if viewModel.techBlogStories.isEmpty && viewModel.errorMessage != nil {
             ContentUnavailableView {
@@ -292,7 +293,7 @@ struct TechBlogBrowseView: View {
                     }
                     .buttonStyle(ThemeButtonStyle())
                     .controlSize(.large)
-                    .disabled(viewModel.isLoading)
+                    .disabled(viewModel.isImportBusy)
                 }
             }
         }
@@ -305,7 +306,7 @@ struct TechBlogBrowseView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            URLImportStatusView(viewModel: viewModel, openLibrary: finishImport)
+            URLImportStatusView(viewModel: viewModel, scope: .all, openReader: finishOpening, openLibrary: finishImport)
             if let message = viewModel.techBlogMessage {
                 Text(message).font(.callout).foregroundStyle(AppTheme.textSecondary)
             }
@@ -346,7 +347,7 @@ struct TechBlogBrowseView: View {
 
     private var clearSelectionButton: some View {
         Button("Clear") { selection.removeAll() }
-            .disabled(selection.isEmpty || viewModel.isLoading)
+            .disabled(selection.isEmpty || viewModel.isImportBusy)
     }
 
     private var importButton: some View {
@@ -357,8 +358,7 @@ struct TechBlogBrowseView: View {
                 await viewModel.importTechBlogStories(selectedStories)
                 // Keep failed articles selected so retrying doesn't require finding them again.
                 selection = Set(selectedStories.map(\.id))
-                if let result = viewModel.importResult, result.failures.isEmpty,
-                   result.imported > 0 || result.skipped > 0 {
+                if let result = viewModel.importResult, result.singleItem != nil, result.failures.isEmpty {
                     finishImport?()
                 }
             }
@@ -377,7 +377,15 @@ struct TechBlogBrowseView: View {
         .buttonStyle(ThemeButtonStyle())
         .controlSize(.large)
         #endif
-        .disabled(selectedStories.isEmpty || viewModel.isLoading)
+        .disabled(selectedStories.isEmpty || viewModel.isImportBusy)
+    }
+
+    private var finishOpening: (() -> Void)? {
+        guard let openReader else { return nil }
+        return {
+            dismiss()
+            openReader()
+        }
     }
 
     private var finishImport: (() -> Void)? {
@@ -394,7 +402,7 @@ struct TechBlogBrowseView: View {
         }
         .labelStyle(.iconOnly)
         .help("Refresh")
-        .disabled(viewModel.isLoading)
+        .disabled(viewModel.isImportBusy)
     }
 
     private var settingsButton: some View {
@@ -403,16 +411,16 @@ struct TechBlogBrowseView: View {
         }
         .labelStyle(.iconOnly)
         .help("Filters")
-        .disabled(viewModel.isLoading)
+        .disabled(viewModel.isImportBusy)
     }
 
     private func reloadIfFiltersChanged(_ showingSettings: Bool) {
-        guard !showingSettings, !viewModel.isLoading, viewModel.techBlogSettings != loadedSettings else { return }
+        guard !showingSettings, !viewModel.isImportBusy, viewModel.techBlogSettings != loadedSettings else { return }
         Task { await reload() }
     }
 
     private func reload() async {
-        guard !viewModel.isLoading else { return }
+        guard !viewModel.isImportBusy else { return }
         selection.removeAll()
         loadedSettings = viewModel.techBlogSettings
         await viewModel.loadTechBlogStories()

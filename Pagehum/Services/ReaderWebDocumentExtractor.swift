@@ -204,14 +204,18 @@ final class ReaderWebDocumentExtractor {
 
     private static let quiescenceScript = #"""
     const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+    const originalX = window.scrollX;
     const originalY = window.scrollY;
     const height = Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight || 0);
-    const step = Math.max(window.innerHeight, 600);
-    for (let y = 0; y < height; y += step) {
-        window.scrollTo(0, y);
+    const scrollableHeight = Math.max(0, height - window.innerHeight);
+    // Sample long pages at wider intervals to limit waits for scroll-triggered content.
+    const maxScrollSteps = 20;
+    const step = Math.max(window.innerHeight, 600, Math.ceil(scrollableHeight / maxScrollSteps));
+    for (let y = 0; y < scrollableHeight; y += step) {
+        window.scrollTo(originalX, Math.min(y + step, scrollableHeight));
         await delay(40);
     }
-    window.scrollTo(0, originalY);
+    if (scrollableHeight > 0) window.scrollTo(originalX, originalY);
 
     return await new Promise(resolve => {
         let quietTimer;

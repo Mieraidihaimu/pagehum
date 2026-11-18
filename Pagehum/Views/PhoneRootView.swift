@@ -8,6 +8,7 @@ struct PhoneRootView: View {
     @Binding var navigateToLibrary: Bool
     @State private var selectedTab: Tab = .add
     @State private var isKeyboardPresented = false
+    @State private var isShowingSettingsHome = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -45,9 +46,16 @@ struct PhoneRootView: View {
 
             browsingTab {
                 SettingsView(viewModel: viewModel, openReader: openReader, openLibrary: openLibrary)
+                    .onAppear { isShowingSettingsHome = true }
+                    .onDisappear { isShowingSettingsHome = false }
             }
             .tabItem { Label("Settings", systemImage: "gearshape") }
             .tag(Tab.settings)
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if selectedTab != .settings || !isShowingSettingsHome {
+                URLBatchImportBanner(viewModel: viewModel, openReader: openReader)
+            }
         }
         .toolbarBackground(AppTheme.surface, for: .tabBar)
         .toolbarBackground(AppTheme.canvas, for: .navigationBar)

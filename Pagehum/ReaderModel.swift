@@ -117,7 +117,9 @@ final class ReaderModel: ObservableObject {
     @Published var content: ReadingContent?
     @Published var savedConfirmation = false
     @Published private(set) var importProgress: String?
+    @Published private(set) var batchImportProgress: URLBatchImportProgress?
     @Published private(set) var importResult: URLImportResult?
+    var isImportBusy: Bool { isLoading || importProgress != nil || batchImportProgress != nil }
     @Published private(set) var techBlogMessage: String?
     @Published var techBlogSettings = TechBlogSettings.load() {
         didSet { techBlogSettings.save() }
@@ -426,7 +428,7 @@ final class ReaderModel: ObservableObject {
     }
 
     func loadPendingSharedURL(from defaults: UserDefaults? = UserDefaults(suiteName: "group.com.test.mier.hello")) async {
-        guard !isLoading, let value = pendingSharedURL else { return }
+        guard !isImportBusy, let value = pendingSharedURL else { return }
         errorMessage = nil
         guard let url = URL(string: value),
               ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
@@ -620,7 +622,7 @@ final class ReaderModel: ObservableObject {
     // MARK: - Save for Later
 
     func importLatestTechBlogs(using discovery: any TechBlogDiscovering = TechBlogDiscovery()) async {
-        guard !isLoading else { return }
+        guard !isImportBusy else { return }
         errorMessage = nil
         importResult = nil
         techBlogMessage = nil
@@ -629,14 +631,14 @@ final class ReaderModel: ObservableObject {
             return
         }
         let settings = techBlogSettings.validated
-        isLoading = true
-        importProgress = "Finding articles in \(settings.source.title)…"
-        defer { isLoading = false; importProgress = nil }
+        let urls: [URL]
         do {
+            importProgress = "Finding articles in \(settings.source.title)…"
+            defer { importProgress = nil }
             let result = try await discovery.discover(settings: settings)
             try Task.checkCancellation()
             // Exclude saved articles and duplicate submissions before applying the import cap.
-            let urls = TechBlogDiscovery.unsaved(result.stories, savedKeys: try libraryURLKeys(ctx)).map(\.url)
+            urls = TechBlogDiscovery.unsaved(result.stories, savedKeys: try libraryURLKeys(ctx)).map(\.url)
             let warning = result.failedItemCount == 0 ? "" : " " + Self.discoveryWarning(result.failedItemCount, source: settings.source)
             guard !urls.isEmpty else {
                 techBlogMessage = (result.stories.isEmpty
@@ -645,17 +647,19 @@ final class ReaderModel: ObservableObject {
                 return
             }
             techBlogMessage = "Found \(urls.count) new matching \(urls.count == 1 ? "article" : "articles")." + warning
-            _ = await performURLImport(Array(urls.prefix(settings.importLimit)))
         } catch is CancellationError {
             techBlogMessage = "Article discovery cancelled."
+            return
         } catch {
             errorMessage = error.localizedDescription
+            return
         }
+        _ = await performURLImport(Array(urls.prefix(settings.importLimit)))
     }
 
     /// Loads matching stories for the user to choose from; nothing is imported.
     func loadTechBlogStories(using discovery: any TechBlogDiscovering = TechBlogDiscovery()) async {
-        guard !isLoading else { return }
+        guard !isImportBusy else { return }
         errorMessage = nil
         importResult = nil
         techBlogMessage = nil
@@ -665,9 +669,8 @@ final class ReaderModel: ObservableObject {
         }
         let settings = techBlogSettings.validated
         if loadedTechBlogSource != settings.source { techBlogStories = [] }
-        isLoading = true
         importProgress = "Loading stories from \(settings.source.title)…"
-        defer { isLoading = false; importProgress = nil }
+        defer { importProgress = nil }
         do {
             let result = try await discovery.discover(settings: settings)
             try Task.checkCancellation()
@@ -684,7 +687,7 @@ final class ReaderModel: ObservableObject {
     }
 
     func importTechBlogStories(_ stories: [TechBlogStory]) async {
-        guard !isLoading, !stories.isEmpty else { return }
+        guard !isImportBusy, !stories.isEmpty else { return }
         errorMessage = nil
         importResult = nil
         techBlogMessage = nil
@@ -715,7 +718,7 @@ final class ReaderModel: ObservableObject {
 
     @discardableResult
     func importURLs(from text: String) async -> URLImportResult? {
-        guard !isLoading else { return nil }
+        guard !isImportBusy else { return nil }
         errorMessage = nil
         importResult = nil
         techBlogMessage = nil
@@ -727,18 +730,45 @@ final class ReaderModel: ObservableObject {
         return await performURLImport(urls)
     }
 
-    private func performURLImport(_ urls: [URL]) async -> URLImportResult? {
+    func retryFailedURLImport() async -> URLImportResult? {
+        guard !isImportBusy, let result = importResult, !result.failures.isEmpty else { return nil }
+        errorMessage = nil
+        importResult = nil
+        techBlogMessage = nil
+        return await performURLImport(result.failures.map(\.url), inBackground: result.isBatch)
+    }
+
+    private func performURLImport(_ urls: [URL], inBackground: Bool = false) async -> URLImportResult? {
         guard let ctx = modelContext else {
             errorMessage = "The library is not ready. Please try again."
             return nil
         }
-        isLoading = true
-        defer { isLoading = false; importProgress = nil }
-        var result = URLImportResult()
+        let isBatch = inBackground || urls.count > 1
+        var result = URLImportResult(isBatch: isBatch)
+        if isBatch {
+            batchImportProgress = URLBatchImportProgress(total: urls.count)
+        } else {
+            isLoading = true
+            importProgress = String(localized: "Importing…")
+        }
+        defer {
+            if isBatch {
+                batchImportProgress = nil
+            } else {
+                isLoading = false
+                importProgress = nil
+            }
+        }
         do {
             var savedURLs = try libraryURLKeys(ctx)
-            for (index, url) in urls.enumerated() {
-                importProgress = "Importing \(index + 1) of \(urls.count)…"
+            for url in urls {
+                defer {
+                    if isBatch {
+                        batchImportProgress = URLBatchImportProgress(
+                            total: urls.count, processed: result.processed, firstImportedItem: result.firstImportedItem
+                        )
+                    }
+                }
                 let key = URLImportParser.key(for: url)
                 if savedURLs.contains(key) {
                     result.skipped += 1
@@ -761,6 +791,7 @@ final class ReaderModel: ObservableObject {
                     catch { ctx.delete(item); throw error }
                     savedURLs.insert(key)
                     result.imported += 1
+                    if result.firstImportedItem == nil { result.firstImportedItem = item }
                     if urls.count == 1 { result.singleItem = item }
                 } catch {
                     result.failures.append(.init(url: url, message: error.localizedDescription))
@@ -773,6 +804,11 @@ final class ReaderModel: ObservableObject {
             errorMessage = error.localizedDescription
             return nil
         }
+    }
+
+    func dismissBatchImportResult() {
+        guard batchImportProgress == nil, importResult?.isBatch == true else { return }
+        importResult = nil
     }
 
     // MARK: - Seek
@@ -862,6 +898,42 @@ final class ReaderModel: ObservableObject {
         }
         saveLibraryChanges(in: ctx)
         updateNowPlayingInfo()
+    }
+
+    /// Include the current sentence and the listening interval since the last timer tick.
+    func saveForLibraryBackup() throws {
+        guard modelContext != nil else { throw LibraryBackup.BackupError.unsavedChanges }
+        saveProgressNow()
+        accumulateListeningTime()
+        saveListeningTime()
+        if isPlaying { listeningSessionStart = Date() }
+        guard listeningAccumulator == 0, saveLibraryChanges() else {
+            throw LibraryBackup.BackupError.unsavedChanges
+        }
+    }
+
+    func pauseForLibraryImport() {
+        if isPlaying || isPreparing || isWaitingForOfflineAudio { pause() }
+        listeningQueue.end()
+    }
+
+    /// Refresh in-memory resume state after a merge without stamping over imported dates.
+    func didImportLibraryBackup() {
+        if let modelContext, let keys = try? libraryURLKeys(modelContext) { savedTechBlogKeys = keys }
+        guard let id = currentPlaylistItemID,
+              let item = modelContext?.model(for: id) as? PlaylistItem else { return }
+        stop()
+        let source: ContentSource
+        if item.sourceType == "url", let value = item.sourceURL, let url = URL(string: value) {
+            source = .url(url)
+        } else {
+            source = .text(item.fullText)
+        }
+        content = ReadingContent(title: item.title, body: item.fullText, source: source)
+        let completed = item.status == PlaylistItem.Status.completed.rawValue || item.progressPercent >= 1
+        prepareTextPublic(item.fullText, resumeAt: completed ? 0 : item.lastSentenceIndex,
+                          textOffset: completed ? 0 : item.playbackTextOffset)
+        if completed { progress = 1 }
     }
 
     func migrateLegacyPlaybackTextOffsets() {

@@ -43,6 +43,10 @@ struct URLImportResult {
     var failures: [Failure] = []
     /// The saved article when the request contained one unique URL and succeeded.
     var singleItem: PlaylistItem?
+    var firstImportedItem: PlaylistItem?
+    var isBatch = false
+
+    var processed: Int { imported + skipped + failures.count }
 
     var summary: String {
         let parts = [
@@ -52,4 +56,10 @@ struct URLImportResult {
         ].compactMap { $0 }
         return parts.isEmpty ? "Nothing imported" : parts.joined(separator: " · ")
     }
+}
+
+struct URLBatchImportProgress {
+    let total: Int
+    var processed = 0
+    var firstImportedItem: PlaylistItem?
 }

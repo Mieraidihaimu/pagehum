@@ -37,7 +37,7 @@ struct DesktopInputView: View {
             .padding(24)
             .themeCard(cornerRadius: 12)
 
-            TechBlogQuickImportView(viewModel: viewModel)
+            TechBlogQuickImportView(viewModel: viewModel, openReader: openReader)
                 .padding(.top, 20)
 
             VStack(alignment: .leading, spacing: 12) {
@@ -104,7 +104,7 @@ struct DesktopInputView: View {
                     Label(importLinksTitle(URLImportParser.urls(in: url).count), systemImage: "bookmark")
                 }
                 .buttonStyle(DesktopButtonStyle(primary: true))
-                .disabled(URLImportParser.urls(in: url).isEmpty || viewModel.isLoading)
+                .disabled(URLImportParser.urls(in: url).isEmpty || viewModel.isImportBusy)
             }
         case .file:
             VStack(alignment: .leading, spacing: 16) {
@@ -127,7 +127,7 @@ struct DesktopInputView: View {
                         Label(importLinksTitle(URLImportParser.urls(in: text).count), systemImage: "bookmark")
                     }
                     .buttonStyle(DesktopButtonStyle(primary: true))
-                    .disabled(viewModel.isLoading)
+                    .disabled(viewModel.isImportBusy)
                 }
                 Button(action: load) { Label("Read pasted text", systemImage: "doc.text") }
                     .buttonStyle(DesktopButtonStyle(primary: URLImportParser.urls(in: text).isEmpty))
@@ -147,7 +147,11 @@ struct DesktopInputView: View {
     private func importLinks(_ value: String, fromText: Bool) {
         Task {
             if let result = await viewModel.importURLs(from: value), result.failures.isEmpty {
-                if fromText { text = "" } else { url = "" }
+                if fromText {
+                    if text == value { text = "" }
+                } else if url == value {
+                    url = ""
+                }
                 if let item = result.singleItem,
                    viewModel.openLibraryItem(item, preservingQueue: viewModel.currentPlaylistItemID == item.persistentModelID) {
                     openReader()

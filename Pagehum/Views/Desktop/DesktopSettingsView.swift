@@ -7,15 +7,19 @@ struct DesktopSettingsView: View {
     var openStats: () -> Void
     var openTechBlogSettings: () -> Void
     var openOfflineAudio: () -> Void
+    var openReader: () -> Void
     @State private var cacheSize = AudioCacheManager.formattedSize()
     @State private var cacheCount = AudioCacheManager.fileCount()
     @State private var clearConfirmation = false
     @State private var cacheMessage: String?
     @State private var cacheError: String?
+    @State private var showLibraryBackup = false
 
     var body: some View {
         DesktopPage(width: 640) {
             DesktopHeading(title: "Make it yours.", subtitle: "A comfortable voice. A comfortable pace.")
+            sectionTitle("Background progress")
+            row { SettingsProgressView(viewModel: viewModel, openReader: openReader) }
             sectionTitle("Content")
             row {
                 Button(action: openTechBlogSettings) {
@@ -88,6 +92,16 @@ struct DesktopSettingsView: View {
                     .buttonStyle(DesktopButtonStyle()).disabled(cacheCount == 0)
             }
             if let cacheMessage { Text(cacheMessage).font(.caption).foregroundStyle(DesktopStyle.secondary) }
+            sectionTitle("Data")
+            row {
+                Button { showLibraryBackup = true } label: {
+                    HStack {
+                        Label("Library backup", systemImage: "externaldrive")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                }.buttonStyle(.plain)
+            }
             sectionTitle("Activity")
             row {
                 Button(action: openStats) {
@@ -103,6 +117,17 @@ struct DesktopSettingsView: View {
             }.foregroundStyle(DesktopStyle.secondary).padding(.top, 20)
         }
         .onAppear(perform: refreshCache)
+        .sheet(isPresented: $showLibraryBackup) {
+            NavigationStack {
+                LibraryBackupView(viewModel: viewModel)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showLibraryBackup = false }
+                        }
+                    }
+            }
+            .frame(minWidth: 520, minHeight: 580)
+        }
         .confirmationDialog("Clear cached audio?", isPresented: $clearConfirmation, titleVisibility: .visible) {
             Button("Clear cache", role: .destructive) {
                 do {
@@ -118,7 +143,7 @@ struct DesktopSettingsView: View {
         } message: { Text(cacheError ?? "") }
     }
 
-    private func sectionTitle(_ title: String) -> some View {
+    private func sectionTitle(_ title: LocalizedStringKey) -> some View {
         Text(title).font(.callout).foregroundStyle(DesktopStyle.secondary).padding(.top, 24).padding(.bottom, 8)
     }
 

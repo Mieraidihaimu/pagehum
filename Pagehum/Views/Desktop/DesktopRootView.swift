@@ -42,6 +42,9 @@ struct DesktopRootView: View {
             Rectangle().fill(DesktopStyle.border).frame(width: 1)
             VStack(spacing: 0) {
                 header
+                if page != .settings || showTechBlogSettings || showOfflineAudio {
+                    URLBatchImportBanner(viewModel: viewModel, openReader: { page = .reader })
+                }
                 ZStack {
                     // Keep form drafts alive while the user visits another screen.
                     DesktopInputView(viewModel: viewModel, continueItem: continueItem,
@@ -181,7 +184,8 @@ struct DesktopRootView: View {
             } else {
                 DesktopSettingsView(viewModel: viewModel, openStats: { showStats = true },
                                     openTechBlogSettings: openTechBlogSettings,
-                                    openOfflineAudio: { showOfflineAudio = true })
+                                    openOfflineAudio: { showOfflineAudio = true },
+                                    openReader: { page = .reader })
             }
         }
     }

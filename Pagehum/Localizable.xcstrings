@@ -17,89 +17,6 @@
     "-%@" : {
 
     },
-    "1 article ready. Saves to your library after import." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 篇文章已就绪，导入后将保存到资料库。"
-          }
-        }
-      }
-    },
-    "Add a link, a PDF, or your own text." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加链接、PDF 或你自己的文字。"
-          }
-        }
-      }
-    },
-    "Import article" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "导入文章"
-          }
-        }
-      }
-    },
-    "Link" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "链接"
-          }
-        }
-      }
-    },
-    "PDF" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PDF"
-          }
-        }
-      }
-    },
-    "Save text to library" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "将文字保存到资料库"
-          }
-        }
-      }
-    },
-    "What would you like to listen to?" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你想听点什么？"
-          }
-        }
-      }
-    },
-    "Your source applies to browsing and one-tap imports." : {
-
-    },
-    "Your text" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的文字"
-          }
-        }
-      }
-    },
     "·" : {
 
     },
@@ -210,6 +127,16 @@
         }
       }
     },
+    "%lld more" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另有 %lld 项"
+          }
+        }
+      }
+    },
     "%lld outside this search" : {
 
     },
@@ -278,11 +205,24 @@
     "^[%lld unique link](inflect: true) ready to save to your library." : {
 
     },
+    "−%@" : {
+
+    },
     "1 article finished" : {
 
     },
     "1 article ready. Opens for reading after import." : {
 
+    },
+    "1 article ready. Saves to your library after import." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 篇文章已就绪，导入后将保存到资料库。"
+          }
+        }
+      }
     },
     "1 line" : {
 
@@ -334,6 +274,16 @@
     "Add %lld to queue" : {
 
     },
+    "Add a link, a PDF, or your own text." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加链接、PDF 或你自己的文字。"
+          }
+        }
+      }
+    },
     "Add an article" : {
 
     },
@@ -381,6 +331,16 @@
     },
     "Any score" : {
 
+    },
+    "Article imports" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文章导入"
+          }
+        }
+      }
     },
     "Article links" : {
 
@@ -440,8 +400,37 @@
     "Audio in use is kept until you finish listening or remove it from the queue." : {
 
     },
+    "Automatic iCloud sync is not enabled in this build. Apple requires a paid Developer Program membership for app-level iCloud sync. Manual backups work with a free Personal Team installation." : {
+
+    },
     "Back 20 seconds" : {
 
+    },
+    "Background progress" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "后台任务进度"
+          }
+        }
+      }
+    },
+    "Backup Failed" : {
+
+    },
+    "Backups contain your saved text and browsing history. Store them somewhere you trust." : {
+
+    },
+    "Batch import progress" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "批量导入进度"
+          }
+        }
+      }
     },
     "Blog feeds" : {
 
@@ -638,6 +627,9 @@
     "Daily Activity" : {
 
     },
+    "Data" : {
+
+    },
     "day" : {
 
     },
@@ -677,6 +669,16 @@
     },
     "Discussion" : {
 
+    },
+    "Dismiss import summary" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭导入结果"
+          }
+        }
+      }
     },
     "Done" : {
 
@@ -745,6 +747,9 @@
         }
       }
     },
+    "Export Library Backup" : {
+
+    },
     "Failed links" : {
 
     },
@@ -765,6 +770,9 @@
 
     },
     "Finished" : {
+
+    },
+    "For each day, the higher listening total is kept so importing the same backup again does not double-count history. Separate listening on two devices is not added together." : {
 
     },
     "Forward 20 seconds" : {
@@ -800,6 +808,9 @@
     "Hacker News" : {
 
     },
+    "How Import Works" : {
+
+    },
     "https://example.com/article" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -811,6 +822,9 @@
         }
       }
     },
+    "iCloud Drive" : {
+
+    },
     "Import & open" : {
 
     },
@@ -820,7 +834,23 @@
     "Import ^[%lld link](inflect: true)" : {
 
     },
+    "Import article" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导入文章"
+          }
+        }
+      }
+    },
     "Import articles" : {
+
+    },
+    "Import Library Backup" : {
+
+    },
+    "Import Library Backup?" : {
 
     },
     "Import limits" : {
@@ -829,8 +859,21 @@
     "Import links" : {
 
     },
+    "Import merges with your library. Matching posts keep the most recently played reading position and favorites from either library. Different versions of a post’s text are kept separately." : {
+
+    },
     "Import up to %lld articles" : {
 
+    },
+    "Importing articles… %lld of %lld" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在导入文章… %lld/%lld"
+          }
+        }
+      }
     },
     "Importing…" : {
 
@@ -852,6 +895,9 @@
       }
     },
     "In queue" : {
+
+    },
+    "Includes saved posts and extracted text, reading progress, favorites, completion history, and daily listening totals. Audio files, voice models, and original PDF files are excluded." : {
 
     },
     "Input" : {
@@ -903,11 +949,30 @@
         }
       }
     },
+    "Library & History" : {
+
+    },
     "Library articles" : {
+
+    },
+    "Library backup" : {
+
+    },
+    "Library Backup" : {
 
     },
     "Library Unavailable" : {
 
+    },
+    "Link" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接"
+          }
+        }
+      }
     },
     "Listen" : {
 
@@ -957,9 +1022,6 @@
     "Loading stories…" : {
 
     },
-    "Make room for a good read." : {
-
-    },
     "Mark as Completed" : {
 
     },
@@ -967,6 +1029,19 @@
 
     },
     "Maximum articles" : {
+
+    },
+    "Merge %lld posts and %lld days of listening history? Your existing posts are kept. Playback will pause during import." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Merge %1$lld posts and %2$lld days of listening history? Your existing posts are kept. Playback will pause during import."
+          }
+        }
+      }
+    },
+    "Merge into Library" : {
 
     },
     "Minimum comments" : {
@@ -995,6 +1070,16 @@
     },
     "Next article" : {
 
+    },
+    "No article imports in progress" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有正在导入的文章"
+          }
+        }
+      }
     },
     "No articles yet" : {
 
@@ -1027,6 +1112,16 @@
     },
     "No offline audio" : {
 
+    },
+    "No offline audio saves in progress" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有正在保存的离线音频"
+          }
+        }
+      }
     },
     "No readable text could be extracted from this page." : {
       "localizations" : {
@@ -1096,6 +1191,16 @@
     },
     "Open article" : {
 
+    },
+    "Open first article" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开第一篇文章"
+          }
+        }
+      }
     },
     "Open in browser" : {
 
@@ -1170,6 +1275,16 @@
     "Paused" : {
 
     },
+    "PDF" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF"
+          }
+        }
+      }
+    },
     "PDF document" : {
 
     },
@@ -1243,6 +1358,9 @@
 
     },
     "Preparing audio…" : {
+
+    },
+    "Preparing backup…" : {
 
     },
     "Preview %@" : {
@@ -1386,9 +1504,6 @@
     "Save a link or open a document to start your library." : {
 
     },
-    "Save an article, skim it, or listen at your pace." : {
-
-    },
     "Save audio from your library or player to listen offline." : {
 
     },
@@ -1413,6 +1528,19 @@
 
     },
     "Save selected audio offline" : {
+
+    },
+    "Save text to library" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将文字保存到资料库"
+          }
+        }
+      }
+    },
+    "Save your backup to iCloud Drive in the file picker, then import it on your other device." : {
 
     },
     "Saved" : {
@@ -1771,6 +1899,16 @@
         }
       }
     },
+    "What would you like to listen to?" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你想听点什么？"
+          }
+        }
+      }
+    },
     "Your library" : {
 
     },
@@ -1779,6 +1917,19 @@
     },
     "Your next listen starts here" : {
 
+    },
+    "Your source applies to browsing and one-tap imports." : {
+
+    },
+    "Your text" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的文字"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
