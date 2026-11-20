@@ -13,6 +13,7 @@
 | Secondary text | `#475569` | `#94A3B8` |
 | Muted text | `#94A3B8` | `#64748B` |
 | Primary accent, text/icons | `#0284C7` | `#38BDF8` |
+| High-contrast accent text | `#0369A1` | `#38BDF8` |
 | Primary accent, fills | `#0EA5E9` | `#38BDF8` |
 | Primary accent, hover/text | `#0284C7` | `#7DD3FC` |
 | Primary accent tint | `#0EA5E9` at 10% | `#38BDF8` at 12% |
@@ -44,9 +45,11 @@ menu picker on the iPhone Add screen.
 
 The app follows the system appearance and has no separate theme preference.
 Named asset colors also honor SwiftUI appearance overrides. Modal surfaces use
-the same palette. Web articles retain the publisher's layout and appearance;
-Pagehum's playback highlight is resolved from the native tint and updates when
-the app appearance changes, without reloading the article.
+the same palette. Tech blog previews default to a reader view styled with the
+app palette. The original page is available from the preview and opens
+automatically when extraction fails. The live playback view shows the
+publisher's page and updates its highlight tint when the app appearance changes.
 
 `AppThemeTests` verifies the resolved native colors and alpha values in both
 appearances, including the web highlight and the absence of dark card shadows.
+It also checks text contrast for the browse and preview palettes.

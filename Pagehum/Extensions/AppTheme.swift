@@ -15,6 +15,7 @@ enum AppTheme {
     static let textSecondary = Color("TextSecondary")
     static let textMuted = Color("TextMuted")
     static let accentPrimary = Color("AccentColor")
+    static let accentText = Color("AccentText")
     static let accentPrimaryFill = Color("AccentPrimaryFill")
     static let accentPrimaryHover = Color("AccentPrimaryHover")
     static let accentPrimarySubtle = Color("AccentPrimarySubtle")
@@ -35,14 +36,18 @@ enum AppTheme {
 
     /// Keep the live web highlight on the same asset palette as the native reader.
     static func webHighlightColor(for scheme: ColorScheme) -> String {
+        webColor(accentPrimarySubtle, for: scheme)
+    }
+
+    static func webColor(_ token: Color, for scheme: ColorScheme) -> String {
         #if os(iOS)
-        let color = UIColor(accentPrimarySubtle).resolvedColor(with: UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light))
+        let color = UIColor(token).resolvedColor(with: UITraitCollection(userInterfaceStyle: scheme == .dark ? .dark : .light))
         var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
         color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
         #else
         var color = NSColor.clear
         NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
-            color = NSColor(accentPrimarySubtle).usingColorSpace(.sRGB) ?? .clear
+            color = NSColor(token).usingColorSpace(.sRGB) ?? .clear
         }
         let red = color.redComponent, green = color.greenComponent, blue = color.blueComponent, alpha = color.alphaComponent
         #endif
@@ -140,7 +145,7 @@ struct ThemeSegmentedPicker<Selection: Hashable, Label: View>: View {
                     label(option)
                         .font(.subheadline.weight(.medium))
                         .frame(maxWidth: .infinity, minHeight: 44)
-                        .foregroundStyle(selection == option ? AppTheme.accentPrimary : AppTheme.textSecondary)
+                        .foregroundStyle(selection == option ? AppTheme.accentText : AppTheme.textSecondary)
                         .background(selection == option ? AppTheme.accentPrimarySubtle : .clear,
                                     in: RoundedRectangle(cornerRadius: 8))
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selection == option ? AppTheme.borderAccent : .clear))

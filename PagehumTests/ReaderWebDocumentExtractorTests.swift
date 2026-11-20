@@ -53,10 +53,17 @@ struct ReaderWebDocumentExtractorTests {
         #expect(document.articleHTML.contains("src=\"https://example.com/images/cover.jpg\""))
         #expect(!document.articleHTML.localizedCaseInsensitiveContains("<script"))
         #expect(!document.articleHTML.localizedCaseInsensitiveContains("<style"))
+        #expect(!document.articleHTML.localizedCaseInsensitiveContains("style="))
         #expect(!document.articleHTML.localizedCaseInsensitiveContains("<form"))
         #expect(!document.articleHTML.localizedCaseInsensitiveContains("onclick="))
         #expect(!document.articleHTML.localizedCaseInsensitiveContains("onerror="))
         #expect(!document.articleHTML.localizedCaseInsensitiveContains("javascript:"))
+
+        let preview = ArticlePreviewPage.html(for: document)
+        #expect(preview.contains(document.articleHTML))
+        #expect(preview.contains("prefers-color-scheme: dark"))
+        #expect(preview.contains("--canvas: rgba(255, 255, 255, 1.000)"))
+        #expect(preview.contains("--canvas: rgba(11, 15, 23, 1.000)"))
 
         try document.validateProjection()
     }

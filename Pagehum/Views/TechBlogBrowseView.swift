@@ -28,6 +28,7 @@ struct TechBlogBrowseView: View {
 
     var body: some View {
         platformBody
+            .tint(AppTheme.accentText)
             .task { await reload() }
             .onChange(of: showingSettings) { _, showing in reloadIfFiltersChanged(showing) }
             .onChange(of: source) { _, _ in reloadIfFiltersChanged(showingSettings) }
@@ -132,7 +133,8 @@ struct TechBlogBrowseView: View {
     private var searchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").foregroundStyle(AppTheme.textSecondary)
-            TextField("Search titles and sites", text: $query)
+            TextField("Search titles and sites", text: $query,
+                      prompt: Text("Search titles and sites").foregroundStyle(AppTheme.textSecondary))
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()
                 .focused($isSearching)
@@ -191,53 +193,23 @@ struct TechBlogBrowseView: View {
         let saved = viewModel.isInLibrary(story)
         let selected = !saved && selection.contains(story.id)
         return HStack(alignment: .center, spacing: 8) {
-            Button {
-                toggleSelection(story)
-            } label: {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: saved ? "checkmark.circle" : selected ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
-                        .foregroundStyle(selected ? AppTheme.accentPrimary : AppTheme.textSecondary)
-                        .frame(width: 28, height: 28)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
-                            Text(story.site).lineLimit(1)
-                            if saved {
-                                Text("Saved").fontWeight(.medium)
-                                    .foregroundStyle(AppTheme.accentPrimary)
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(AppTheme.accentPrimarySubtle, in: Capsule())
-                            }
-                        }
-                        .font(.caption).foregroundStyle(AppTheme.textSecondary)
-                        Text(story.title)
-                            .font(.body.weight(.medium))
-                            .foregroundStyle(AppTheme.textPrimary)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                        ViewThatFits(in: .horizontal) {
-                            storyMetadata(story)
-                            VStack(alignment: .leading, spacing: 4) {
-                                if let score = story.score, let comments = story.comments {
-                                    Text("\(score.formatted()) points · \(comments.formatted()) comments")
-                                }
-                                Text(story.date, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
-                            }
-                        }
-                        .font(.caption).foregroundStyle(AppTheme.textSecondary)
-                    }
-                    Spacer(minLength: 0)
+            if saved {
+                storyLabel(story, saved: true, selected: false)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(storyAccessibilityLabel(story))
+                    .accessibilityValue("Saved")
+            } else {
+                Button {
+                    toggleSelection(story)
+                } label: {
+                    storyLabel(story, saved: false, selected: selected)
                 }
-                .contentShape(Rectangle())
-                .padding(.vertical, 14)
+                .buttonStyle(.plain)
+                .accessibilityLabel(storyAccessibilityLabel(story))
+                .accessibilityValue(selected ? "Selected" : "Not selected")
+                .accessibilityHint("Choose this article to import")
+                .accessibilityAddTraits(selected ? .isSelected : [])
             }
-            .buttonStyle(.plain)
-            .disabled(saved)
-            .accessibilityLabel(storyAccessibilityLabel(story))
-            .accessibilityValue(saved ? "Saved" : selected ? "Selected" : "Not selected")
-            .accessibilityHint(saved ? "Already in your library" : "Choose this article to import")
-            .accessibilityAddTraits(selected ? .isSelected : [])
 
             Button { previewStory = story } label: {
                 Image(systemName: "doc.text.magnifyingglass")
@@ -246,12 +218,52 @@ struct TechBlogBrowseView: View {
                     .background(AppTheme.accentPrimarySubtle, in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
-            .foregroundStyle(AppTheme.accentPrimary)
+            .foregroundStyle(AppTheme.accentText)
             .accessibilityLabel("Preview \(story.title)")
             .help("Preview article")
         }
         .padding(.horizontal, 16)
         .background(selected ? AppTheme.accentPrimarySubtle : Color.clear)
+    }
+
+    private func storyLabel(_ story: TechBlogStory, saved: Bool, selected: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: saved ? "checkmark.circle" : selected ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .foregroundStyle(selected ? AppTheme.accentText : AppTheme.textSecondary)
+                .frame(width: 28, height: 28)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text(story.site).lineLimit(1)
+                    if saved {
+                        Text("Saved").fontWeight(.semibold)
+                            .foregroundStyle(AppTheme.accentText)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(AppTheme.accentPrimarySubtle, in: Capsule())
+                    }
+                }
+                .font(.footnote).foregroundStyle(AppTheme.textSecondary)
+                Text(story.title)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                ViewThatFits(in: .horizontal) {
+                    storyMetadata(story)
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let score = story.score, let comments = story.comments {
+                            Text("\(score.formatted()) points · \(comments.formatted()) comments")
+                        }
+                        Text(story.date, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
+                    }
+                }
+                .font(.footnote).foregroundStyle(AppTheme.textSecondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
     }
 
     private func storyMetadata(_ story: TechBlogStory) -> some View {
@@ -279,6 +291,7 @@ struct TechBlogBrowseView: View {
                 if let discussionURL = story.discussionURL {
                     Link("Discussion", destination: discussionURL)
                         .font(.callout)
+                        .tint(AppTheme.accentText)
                 }
                 Spacer(minLength: 0)
                 if viewModel.isInLibrary(story) {

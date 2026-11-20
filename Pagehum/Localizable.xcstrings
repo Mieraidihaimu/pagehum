@@ -1223,6 +1223,16 @@
     "Options for %@" : {
 
     },
+    "Original page" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始网页"
+          }
+        }
+      }
+    },
     "Pagehum" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1417,6 +1427,26 @@
     },
     "Reader text size" : {
 
+    },
+    "Reader view" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阅读视图"
+          }
+        }
+      }
+    },
+    "Reader view unavailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阅读视图不可用"
+          }
+        }
+      }
     },
     "Reading options" : {
 

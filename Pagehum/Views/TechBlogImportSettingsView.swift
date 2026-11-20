@@ -167,7 +167,7 @@ struct TechBlogQuickImportView: View {
                             .font(.caption).foregroundStyle(AppTheme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                         Text(viewModel.techBlogSettings.source.title)
-                            .font(.caption.weight(.medium)).foregroundStyle(AppTheme.accentPrimary)
+                            .font(.caption.weight(.medium)).foregroundStyle(AppTheme.accentText)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Image(systemName: "chevron.right")
@@ -194,7 +194,7 @@ struct TechBlogQuickImportView: View {
                                 .foregroundStyle(AppTheme.textPrimary)
                             Text(viewModel.techBlogSettings.source.title)
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(AppTheme.accentPrimary)
+                                .foregroundStyle(AppTheme.accentText)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(AppTheme.accentPrimarySubtle, in: Capsule())
@@ -209,10 +209,10 @@ struct TechBlogQuickImportView: View {
                     HStack(spacing: 4) {
                         Text("Browse")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.accentPrimary)
+                            .foregroundStyle(AppTheme.accentText)
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(AppTheme.accentPrimary)
+                            .foregroundStyle(AppTheme.accentText)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
