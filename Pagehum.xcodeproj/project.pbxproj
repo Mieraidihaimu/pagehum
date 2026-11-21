@@ -16,6 +16,8 @@
 		52CA91A62E8A6D4D00C7951A /* kokoro-v1_0.safetensors in Resources */ = {isa = PBXBuildFile; fileRef = 52CA91A52E8A6D4D00C7951A /* kokoro-v1_0.safetensors */; };
 		52E385B32E9EDABD00B10D6C /* voices.npz in Resources */ = {isa = PBXBuildFile; fileRef = 52E385B22E9EDABD00B10D6C /* voices.npz */; };
 		54A1B989973C80365A7CED4B /* Pagehum/Models/CodeBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949A82071447BC383214C4E9 /* Pagehum/Models/CodeBlock.swift */; };
+		54A1B989973C80365A7CED50 /* Pagehum/Models/TableBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949A82071447BC383214C4F0 /* Pagehum/Models/TableBlock.swift */; };
+		54A1B989973C80365A7CED51 /* Pagehum/Models/AudioClean.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949A82071447BC383214C4F1 /* Pagehum/Models/AudioClean.swift */; };
 		740E28D1FDEB4257FCA979D7 /* Pagehum/Services/ReaderDocumentSentenceProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89B50FECF547648B17F6DCB4 /* Pagehum/Services/ReaderDocumentSentenceProjector.swift */; };
 		745A8472D2CB27407D3CF840 /* Pagehum/Services/ReaderDocumentBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 697B658C9F807EFB2CEAAB1C /* Pagehum/Services/ReaderDocumentBuilder.swift */; };
 		7C0938541361718D2DCF0771 /* Pagehum/Services/ReaderWebDocumentExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80424055803AA134C82C8547 /* Pagehum/Services/ReaderWebDocumentExtractor.swift */; };
@@ -79,6 +81,8 @@
 		89B50FECF547648B17F6DCB4 /* Pagehum/Services/ReaderDocumentSentenceProjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pagehum/Services/ReaderDocumentSentenceProjector.swift; sourceTree = SOURCE_ROOT; };
 		8D047C3E2FA235E100C594D3 /* PagehumShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PagehumShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		949A82071447BC383214C4E9 /* Pagehum/Models/CodeBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pagehum/Models/CodeBlock.swift; sourceTree = SOURCE_ROOT; };
+		949A82071447BC383214C4F0 /* Pagehum/Models/TableBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pagehum/Models/TableBlock.swift; sourceTree = SOURCE_ROOT; };
+		949A82071447BC383214C4F1 /* Pagehum/Models/AudioClean.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pagehum/Models/AudioClean.swift; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000003 /* PagehumTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PagehumTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F5D6CF4960D8619998DE9EF4 /* pagehum */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = pagehum; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -172,6 +176,8 @@
 				5C7A92A6910816121E4E6C91 /* Pagehum/Models/WordTiming.swift */,
 				6D700A0A0AA96A9A549FB575 /* Pagehum/Models/ReaderDocument.swift */,
 				949A82071447BC383214C4E9 /* Pagehum/Models/CodeBlock.swift */,
+				949A82071447BC383214C4F0 /* Pagehum/Models/TableBlock.swift */,
+				949A82071447BC383214C4F1 /* Pagehum/Models/AudioClean.swift */,
 				697B658C9F807EFB2CEAAB1C /* Pagehum/Services/ReaderDocumentBuilder.swift */,
 				80424055803AA134C82C8547 /* Pagehum/Services/ReaderWebDocumentExtractor.swift */,
 				89B50FECF547648B17F6DCB4 /* Pagehum/Services/ReaderDocumentSentenceProjector.swift */,
@@ -437,6 +443,8 @@
 				AA5955D39CC13A270AF1C169 /* Pagehum/Models/WordTiming.swift in Sources */,
 				FCB984E681D4DDDA8471CE90 /* Pagehum/Models/ReaderDocument.swift in Sources */,
 				54A1B989973C80365A7CED4B /* Pagehum/Models/CodeBlock.swift in Sources */,
+				54A1B989973C80365A7CED50 /* Pagehum/Models/TableBlock.swift in Sources */,
+				54A1B989973C80365A7CED51 /* Pagehum/Models/AudioClean.swift in Sources */,
 				745A8472D2CB27407D3CF840 /* Pagehum/Services/ReaderDocumentBuilder.swift in Sources */,
 				7C0938541361718D2DCF0771 /* Pagehum/Services/ReaderWebDocumentExtractor.swift in Sources */,
 				740E28D1FDEB4257FCA979D7 /* Pagehum/Services/ReaderDocumentSentenceProjector.swift in Sources */,

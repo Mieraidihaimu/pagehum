@@ -103,7 +103,7 @@ struct ReaderDocumentBlockIndex: Codable, Equatable, Sendable {
     let blocks: [ReaderDocumentBlock]
 }
 
-struct ReaderDocument: Equatable, Sendable {
+struct ReaderDocument: Codable, Equatable, Sendable {
     let manifest: ReaderDocumentManifest
     let articleHTML: String
     let plainText: String

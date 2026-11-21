@@ -198,6 +198,21 @@ final class ReaderModel: ObservableObject {
     /// than a `SentenceView`. Keeping code in the sentence index space means the scheduler,
     /// pipeline, seek, progress and resume all work unchanged. See `ArticleSegmenter`.
     @Published private(set) var codeBlocks: [Int: CodeBlock] = [:]
+    @Published private(set) var tableBlocks: [Int: TableBlock] = [:]
+    @Published private(set) var spokenTextMappings: [Int: SpokenTextMapping] = [:]
+
+    @Published var audioCleanMode: AudioCleanMode = {
+        if let saved = UserDefaults.standard.string(forKey: "audioCleanMode"),
+           let mode = AudioCleanMode(rawValue: saved) {
+            return mode
+        }
+        return .clean
+    }() {
+        didSet {
+            UserDefaults.standard.set(audioCleanMode.rawValue, forKey: "audioCleanMode")
+            refreshAudioCleanMode()
+        }
+    }
 
     private var fullText = ""
     private let extractor: ContentExtracting
@@ -501,9 +516,25 @@ final class ReaderModel: ObservableObject {
         let source: ContentSource
         if item.sourceType == "url", let value = item.sourceURL, let url = URL(string: value) { source = .url(url) }
         else { source = .text(item.fullText) }
-        content = ReadingContent(title: item.title, body: item.fullText, source: source)
+
+        let document: ReaderDocument? = {
+            guard let data = item.readerDocumentData else { return nil }
+            return try? JSONDecoder().decode(ReaderDocument.self, from: data)
+        }()
+
+        content = ReadingContent(title: item.title, body: item.fullText, source: source, readerDocument: document)
         currentPlaylistItemID = item.persistentModelID
-        prepareTextPublic(item.fullText, resumeAt: resumeIndex, textOffset: resumeOffset)
+
+        if let document {
+            prepare(content!)
+            let resolvedIndex = completed ? 0 : (resumeOffset.map(sentenceIndex(forTextOffset:)) ?? resumeIndex)
+            if resolvedIndex > 0 && resolvedIndex < sentences.count {
+                currentSentenceIndex = resolvedIndex
+                progress = Double(resolvedIndex) / Double(max(1, sentences.count))
+            }
+        } else {
+            prepareTextPublic(item.fullText, resumeAt: resumeIndex, textOffset: resumeOffset)
+        }
         guard !sentences.isEmpty else {
             errorMessage = "This article has no readable text."
             return false
@@ -576,6 +607,8 @@ final class ReaderModel: ObservableObject {
         let segmented = ArticleSegmenter.segment(text, splitProse: Self.splitIntoSentences)
         sentences = segmented.sentences
         codeBlocks = segmented.codeBlocks
+        tableBlocks = segmented.tableBlocks
+        spokenTextMappings = segmented.spokenTextMappings
         sentenceStartOffsetsUTF16 = segmented.sentenceStartOffsetsUTF16
         currentSentenceIndex = 0
         progress = 0
@@ -596,26 +629,55 @@ final class ReaderModel: ObservableObject {
         }
         let segmented = ReaderDocumentSentenceProjector.segment(
             document,
+            mode: audioCleanMode,
             splitProse: Self.splitIntoSentences
         )
         sentences = segmented.sentences
         codeBlocks = segmented.codeBlocks
+        tableBlocks = segmented.tableBlocks
+        spokenTextMappings = segmented.spokenTextMappings
         sentenceStartOffsetsUTF16 = segmented.sentenceStartOffsetsUTF16
         currentSentenceIndex = 0
         progress = 0
         audioCache = [:]; skippedSentences = []
     }
 
-    // MARK: - Code blocks
+    // MARK: - Code and table blocks
 
     func codeBlock(at index: Int) -> CodeBlock? { codeBlocks[index] }
+    func tableBlock(at index: Int) -> TableBlock? { tableBlocks[index] }
+
+    func spokenText(for index: Int) -> String? {
+        guard index >= 0, index < sentences.count else { return nil }
+        if audioCleanMode == .muted && (codeBlocks[index] != nil || tableBlocks[index] != nil) {
+            return nil
+        }
+        if let mapping = spokenTextMappings[index] {
+            return mapping.spokenText
+        }
+        return sentences[index]
+    }
+
+    private func refreshAudioCleanMode() {
+        guard let content else { return }
+        let currentOffset = currentSentenceIndex < sentenceStartOffsetsUTF16.count ? sentenceStartOffsetsUTF16[currentSentenceIndex] : nil
+        prepare(content)
+        if let currentOffset {
+            let newIndex = sentenceIndex(forTextOffset: currentOffset)
+            if newIndex < sentences.count {
+                currentSentenceIndex = newIndex
+                progress = Double(newIndex) / Double(max(1, sentences.count))
+            }
+        }
+    }
 
     /// Text to search for when highlighting the current sentence inside the live page in
-    /// `WebReaderView`. For a code block the announcement doesn't exist in the DOM, so hand back a
-    /// real line of the source instead and let the page's `<pre>` light up.
+    /// `WebReaderView`. For a code or table block the announcement doesn't exist in the DOM, so hand back a
+    /// real line of the source instead and let the page's `<pre>` or `<table>` light up.
     func highlightNeedle(at index: Int) -> String? {
         guard index >= 0, index < sentences.count else { return nil }
         if let block = codeBlocks[index] { return block.firstSubstantialLine }
+        if let table = tableBlocks[index] { return table.firstSubstantialCell }
         return sentences[index]
     }
 
@@ -862,7 +924,8 @@ final class ReaderModel: ObservableObject {
         case .text:
             sourceType = "text"
         }
-        let item = PlaylistItem(title: content.title, sourceURL: sourceURL, sourceType: sourceType, fullText: content.body)
+        let documentData = content.readerDocument.flatMap { try? JSONEncoder().encode($0) }
+        let item = PlaylistItem(title: content.title, sourceURL: sourceURL, sourceType: sourceType, fullText: content.body, readerDocumentData: documentData)
         ctx.insert(item)
         saveLibraryChanges(in: ctx)
         currentPlaylistItemID = item.persistentModelID
@@ -1465,7 +1528,13 @@ final class ReaderModel: ObservableObject {
                     continue
                 }
 
-                let text = self.sentences[genIndex]
+                guard let text = self.spokenText(for: genIndex) else {
+                    self.skippedSentences.insert(genIndex)
+                    self.scheduler.notifyAvailable()
+                    genIndex += 1
+                    await Task.yield()
+                    continue
+                }
                 let voiceKey = voice + ".npy"
 
                 // Explicit offline saves survive normal cache eviction and are preferred.

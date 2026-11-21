@@ -55,6 +55,16 @@ struct ReaderView: View {
                                         onSeek: { viewModel.seekToSentence(index) }
                                     )
                                     .id(index)
+                                } else if let table = viewModel.tableBlock(at: index) {
+                                    TableBlockView(
+                                        block: table,
+                                        index: index,
+                                        currentIndex: viewModel.currentSentenceIndex,
+                                        isPlaying: viewModel.isPlaying,
+                                        textSize: viewModel.textSize,
+                                        onSeek: { viewModel.seekToSentence(index) }
+                                    )
+                                    .id(index)
                                 } else {
                                     SentenceView(
                                         sentence: sentence,

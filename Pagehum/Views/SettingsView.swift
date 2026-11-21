@@ -117,6 +117,26 @@ struct SettingsView: View {
             .listRowBackground(AppTheme.surface)
 
             Section {
+                Picker("Speech Style", selection: $viewModel.audioCleanMode) {
+                    ForEach(AudioCleanMode.allCases, id: \.self) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                #if os(iOS)
+                .pickerStyle(.navigationLink)
+                #endif
+
+                Text(viewModel.audioCleanMode.description)
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+            } header: {
+                Text("Audio-Clean")
+            } footer: {
+                Text("Audio-Clean automatically summarizes code blocks and tables, and filters out footnote numbers while reading.")
+            }
+            .listRowBackground(AppTheme.surface)
+
+            Section {
                 Picker("Selected Voice", selection: $viewModel.selectedVoice) {
                     ForEach(viewModel.voiceNames, id: \.self) { voice in
                         HStack {

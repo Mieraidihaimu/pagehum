@@ -58,6 +58,19 @@ struct DesktopSettingsView: View {
             if viewModel.canDownloadVoiceModel {
                 row { VoiceModelDownloadView(viewModel: viewModel) }
             }
+            sectionTitle("Audio-Clean")
+            row {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Speech style")
+                    Text(viewModel.audioCleanMode.description).font(.caption).foregroundStyle(DesktopStyle.secondary)
+                }
+                Spacer()
+                Picker("Speech style", selection: $viewModel.audioCleanMode) {
+                    ForEach(AudioCleanMode.allCases, id: \.self) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }.labelsHidden().frame(width: 140)
+            }
             sectionTitle("Reader")
             row {
                 Text("Text size")

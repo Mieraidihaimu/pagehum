@@ -9,9 +9,25 @@ import Foundation
 struct SegmentedBody {
     let sentences: [String]
     let codeBlocks: [Int: CodeBlock]
+    let tableBlocks: [Int: TableBlock]
+    let spokenTextMappings: [Int: SpokenTextMapping]
     let sentenceStartOffsetsUTF16: [Int]
 
-    static let empty = SegmentedBody(sentences: [], codeBlocks: [:], sentenceStartOffsetsUTF16: [])
+    init(
+        sentences: [String],
+        codeBlocks: [Int: CodeBlock] = [:],
+        tableBlocks: [Int: TableBlock] = [:],
+        spokenTextMappings: [Int: SpokenTextMapping] = [:],
+        sentenceStartOffsetsUTF16: [Int]
+    ) {
+        self.sentences = sentences
+        self.codeBlocks = codeBlocks
+        self.tableBlocks = tableBlocks
+        self.spokenTextMappings = spokenTextMappings
+        self.sentenceStartOffsetsUTF16 = sentenceStartOffsetsUTF16
+    }
+
+    static let empty = SegmentedBody(sentences: [], codeBlocks: [:], tableBlocks: [:], spokenTextMappings: [:], sentenceStartOffsetsUTF16: [])
 }
 
 /// Splits an article body that may carry inline code-block **sentinel markers** into sentences,
@@ -84,9 +100,16 @@ enum ArticleSegmenter {
         guard text.contains(markerOpen) else {
             let projection = sanitizedProjection(text[...], sourceStartUTF16: 0)
             let sentences = splitProse(projection.text)
+            var mappings: [Int: SpokenTextMapping] = [:]
+            for (idx, s) in sentences.enumerated() {
+                let mapping = AudioCleanFilter.cleanForSpeech(s)
+                if !mapping.shifts.isEmpty { mappings[idx] = mapping }
+            }
             return SegmentedBody(
                 sentences: sentences,
                 codeBlocks: [:],
+                tableBlocks: [:],
+                spokenTextMappings: mappings,
                 sentenceStartOffsetsUTF16: sentenceOffsets(
                     for: sentences,
                     in: projection.text,
@@ -164,9 +187,19 @@ enum ArticleSegmenter {
         appendProse(text[cursor...], sourceStartUTF16: sourceOffset(at: cursor))
         flushProse()
 
+        var mappings: [Int: SpokenTextMapping] = [:]
+        for (idx, s) in sentences.enumerated() {
+            if codeBlocks[idx] == nil {
+                let mapping = AudioCleanFilter.cleanForSpeech(s)
+                if !mapping.shifts.isEmpty { mappings[idx] = mapping }
+            }
+        }
+
         return SegmentedBody(
             sentences: sentences,
             codeBlocks: codeBlocks,
+            tableBlocks: [:],
+            spokenTextMappings: mappings,
             sentenceStartOffsetsUTF16: sentenceStartOffsetsUTF16
         )
     }

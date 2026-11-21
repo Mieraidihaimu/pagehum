@@ -23,6 +23,7 @@ final class PlaylistItem {
     var playbackTextOffset: Int?
     var status: String = "inProgress"
     var isFavorite: Bool = false
+    @Attribute(.externalStorage) var readerDocumentData: Data? = nil
 
     var librarySource: String {
         if let sourceURL, let host = URL(string: sourceURL)?.host() { return host }
@@ -71,10 +72,11 @@ final class PlaylistItem {
         cachedTextID = nil
     }
 
-    init(title: String, sourceURL: String? = nil, sourceType: String, fullText: String, status: String = Status.inProgress.rawValue) {
+    init(title: String, sourceURL: String? = nil, sourceType: String, fullText: String, status: String = Status.inProgress.rawValue, readerDocumentData: Data? = nil) {
         self.title = title
         self.sourceURL = sourceURL
         self.sourceType = sourceType
+        self.readerDocumentData = readerDocumentData
         // `fullText` may carry ArticleSegmenter code-block markers; strip them so the library row
         // shows prose rather than base64.
         let previewText = ArticleSegmenter.strippingMarkers(fullText)
