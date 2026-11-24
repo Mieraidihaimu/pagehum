@@ -14,8 +14,9 @@ struct VoiceModelDownloadView: View {
                     } currentValueLabel: {
                         Text(fraction, format: .percent.precision(.fractionLength(0)))
                     }
+                    .tint(AppTheme.accentPrimaryFill)
                 case .failed(let message):
-                    Label(message, systemImage: "exclamationmark.circle").foregroundStyle(AppTheme.warning)
+                    Label(message, systemImage: "exclamationmark.circle").foregroundStyle(AppTheme.destructiveText)
                     downloadButton(title: "Try again")
                 case .idle:
                     Text("Using system voices. Download natural voices for clearer, more human speech.")

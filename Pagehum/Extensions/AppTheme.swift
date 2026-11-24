@@ -20,6 +20,7 @@ enum AppTheme {
     static let accentPrimaryHover = Color("AccentPrimaryHover")
     static let accentPrimarySubtle = Color("AccentPrimarySubtle")
     static let cta = Color("AccentCTA")
+    static let ctaPrimary = cta
     static let ctaHover = Color("AccentCTAHover")
     static let ctaText = Color("AccentCTAText")
     static let ctaSubtle = Color("AccentCTASubtle")
@@ -30,13 +31,32 @@ enum AppTheme {
     static let cardShadow = Color("CardShadow")
     static let ctaGlow = Color("CTAGlow")
 
+    static let favorite = Color("Favorite")
+    static let favoriteSubtle = Color("FavoriteSubtle")
+    static let favoriteText = Color("FavoriteText")
+
+    static let destructive = Color("Destructive")
+    static let destructiveSubtle = Color("DestructiveSubtle")
+    static let destructiveText = Color("DestructiveText")
+
+    static let readerSentenceBg = Color("ReaderSentenceBg")
+    static let readerWordBg = Color("ReaderWordBg")
+    static let readerWordText = Color("ReaderWordText")
+
+    static let playerSurface = Color("PlayerSurface")
+    static let playerBorder = Color("PlayerBorder")
+    static let darkTopHighlight = Color("DarkTopHighlight")
+    static let floatingShadow = Color("FloatingShadow")
+
     // Status also uses an icon or a label, so meaning never relies on color alone.
-    static let warning = ctaText
+    static let warning = favorite
+    static let warningText = favoriteText
+    static let warningSubtle = favoriteSubtle
     static let success = accentPrimary
 
     /// Keep the live web highlight on the same asset palette as the native reader.
     static func webHighlightColor(for scheme: ColorScheme) -> String {
-        webColor(accentPrimarySubtle, for: scheme)
+        webColor(readerSentenceBg, for: scheme)
     }
 
     static func webColor(_ token: Color, for scheme: ColorScheme) -> String {
@@ -64,20 +84,32 @@ extension View {
             .presentationBackground(AppTheme.surface)
     }
 
-    func themeCard(cornerRadius: CGFloat = 16, elevated: Bool = false) -> some View {
+    func themeCard(cornerRadius: CGFloat = 16, elevated: Bool = false, floating: Bool = false) -> some View {
         background(elevated ? AppTheme.elevated : AppTheme.surface,
                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(AppTheme.borderSubtle, lineWidth: 1)
             }
-            .shadow(color: AppTheme.cardShadow, radius: 12, x: 0, y: 4)
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [AppTheme.darkTopHighlight, .clear],
+                            startPoint: .top,
+                            endPoint: .center
+                        ),
+                        lineWidth: 1
+                    )
+            }
+            .shadow(color: floating ? AppTheme.floatingShadow : AppTheme.cardShadow,
+                    radius: floating ? 10 : 12, x: 0, y: 4)
     }
 }
 
-/// Primary intent is rose; secondary actions use a blue tint rather than a grey pill.
+/// Primary intent is rose; secondary actions use blue, amber (favorites), or destructive tints.
 struct ThemeButtonStyle: ButtonStyle {
-    enum SecondaryAccent { case blue, rose }
+    enum SecondaryAccent { case blue, rose, amber, destructive }
 
     var primary = true
     var cornerRadius: CGFloat = 12
@@ -89,9 +121,24 @@ struct ThemeButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         let active = isEnabled && (configuration.isPressed || isHovering)
-        let secondaryText = secondaryAccent == .rose ? AppTheme.ctaText : active ? AppTheme.accentPrimaryHover : AppTheme.accentPrimary
-        let secondaryFill = secondaryAccent == .rose ? AppTheme.ctaSubtle : AppTheme.accentPrimarySubtle
-        let secondaryBorder = secondaryAccent == .rose ? AppTheme.ctaText.opacity(active ? 0.55 : 0.2) : AppTheme.borderAccent
+        let secondaryText: Color = switch secondaryAccent {
+        case .blue: active ? AppTheme.accentPrimaryHover : AppTheme.accentPrimary
+        case .rose: AppTheme.ctaText
+        case .amber: AppTheme.favoriteText
+        case .destructive: AppTheme.destructiveText
+        }
+        let secondaryFill: Color = switch secondaryAccent {
+        case .blue: AppTheme.accentPrimarySubtle
+        case .rose: AppTheme.ctaSubtle
+        case .amber: AppTheme.favoriteSubtle
+        case .destructive: AppTheme.destructiveSubtle
+        }
+        let secondaryBorder: Color = switch secondaryAccent {
+        case .blue: AppTheme.borderAccent
+        case .rose: AppTheme.ctaText.opacity(active ? 0.55 : 0.2)
+        case .amber: AppTheme.favorite.opacity(active ? 0.55 : 0.25)
+        case .destructive: AppTheme.destructive.opacity(active ? 0.55 : 0.25)
+        }
         return configuration.label
             .fontWeight(.semibold)
             .padding(.horizontal, 14)

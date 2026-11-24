@@ -18,7 +18,7 @@ struct PhoneRootView: View {
             .tabItem { Label("Add", systemImage: "plus.circle") }
             .tag(Tab.add)
 
-            browsingTab(showsMiniPlayer: false) {
+            browsingTab {
                 PlaylistView(viewModel: viewModel, addContent: { selectedTab = .add }, openReader: openReader)
             }
             .tabItem { Label("Library", systemImage: "books.vertical") }
@@ -74,8 +74,7 @@ struct PhoneRootView: View {
     }
 
     private func browsingTab<Content: View>(showsMiniPlayer: Bool = true, @ViewBuilder content: () -> Content) -> some View {
-        // Reserve space only in tabs that show the mini-player; Library gets
-        // the full height for its articles and selection actions.
+        // Keep the mini-player visible above the tab bar across browsing tabs unless the keyboard is presented.
         VStack(spacing: 0) {
             NavigationStack { content() }
             if showsMiniPlayer && !isKeyboardPresented {

@@ -133,6 +133,7 @@ struct HomeView: View {
                         .themeCard(cornerRadius: 16)
                     }
                     .buttonStyle(.plain)
+                    .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 #endif
 
@@ -165,6 +166,7 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "books.vertical")
                         .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(AppTheme.accentPrimary)
                 }
                 .accessibilityLabel("Library")
             }
@@ -174,6 +176,7 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "gearshape")
                         .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(AppTheme.accentPrimary)
                 }
                 .accessibilityLabel("Settings")
             }
@@ -184,6 +187,7 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "books.vertical")
                         .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(AppTheme.accentPrimary)
                 }
                 .accessibilityLabel("Library")
             }
@@ -193,6 +197,7 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "gearshape")
                         .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(AppTheme.accentPrimary)
                 }
                 .accessibilityLabel("Settings")
             }
@@ -343,6 +348,8 @@ struct HomeView: View {
                 }
                 .padding(14)
                 .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(AppTheme.borderSubtle))
+                .contentShape(RoundedRectangle(cornerRadius: 12))
             }
             .foregroundStyle(AppTheme.textPrimary)
         }
@@ -390,10 +397,12 @@ struct HomeView: View {
                 actionButton(textImportTitle, icon: "doc.text") { loadText() }
                     .disabled(pastedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             } else {
-                Button(textImportTitle, systemImage: "doc.text") { loadText() }
-                    .buttonStyle(ThemeButtonStyle(primary: false))
-                    .controlSize(.large)
-                    .disabled(viewModel.isLoading)
+                Button { loadText() } label: {
+                    Label(textImportTitle, systemImage: "doc.text")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(ThemeButtonStyle(primary: false, cornerRadius: 14))
+                .disabled(viewModel.isLoading)
             }
         }
     }

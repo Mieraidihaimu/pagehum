@@ -11,7 +11,7 @@ struct TechBlogImportSettingsView: View {
 
     var body: some View {
         #if os(macOS)
-        DesktopPage(width: 640) {
+        DesktopPage(width: 660) {
             DesktopHeading(title: "Tech blogs", subtitle: "Sources, filters, and import limits.")
             settingsContent
         }
@@ -69,7 +69,7 @@ struct TechBlogImportSettingsView: View {
                                     openReader: openReader, openLibrary: openLibrary)
                 if let error = viewModel.errorMessage {
                     Label(error, systemImage: "exclamationmark.circle")
-                        .font(.callout).foregroundStyle(AppTheme.warning)
+                        .font(.callout).foregroundStyle(AppTheme.destructiveText)
                 }
             }
         }

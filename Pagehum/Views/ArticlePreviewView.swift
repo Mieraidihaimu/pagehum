@@ -148,7 +148,7 @@ enum ArticlePreviewPage {
             }
             body {
               box-sizing: border-box;
-              max-width: 72ch;
+              max-width: 66ch;
               margin: 0 auto;
               padding: clamp(16px, 4vw, 36px);
               font: 1.125rem / 1.6 system-ui, sans-serif;

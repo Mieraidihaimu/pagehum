@@ -21,7 +21,7 @@ struct WebReaderView: View {
                 url: url,
                 currentSentence: currentSentence,
                 isPlaying: viewModel.isPlaying,
-                highlightColor: AppTheme.webHighlightColor(for: colorScheme)
+                theme: WebHighlightTheme(colorScheme: colorScheme)
             )
             .id(url)
             #if os(iOS)
@@ -42,11 +42,31 @@ struct WebReaderView: View {
     }
 }
 
+private struct WebHighlightTheme: Equatable {
+    let sentenceBg: String
+    let wordBg: String
+    let wordText: String
+
+    init(colorScheme: ColorScheme) {
+        sentenceBg = AppTheme.webHighlightColor(for: colorScheme)
+        wordBg = AppTheme.webColor(AppTheme.readerWordBg, for: colorScheme)
+        wordText = AppTheme.webColor(AppTheme.readerWordText, for: colorScheme)
+    }
+
+    var cssProperties: [String: String] {
+        [
+            "--pagehum-sentence-bg": sentenceBg,
+            "--pagehum-word-bg": wordBg,
+            "--pagehum-word-text": wordText,
+        ]
+    }
+}
+
 private struct WebViewContainer {
     let url: URL
     let currentSentence: String?
     let isPlaying: Bool
-    let highlightColor: String
+    let theme: WebHighlightTheme
 
     fileprivate static func createWebView(url: URL, coordinator: Coordinator) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -69,7 +89,7 @@ private struct WebViewContainer {
     }
 
     fileprivate func updateWebView(_ webView: WKWebView, coordinator: Coordinator) {
-        coordinator.highlightColor = highlightColor
+        coordinator.theme = theme
         guard coordinator.isReady else { return }
         coordinator.applyTheme()
         if isPlaying, let sentence = currentSentence {
@@ -94,25 +114,25 @@ private struct WebViewContainer {
     final class Coordinator: NSObject, WKNavigationDelegate {
         weak var webView: WKWebView?
         var isReady = false
-        var highlightColor: String
-        private var appliedHighlightColor: String?
+        var theme: WebHighlightTheme
+        private var appliedTheme: WebHighlightTheme?
 
-        init(highlightColor: String) {
-            self.highlightColor = highlightColor
+        init(theme: WebHighlightTheme) {
+            self.theme = theme
         }
 
         func applyTheme() {
-            guard highlightColor != appliedHighlightColor,
-                  let data = try? JSONSerialization.data(withJSONObject: [highlightColor]),
+            guard theme != appliedTheme,
+                  let data = try? JSONSerialization.data(withJSONObject: theme.cssProperties),
                   let json = String(data: data, encoding: .utf8) else { return }
-            webView?.evaluateJavaScript("window.__pagehumSetTheme(\(json.dropFirst().dropLast()));", completionHandler: nil)
-            appliedHighlightColor = highlightColor
+            webView?.evaluateJavaScript("window.__pagehumSetTheme(\(json));", completionHandler: nil)
+            appliedTheme = theme
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             webView.evaluateJavaScript(Self.highlightJS) { _, _ in
                 self.isReady = true
-                self.appliedHighlightColor = nil
+                self.appliedTheme = nil
                 self.applyTheme()
             }
         }
@@ -120,11 +140,20 @@ private struct WebViewContainer {
         static let highlightJS = """
         (function() {
             var currentMark = null;
-            var highlightColor = '';
 
-            window.__pagehumSetTheme = function(color) {
-                highlightColor = color;
-                if (currentMark) currentMark.style.backgroundColor = color;
+            window.__pagehumSetTheme = function(tokens) {
+                if (!tokens || typeof tokens !== 'object') return;
+                var root = document.documentElement;
+                if (root) {
+                    for (var key in tokens) {
+                        if (Object.prototype.hasOwnProperty.call(tokens, key)) {
+                            root.style.setProperty(key, tokens[key]);
+                        }
+                    }
+                }
+                if (currentMark) {
+                    currentMark.style.backgroundColor = 'var(--pagehum-sentence-bg)';
+                }
             };
 
             function escapeRegex(s) {
@@ -178,7 +207,7 @@ private struct WebViewContainer {
                 var el = findTextInBody(sentence);
                 if (el) {
                     currentMark = el;
-                    el.style.backgroundColor = highlightColor;
+                    el.style.backgroundColor = 'var(--pagehum-sentence-bg)';
                     el.style.borderRadius = '4px';
                     el.style.transition = 'background-color 0.3s ease';
                 }
@@ -199,7 +228,7 @@ private struct WebViewContainer {
 
 #if os(iOS)
 extension WebViewContainer: UIViewRepresentable {
-    func makeCoordinator() -> Coordinator { Coordinator(highlightColor: highlightColor) }
+    func makeCoordinator() -> Coordinator { Coordinator(theme: theme) }
 
     func makeUIView(context: Context) -> WKWebView {
         Self.createWebView(url: url, coordinator: context.coordinator)
@@ -211,7 +240,7 @@ extension WebViewContainer: UIViewRepresentable {
 }
 #else
 extension WebViewContainer: NSViewRepresentable {
-    func makeCoordinator() -> Coordinator { Coordinator(highlightColor: highlightColor) }
+    func makeCoordinator() -> Coordinator { Coordinator(theme: theme) }
 
     func makeNSView(context: Context) -> WKWebView {
         Self.createWebView(url: url, coordinator: context.coordinator)

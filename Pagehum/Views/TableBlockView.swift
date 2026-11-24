@@ -22,6 +22,7 @@ struct TableBlockView: View {
 
     @State private var isExpanded = false
     @State private var didCopy = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let collapsedRowLimit = 5
 
@@ -43,17 +44,31 @@ struct TableBlockView: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(AppTheme.surface)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(
                     isCurrent ? AppTheme.borderFocus : AppTheme.borderSubtle,
                     lineWidth: isCurrent ? 2 : 1
                 )
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [AppTheme.darkTopHighlight, .clear],
+                        startPoint: .top,
+                        endPoint: .center
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: AppTheme.cardShadow, radius: 12, x: 0, y: 4)
         .padding(.vertical, CGFloat(textSize) * 0.35)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: currentIndex)
     }
 
     private var header: some View {
@@ -62,10 +77,10 @@ struct TableBlockView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "tablecells")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(isCurrent ? AppTheme.ctaText : AppTheme.textSecondary)
+                        .foregroundStyle(isCurrent ? AppTheme.accentPrimary : AppTheme.textSecondary)
                     Text("Table")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(isCurrent ? AppTheme.ctaText : AppTheme.textPrimary)
+                        .foregroundStyle(isCurrent ? AppTheme.accentPrimary : AppTheme.textPrimary)
                     Text("· \(block.columnCount) × \(block.rowCount)")
                         .font(.caption)
                         .foregroundStyle(AppTheme.textSecondary)
@@ -88,12 +103,12 @@ struct TableBlockView: View {
                     Text(didCopy ? "Copied" : "Copy")
                         .font(.caption2)
                 }
-                .foregroundStyle(didCopy ? AppTheme.ctaText : AppTheme.textSecondary)
+                .foregroundStyle(didCopy ? AppTheme.success : AppTheme.textSecondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(AppTheme.canvas)
+                        .fill(AppTheme.elevated)
                 )
             }
             .buttonStyle(.plain)
@@ -135,7 +150,7 @@ struct TableBlockView: View {
 
     private var expandToggle: some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                 isExpanded.toggle()
             }
         } label: {
@@ -145,11 +160,12 @@ struct TableBlockView: View {
                 Text(isExpanded ? "Show fewer rows" : "Show all \(block.rowCount) rows")
                     .font(.caption)
             }
-            .foregroundStyle(AppTheme.ctaText)
+            .foregroundStyle(AppTheme.accentText)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .center)
-            .background(AppTheme.canvas.opacity(0.5))
+            .background(AppTheme.elevated.opacity(0.6))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

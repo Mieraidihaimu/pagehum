@@ -15,6 +15,7 @@ struct DesktopInputView: View {
     @State private var text = ""
     @State private var showFilePicker = false
     @FocusState private var urlFocused: Bool
+    @FocusState private var textFocused: Bool
 
     var body: some View {
         DesktopPage {
@@ -44,7 +45,7 @@ struct DesktopInputView: View {
                 URLImportStatusView(viewModel: viewModel)
                 if let error = viewModel.errorMessage {
                     Label(error, systemImage: "exclamationmark.circle")
-                        .font(.callout).foregroundStyle(AppTheme.warning)
+                        .font(.callout).foregroundStyle(AppTheme.destructiveText)
                         .textSelection(.enabled)
                 }
             }
@@ -90,13 +91,19 @@ struct DesktopInputView: View {
         case .url:
             VStack(alignment: .leading, spacing: 8) {
                 Text("Article links").font(.callout.weight(.medium))
-                TextField("Paste article links", text: $url, axis: .vertical)
-                    .lineLimit(3...6)
-                    .textFieldStyle(.plain).padding(12)
-                    .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(urlFocused ? AppTheme.borderFocus : DesktopStyle.border, lineWidth: urlFocused ? 2 : 1))
-                    .focused($urlFocused)
-                    .accessibilityLabel("Article URLs")
+                HStack(alignment: .top, spacing: 8) {
+                    TextField("Paste article links", text: $url, axis: .vertical)
+                        .lineLimit(3...6)
+                        .textFieldStyle(.plain)
+                        .focused($urlFocused)
+                        .accessibilityLabel("Article URLs")
+                    if !url.isEmpty {
+                        clearInputButton(helpText: "Clear links") { url = "" }
+                    }
+                }
+                .padding(12)
+                .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(inputBorder(focused: urlFocused))
                 URLInputHint(text: url)
             }
             HStack(spacing: 8) {
@@ -116,12 +123,32 @@ struct DesktopInputView: View {
         case .text:
             VStack(alignment: .leading, spacing: 8) {
                 Text("Paste text or article links").font(.callout).foregroundStyle(DesktopStyle.secondary)
-                TextEditor(text: $text)
-                    .font(.body).scrollContentBackground(.hidden)
-                    .padding(8).frame(height: 144)
-                    .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(AppTheme.borderSubtle))
-                    .accessibilityLabel("Text to read aloud")
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: $text)
+                        .font(.body)
+                        .scrollContentBackground(.hidden)
+                        .focused($textFocused)
+                        .padding(.trailing, text.isEmpty ? 0 : 24)
+                        .accessibilityLabel("Text to read aloud")
+
+                    if text.isEmpty {
+                        Text("Paste or type text to listen…")
+                            .font(.body)
+                            .foregroundStyle(AppTheme.textMuted)
+                            .padding(.horizontal, 5)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .padding(10)
+                .frame(height: 144)
+                .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(alignment: .topTrailing) {
+                    if !text.isEmpty {
+                        clearInputButton(helpText: "Clear text") { text = "" }
+                            .padding(10)
+                    }
+                }
+                .overlay(inputBorder(focused: textFocused))
                 if !URLImportParser.urls(in: text).isEmpty {
                     Button { importLinks(text, fromText: true) } label: {
                         Label(importLinksTitle(URLImportParser.urls(in: text).count), systemImage: "bookmark")
@@ -135,6 +162,23 @@ struct DesktopInputView: View {
                     .padding(.top, 8)
             }
         }
+    }
+
+    private func inputBorder(focused: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 8)
+            .strokeBorder(focused ? AppTheme.borderFocus : DesktopStyle.border, lineWidth: focused ? 1.5 : 1)
+    }
+
+    private func clearInputButton(helpText: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "xmark.circle.fill")
+                .foregroundStyle(AppTheme.textMuted)
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(helpText)
+        .accessibilityLabel(helpText)
     }
 
     private func load() {

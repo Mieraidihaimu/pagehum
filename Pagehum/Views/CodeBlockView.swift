@@ -20,6 +20,7 @@ struct CodeBlockView: View {
 
     @State private var isExpanded = false
     @State private var didCopy = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Longer blocks start collapsed so a 200-line config dump doesn't bury the article.
     private static let collapsedLineLimit = 12
@@ -47,19 +48,32 @@ struct CodeBlockView: View {
             if isCollapsible { expandToggle }
         }
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(AppTheme.surface)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(
                     isCurrent ? AppTheme.borderFocus : AppTheme.borderSubtle,
                     lineWidth: isCurrent ? 2 : 1
                 )
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [AppTheme.darkTopHighlight, .clear],
+                        startPoint: .top,
+                        endPoint: .center
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: AppTheme.cardShadow, radius: 12, x: 0, y: 4)
         .padding(.vertical, CGFloat(textSize) * 0.35)
-        .animation(.easeInOut(duration: 0.3), value: currentIndex)
-        .animation(.easeInOut(duration: 0.2), value: isExpanded)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: currentIndex)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isExpanded)
     }
 
     // MARK: - Header
@@ -123,9 +137,10 @@ struct CodeBlockView: View {
                 Text(isExpanded ? "Show less" : "Show all \(block.lineCount) lines")
             }
             .font(.caption.weight(.medium))
-            .foregroundStyle(AppTheme.accentPrimary)
+            .foregroundStyle(AppTheme.accentText)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
+            .background(AppTheme.elevated.opacity(0.6))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

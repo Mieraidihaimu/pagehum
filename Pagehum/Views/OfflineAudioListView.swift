@@ -40,33 +40,69 @@ struct OfflineAudioListView: View {
         let playable = selected.filter { $0.canPlay && !isQueued($0) }
         let removable = selected.filter { !isInUse($0) }
 
-        VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+        Group {
+            #if os(macOS)
+            DesktopPage(width: 720) {
+                DesktopHeading(title: "Offline audio", subtitle: "Saved articles ready for offline listening.")
+                HStack {
                     Text("^[\(entries.count) article](inflect: true)").font(.headline)
-                    Text("Select saved articles to listen or free up storage.")
-                        .font(.subheadline).foregroundStyle(AppTheme.textSecondary)
+                    Spacer()
+                    Button(selecting ? "Cancel" : "Select") {
+                        selecting.toggle()
+                        selection = []
+                    }
+                    .buttonStyle(DesktopButtonStyle())
+                    .disabled(entries.isEmpty)
                 }
-                Spacer()
-                Button(selecting ? "Cancel" : "Select") {
-                    selecting.toggle()
-                    selection = []
-                }
-                .disabled(entries.isEmpty)
-            }
-            .padding(16)
+                .padding(.bottom, 16)
 
-            if entries.isEmpty {
-                ContentUnavailableView("No offline audio", systemImage: "arrow.down.circle", description: Text("Save audio from your library or player to listen offline."))
-            } else {
-                List(entries) { entry in
-                    audioRow(entry)
-                        .listRowBackground(AppTheme.surface)
+                if entries.isEmpty {
+                    ContentUnavailableView("No offline audio", systemImage: "arrow.down.circle", description: Text("Save audio from your library or player to listen offline."))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 48)
+                        .themeCard(cornerRadius: 12)
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                            if index > 0 { Divider() }
+                            audioRow(entry)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 6)
+                        }
+                    }
+                    .themeCard(cornerRadius: 12)
                 }
-                .scrollContentBackground(.hidden)
-                .background(AppTheme.canvas)
-                .listStyle(.plain)
             }
+            #else
+            VStack(spacing: 0) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("^[\(entries.count) article](inflect: true)").font(.headline)
+                        Text("Select saved articles to listen or free up storage.")
+                            .font(.subheadline).foregroundStyle(AppTheme.textSecondary)
+                    }
+                    Spacer()
+                    Button(selecting ? "Cancel" : "Select") {
+                        selecting.toggle()
+                        selection = []
+                    }
+                    .disabled(entries.isEmpty)
+                }
+                .padding(16)
+
+                if entries.isEmpty {
+                    ContentUnavailableView("No offline audio", systemImage: "arrow.down.circle", description: Text("Save audio from your library or player to listen offline."))
+                } else {
+                    List(entries) { entry in
+                        audioRow(entry)
+                            .listRowBackground(AppTheme.surface)
+                    }
+                    .scrollContentBackground(.hidden)
+                    .background(AppTheme.canvas)
+                    .listStyle(.plain)
+                }
+            }
+            #endif
         }
         .navigationTitle("Offline Audio")
         #if os(iOS)

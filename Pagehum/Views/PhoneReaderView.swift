@@ -17,11 +17,18 @@ struct PhoneReaderView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PhonePlaybackControls(viewModel: viewModel)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 3)
-                .background(AppTheme.canvas)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity)
+                .background(AppTheme.playerSurface)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(AppTheme.playerBorder)
+                        .frame(height: 1)
+                }
         }
         .navigationTitle(viewModel.content?.title ?? "Reader")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(AppTheme.canvas, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 if let id = viewModel.currentOfflineAudioID {
@@ -29,6 +36,7 @@ struct PhoneReaderView: View {
                                        canRemove: !viewModel.isPlaying && !viewModel.isPreparing,
                                        save: viewModel.saveCurrentAudioOffline)
                         .foregroundStyle(AppTheme.accentPrimary)
+                        .tint(AppTheme.accentPrimary)
                 }
             }
             ToolbarItem(placement: .primaryAction) {
@@ -36,9 +44,11 @@ struct PhoneReaderView: View {
                     Link(destination: url) {
                         Image(systemName: "arrow.up.right.square")
                             .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Open in browser")
                     .foregroundStyle(AppTheme.accentPrimary)
+                    .tint(AppTheme.accentPrimary)
                 } else {
                     Menu {
                         Button("Larger text", systemImage: "textformat.size.larger") {
@@ -50,10 +60,13 @@ struct PhoneReaderView: View {
                         }
                         .disabled(viewModel.textSize <= 12)
                     } label: {
-                        Image(systemName: "textformat.size").frame(minWidth: 44, minHeight: 44)
+                        Image(systemName: "textformat.size")
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Reading options")
                     .foregroundStyle(AppTheme.accentPrimary)
+                    .tint(AppTheme.accentPrimary)
                 }
             }
         }

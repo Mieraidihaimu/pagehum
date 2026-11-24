@@ -10,6 +10,11 @@ struct DesktopPlayerView: View {
     @State private var seekProgress = 0.0
     @State private var remainingCharacterCounts: [Int] = []
     @State private var showQueue = false
+    @State private var showSpeedPopover = false
+
+    private static let minSpeed: Float = 0.75
+    private static let maxSpeed: Float = 3.0
+    private static let speedStep: Float = 0.05
 
     private var progress: Double { min(1, max(0, viewModel.progress)) }
 
@@ -43,79 +48,21 @@ struct DesktopPlayerView: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Button(action: openReader) {
-                        Text(viewModel.content?.title ?? "Reader")
-                            .font(.system(size: 13, weight: .medium)).lineLimit(1)
-                    }
-                    .buttonStyle(.plain).help("Show article")
-                    Text("\(status) · \(DesktopStyle.voiceLabel(viewModel.selectedVoice))")
-                        .font(.caption).foregroundStyle(DesktopStyle.secondary).lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                leftZone
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
-                HStack(spacing: 8) {
-                    Button { viewModel.skipBackward() } label: {
-                        Image(systemName: "gobackward.20").font(.system(size: 19)).frame(width: 32, height: 36)
-                    }.help("Back 20 seconds").accessibilityLabel("Back 20 seconds")
-                    Button { viewModel.togglePlayback() } label: {
-                        Group {
-                            if viewModel.isPreparing { ProgressView().controlSize(.small) }
-                            else { Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill") }
-                        }
-                    }
-                    .buttonStyle(ThemePlayButtonStyle(diameter: 40))
-                    .help(viewModel.isPlaying ? "Pause" : "Play")
-                    .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
-                    .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
-                    Button { viewModel.skipForward() } label: {
-                        Image(systemName: "goforward.20").font(.system(size: 19)).frame(width: 32, height: 36)
-                    }.help("Forward 20 seconds").accessibilityLabel("Forward 20 seconds")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(AppTheme.accentPrimary)
-                .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
+                centerTransport
+                    .fixedSize(horizontal: true, vertical: false)
 
-                Menu(PlaybackSpeed.label(viewModel.speed)) {
-                    PlayerSpeedOptions(speed: $viewModel.speed)
-                }
-                .menuOrder(.fixed)
-                .frame(width: 76)
-                .accessibilityLabel("Playback speed")
-                .accessibilityValue(PlaybackSpeed.label(viewModel.speed))
-                .help("Playback speed")
-                Menu {
-                    if let id = viewModel.currentOfflineAudioID {
-                        OfflineAudioMenuActions(manager: viewModel.offlineAudio, id: id, canSave: viewModel.isModelLoaded,
-                                                canRemove: !viewModel.isPlaying && !viewModel.isPreparing,
-                                                save: viewModel.saveCurrentAudioOffline)
-                    }
-                    Button("Restart from beginning", systemImage: "arrow.counterclockwise") { viewModel.restartFromBeginning() }
-                } label: { Image(systemName: "ellipsis") }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 20)
-                .accessibilityLabel("Playback options")
+                rightZone
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .trailing)
             }
-            if queue.isActive {
-                HStack {
-                    Label("Continuous listening", systemImage: "repeat")
-                        .font(.caption).foregroundStyle(DesktopStyle.secondary)
-                    Spacer()
-                    Button { queue.skip() } label: { Label("Next article", systemImage: "forward.end") }
-                        .buttonStyle(.borderless).disabled(viewModel.isLoading)
-                    Button { showQueue.toggle() } label: {
-                        Label("Up next · \(queue.upcoming.count)", systemImage: "list.bullet")
-                    }
-                    .buttonStyle(.borderless)
-                    .popover(isPresented: $showQueue, arrowEdge: .top) {
-                        DesktopQueueView(viewModel: viewModel, queue: queue)
-                    }
-                }
-            }
+
             HStack(spacing: 12) {
                 Text("\(Int((seeking ? seekProgress : progress) * 100))%")
-                    .frame(width: 34, alignment: .leading)
+                    .frame(width: 36, alignment: .leading)
                 Slider(value: Binding(get: { seeking ? seekProgress : progress }, set: { value in
                     seekProgress = value
                     // Keyboard changes do not always enter the dragging lifecycle.
@@ -135,11 +82,19 @@ struct DesktopPlayerView: View {
                     .accessibilityLabel("Estimated time remaining")
                     .accessibilityValue(remainingTimeLabel)
             }
-            .font(.caption.monospacedDigit()).foregroundStyle(DesktopStyle.secondary)
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(DesktopStyle.secondary)
         }
-        .padding(.horizontal, 24).padding(.vertical, 16)
-        .background(DesktopStyle.panel)
-        .overlay(alignment: .top) { Rectangle().fill(DesktopStyle.border).frame(height: 1) }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
+        .background(AppTheme.playerSurface)
+        .overlay(alignment: .top) {
+            VStack(spacing: 0) {
+                Rectangle().fill(AppTheme.playerBorder).frame(height: 1)
+                Rectangle().fill(AppTheme.darkTopHighlight).frame(height: 1)
+            }
+        }
+        .shadow(color: AppTheme.floatingShadow, radius: 10, x: 0, y: -2)
         .onChange(of: viewModel.sentences, initial: true) { _, sentences in
             // Cache suffix lengths once per article, rather than recounting the
             // entire remaining text on every word-highlight update.
@@ -151,9 +106,285 @@ struct DesktopPlayerView: View {
         }
     }
 
+    private var leftZone: some View {
+        Button(action: openReader) {
+            HStack(spacing: 10) {
+                Image(systemName: viewModel.content?.source.webURL != nil ? "globe" : "doc.text")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(AppTheme.accentPrimary)
+                    .frame(width: 32, height: 32)
+                    .background(AppTheme.accentPrimarySubtle, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(viewModel.content?.title ?? "Reader")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppTheme.textPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text("\(status) · \(DesktopStyle.voiceLabel(viewModel.selectedVoice))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(queue.failure != nil ? AppTheme.destructiveText : DesktopStyle.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Show article")
+        .accessibilityLabel("Show article: \(viewModel.content?.title ?? "Reader")")
+    }
+
+    private var centerTransport: some View {
+        HStack(spacing: 8) {
+            PlayerDockIconButton(
+                systemImage: "gobackward.20",
+                symbolSize: 16,
+                helpText: "Back 20 seconds",
+                tint: AppTheme.accentPrimary
+            ) {
+                viewModel.skipBackward()
+            }
+            .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
+
+            Button { viewModel.togglePlayback() } label: {
+                Group {
+                    if viewModel.isPreparing {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                }
+            }
+            .buttonStyle(ThemePlayButtonStyle(diameter: 40))
+            .help(viewModel.isPlaying ? "Pause" : "Play")
+            .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
+            .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
+
+            PlayerDockIconButton(
+                systemImage: "goforward.20",
+                symbolSize: 16,
+                helpText: "Forward 20 seconds",
+                tint: AppTheme.accentPrimary
+            ) {
+                viewModel.skipForward()
+            }
+            .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
+
+            if queue.isActive {
+                PlayerDockIconButton(
+                    systemImage: "forward.end.fill",
+                    symbolSize: 14,
+                    helpText: "Next article",
+                    tint: AppTheme.accentPrimary
+                ) {
+                    queue.skip()
+                }
+                .disabled(queue.upcoming.isEmpty || viewModel.isLoading)
+            }
+        }
+    }
+
+    private var rightZone: some View {
+        HStack(spacing: 6) {
+            Button { showSpeedPopover.toggle() } label: {
+                Text(PlaybackSpeed.label(viewModel.speed))
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .padding(.horizontal, 10)
+                    .frame(minWidth: 52, minHeight: 28)
+                    .background(AppTheme.elevated, in: Capsule())
+                    .overlay(Capsule().strokeBorder(AppTheme.borderSubtle, lineWidth: 1))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("Playback speed")
+            .accessibilityLabel("Playback speed")
+            .accessibilityValue(PlaybackSpeed.label(viewModel.speed))
+            .popover(isPresented: $showSpeedPopover, arrowEdge: .top) {
+                speedPopover
+            }
+
+            Button { showQueue.toggle() } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "list.bullet")
+                        .font(.system(size: 13, weight: .medium))
+                    if !queue.upcoming.isEmpty {
+                        Text("\(queue.upcoming.count)")
+                            .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(AppTheme.accentText)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(AppTheme.accentPrimarySubtle, in: Capsule())
+                    }
+                }
+                .foregroundStyle(queue.isActive ? AppTheme.accentPrimary : DesktopStyle.secondary)
+                .frame(minWidth: 28, minHeight: 28)
+                .padding(.horizontal, queue.upcoming.isEmpty ? 0 : 4)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(queue.upcoming.isEmpty ? "Listening queue" : "Up next: \(queue.upcoming.count)")
+            .accessibilityLabel("Listening queue")
+            .accessibilityValue(queue.upcoming.isEmpty ? "Empty" : "\(queue.upcoming.count) upcoming")
+            .popover(isPresented: $showQueue, arrowEdge: .top) {
+                DesktopQueueView(viewModel: viewModel, queue: queue)
+            }
+
+            if let id = viewModel.currentOfflineAudioID {
+                OfflineAudioButton(
+                    manager: viewModel.offlineAudio,
+                    id: id,
+                    canSave: viewModel.isModelLoaded,
+                    canRemove: !viewModel.isPlaying && !viewModel.isPreparing,
+                    compact: true,
+                    save: viewModel.saveCurrentAudioOffline
+                )
+                .font(.system(size: 14, weight: .medium))
+                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .foregroundStyle(DesktopStyle.secondary)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+                .clipped()
+                .help(viewModel.offlineAudio.progress[id]?.label ?? "Save audio offline")
+            }
+
+            PlayerDockIconButton(
+                systemImage: "arrow.counterclockwise",
+                symbolSize: 14,
+                helpText: "Restart from beginning",
+                tint: DesktopStyle.secondary
+            ) {
+                viewModel.restartFromBeginning()
+            }
+            .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
+        }
+    }
+
+    private var speedPopover: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Playback speed")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                Spacer()
+                Text(PlaybackSpeed.label(viewModel.speed))
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(AppTheme.accentText)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(AppTheme.accentPrimarySubtle, in: Capsule())
+            }
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 5), spacing: 6) {
+                ForEach(PlaybackSpeed.settingsOptions, id: \.self) { option in
+                    let isSelected = abs(viewModel.speed - option) < 0.001
+                    Button {
+                        viewModel.speed = option
+                    } label: {
+                        Text(PlaybackSpeed.label(option))
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(isSelected ? AppTheme.accentText : AppTheme.textSecondary)
+                            .frame(maxWidth: .infinity, minHeight: 28)
+                            .background(isSelected ? AppTheme.accentPrimarySubtle : AppTheme.elevated,
+                                        in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .strokeBorder(isSelected ? AppTheme.borderAccent : AppTheme.borderSubtle, lineWidth: 1)
+                            )
+                            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
+            }
+
+            HStack(spacing: 10) {
+                Text("Fine adjust")
+                    .font(.caption)
+                    .foregroundStyle(DesktopStyle.secondary)
+                Spacer()
+                Button {
+                    adjustSpeed(by: -Self.speedStep)
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 28, height: 26)
+                        .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(AppTheme.borderSubtle))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.speed <= Self.minSpeed)
+                .help("Decrease speed")
+                .accessibilityLabel("Decrease speed")
+
+                Text(PlaybackSpeed.label(viewModel.speed))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .frame(minWidth: 46)
+
+                Button {
+                    adjustSpeed(by: Self.speedStep)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 28, height: 26)
+                        .background(AppTheme.elevated, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(AppTheme.borderSubtle))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.speed >= Self.maxSpeed)
+                .help("Increase speed")
+                .accessibilityLabel("Increase speed")
+            }
+        }
+        .padding(14)
+        .frame(width: 296)
+        .background(AppTheme.surface)
+        .presentationBackground(AppTheme.surface)
+    }
+
+    private func adjustSpeed(by delta: Float) {
+        let steps = Int(((viewModel.speed + delta) / Self.speedStep).rounded())
+        let stepped = Float(steps) * Self.speedStep
+        viewModel.speed = min(Self.maxSpeed, max(Self.minSpeed, stepped))
+    }
+
     private func seek(to value: Double) {
         guard !viewModel.sentences.isEmpty else { return }
         viewModel.seekToSentence(min(viewModel.sentences.count - 1, max(0, Int(value * Double(viewModel.sentences.count)))))
+    }
+}
+
+private struct PlayerDockIconButton: View {
+    let systemImage: String
+    var symbolSize: CGFloat = 15
+    let helpText: LocalizedStringKey
+    let tint: Color
+    let action: () -> Void
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: symbolSize, weight: .medium))
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+                .background(isEnabled && isHovering ? AppTheme.elevated : .clear,
+                            in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.4)
+        .onHover { isHovering = $0 }
+        .help(helpText)
+        .accessibilityLabel(helpText)
     }
 }
 #endif

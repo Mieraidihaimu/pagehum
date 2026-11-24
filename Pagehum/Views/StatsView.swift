@@ -56,7 +56,7 @@ struct StatsView: View {
         let (current, longest) = calculateStreaks()
 
         return HStack(spacing: 16) {
-            streakItem(value: current, label: "Current Streak", icon: "flame.fill", color: AppTheme.ctaText)
+            streakItem(value: current, label: "Current Streak", icon: "flame.fill", color: AppTheme.favorite)
             streakItem(value: longest, label: "Longest Streak", icon: "trophy.fill", color: AppTheme.accentPrimary)
         }
     }

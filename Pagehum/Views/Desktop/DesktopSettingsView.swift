@@ -16,118 +16,131 @@ struct DesktopSettingsView: View {
     @State private var showLibraryBackup = false
 
     var body: some View {
-        DesktopPage(width: 640) {
+        DesktopPage(width: 660) {
             DesktopHeading(title: "Make it yours.", subtitle: "A comfortable voice. A comfortable pace.")
+
             sectionTitle("Background progress")
-            row { SettingsProgressView(viewModel: viewModel, openReader: openReader) }
+            settingsGroup {
+                settingsRow { SettingsProgressView(viewModel: viewModel, openReader: openReader) }
+            }
+
             sectionTitle("Content")
-            row {
-                Button(action: openTechBlogSettings) {
-                    HStack {
-                        TechBlogSettingsLabel()
-                        Spacer()
-                        Image(systemName: "chevron.right").foregroundStyle(DesktopStyle.secondary)
-                    }
-                    .contentShape(Rectangle())
+            settingsGroup {
+                SettingsNavRow(trailingIcon: "chevron.right", action: openTechBlogSettings) {
+                    TechBlogSettingsLabel()
                 }
-                .buttonStyle(.plain)
             }
+
             sectionTitle("Playback")
-            row {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Playback speed")
-                    Text("Adjust anytime in the player.").font(.caption).foregroundStyle(DesktopStyle.secondary)
-                }
-                Spacer()
-                Picker("Playback speed", selection: $viewModel.speed) {
-                    ForEach(PlaybackSpeed.settingsOptions, id: \.self) { speed in Text(PlaybackSpeed.label(speed)).tag(speed) }
-                }.labelsHidden().frame(width: 100)
-            }
-            row {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Voice")
-                    if let notice = viewModel.speechEngineNotice {
-                        Text(notice).font(.caption).foregroundStyle(DesktopStyle.secondary)
+            settingsGroup {
+                settingsRow {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Playback speed")
+                        Text("Adjust anytime in the player.").font(.caption).foregroundStyle(DesktopStyle.secondary)
                     }
+                    Spacer()
+                    Picker("Playback speed", selection: $viewModel.speed) {
+                        ForEach(PlaybackSpeed.settingsOptions, id: \.self) { speed in Text(PlaybackSpeed.label(speed)).tag(speed) }
+                    }.labelsHidden().frame(width: 100)
                 }
-                Spacer()
-                Picker("Voice", selection: $viewModel.selectedVoice) {
-                    ForEach(viewModel.voiceNames, id: \.self) { voice in Text(DesktopStyle.voiceLabel(voice)).tag(voice) }
-                }.labelsHidden().frame(maxWidth: 260)
+                groupDivider
+                settingsRow {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Voice")
+                        if let notice = viewModel.speechEngineNotice {
+                            Text(notice).font(.caption).foregroundStyle(DesktopStyle.secondary)
+                        }
+                    }
+                    Spacer()
+                    Picker("Voice", selection: $viewModel.selectedVoice) {
+                        ForEach(viewModel.voiceNames, id: \.self) { voice in Text(DesktopStyle.voiceLabel(voice)).tag(voice) }
+                    }.labelsHidden().frame(maxWidth: 260)
+                }
+                if viewModel.canDownloadVoiceModel {
+                    groupDivider
+                    settingsRow { VoiceModelDownloadView(viewModel: viewModel) }
+                }
             }
-            if viewModel.canDownloadVoiceModel {
-                row { VoiceModelDownloadView(viewModel: viewModel) }
-            }
+
             sectionTitle("Audio-Clean")
-            row {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Speech style")
-                    Text(viewModel.audioCleanMode.description).font(.caption).foregroundStyle(DesktopStyle.secondary)
-                }
-                Spacer()
-                Picker("Speech style", selection: $viewModel.audioCleanMode) {
-                    ForEach(AudioCleanMode.allCases, id: \.self) { mode in
-                        Text(mode.title).tag(mode)
+            settingsGroup {
+                settingsRow {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Speech style")
+                        Text(viewModel.audioCleanMode.description).font(.caption).foregroundStyle(DesktopStyle.secondary)
                     }
-                }.labelsHidden().frame(width: 140)
+                    Spacer()
+                    Picker("Speech style", selection: $viewModel.audioCleanMode) {
+                        ForEach(AudioCleanMode.allCases, id: \.self) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }.labelsHidden().frame(width: 140)
+                }
             }
+
             sectionTitle("Reader")
-            row {
-                Text("Text size")
-                Spacer()
-                Text("\(Int(viewModel.textSize)) pt").font(.callout.monospacedDigit()).foregroundStyle(DesktopStyle.secondary)
-                Slider(value: $viewModel.textSize, in: 12...32, step: 1) { Text("Reader text size") }
-                    .labelsHidden().frame(maxWidth: 220)
+            settingsGroup {
+                settingsRow {
+                    Text("Text size")
+                    Spacer()
+                    Text("\(Int(viewModel.textSize)) pt").font(.callout.monospacedDigit()).foregroundStyle(DesktopStyle.secondary)
+                    Slider(value: $viewModel.textSize, in: 12...32, step: 1) { Text("Reader text size") }
+                        .labelsHidden().frame(maxWidth: 220)
+                }
+                groupDivider
+                Text("Sometimes all an idea needs is a little room to breathe.")
+                    .font(.system(size: viewModel.textSize, design: .serif)).lineSpacing(8)
+                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
             }
-            Text("Sometimes all an idea needs is a little room to breathe.")
-                .font(.system(size: viewModel.textSize, design: .serif)).lineSpacing(8)
-                .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                .themeCard(cornerRadius: 10)
+
             sectionTitle("Storage")
-            row {
-                Button(action: openOfflineAudio) {
-                    HStack {
-                        OfflineAudioSettingsLabel()
-                        Spacer()
-                        Image(systemName: "chevron.right").foregroundStyle(DesktopStyle.secondary)
+            settingsGroup {
+                SettingsNavRow(trailingIcon: "chevron.right", action: openOfflineAudio) {
+                    OfflineAudioSettingsLabel()
+                }
+                groupDivider
+                settingsRow {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Cached audio")
+                        Text("\(cacheSize) · \(cacheCount) files").font(.caption).foregroundStyle(DesktopStyle.secondary)
                     }
-                    .contentShape(Rectangle())
+                    Spacer()
+                    Button { clearConfirmation = true } label: { Label("Clear cache", systemImage: "trash") }
+                        .buttonStyle(DesktopButtonStyle()).disabled(cacheCount == 0)
                 }
-                .buttonStyle(.plain)
             }
-            row {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Cached audio")
-                    Text("\(cacheSize) · \(cacheCount) files").font(.caption).foregroundStyle(DesktopStyle.secondary)
-                }
-                Spacer()
-                Button { clearConfirmation = true } label: { Label("Clear cache", systemImage: "trash") }
-                    .buttonStyle(DesktopButtonStyle()).disabled(cacheCount == 0)
+            if let cacheMessage {
+                Text(cacheMessage).font(.caption).foregroundStyle(DesktopStyle.secondary).padding(.top, 8)
             }
-            if let cacheMessage { Text(cacheMessage).font(.caption).foregroundStyle(DesktopStyle.secondary) }
+
             sectionTitle("Data")
-            row {
-                Button { showLibraryBackup = true } label: {
-                    HStack {
-                        Label("Library backup", systemImage: "externaldrive")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                    }
-                }.buttonStyle(.plain)
+            settingsGroup {
+                SettingsNavRow(trailingIcon: "arrow.up.right.square", action: { showLibraryBackup = true }) {
+                    Label("Library backup", systemImage: "externaldrive")
+                }
             }
+
             sectionTitle("Activity")
-            row {
-                Button(action: openStats) {
-                    HStack { Label("Listening stats", systemImage: "chart.bar"); Spacer(); Image(systemName: "chevron.right") }
-                }.buttonStyle(.plain)
+            settingsGroup {
+                SettingsNavRow(trailingIcon: "arrow.up.right.square", action: openStats) {
+                    Label("Listening stats", systemImage: "chart.bar")
+                }
             }
-            DisclosureGroup("About Pagehum") {
-                VStack(spacing: 12) {
-                    LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                    LabeledContent("Voice engine", value: viewModel.speechEngineNotice == nil ? "Kokoro 82M" : "System voices")
-                    LabeledContent("Audio", value: "24 kHz, mono")
-                }.font(.callout).padding(.vertical, 12)
-            }.foregroundStyle(DesktopStyle.secondary).padding(.top, 20)
+
+            settingsGroup {
+                DisclosureGroup("About Pagehum") {
+                    VStack(spacing: 12) {
+                        LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                        LabeledContent("Voice engine", value: viewModel.speechEngineNotice == nil ? "Kokoro 82M" : "System voices")
+                        LabeledContent("Audio", value: "24 kHz, mono")
+                    }
+                    .font(.callout)
+                    .foregroundStyle(DesktopStyle.secondary)
+                    .padding(.top, 12)
+                }
+                .padding(14)
+            }
+            .padding(.top, 24)
         }
         .onAppear(perform: refreshCache)
         .sheet(isPresented: $showLibraryBackup) {
@@ -136,10 +149,11 @@ struct DesktopSettingsView: View {
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Done") { showLibraryBackup = false }
+                                .keyboardShortcut(.cancelAction)
                         }
                     }
             }
-            .frame(minWidth: 520, minHeight: 580)
+            .frame(minWidth: 540, idealWidth: 580, minHeight: 520, idealHeight: 560)
         }
         .confirmationDialog("Clear cached audio?", isPresented: $clearConfirmation, titleVisibility: .visible) {
             Button("Clear cache", role: .destructive) {
@@ -157,17 +171,57 @@ struct DesktopSettingsView: View {
     }
 
     private func sectionTitle(_ title: LocalizedStringKey) -> some View {
-        Text(title).font(.callout).foregroundStyle(DesktopStyle.secondary).padding(.top, 24).padding(.bottom, 8)
+        Text(title).font(.callout.weight(.medium)).foregroundStyle(DesktopStyle.secondary).padding(.top, 24).padding(.bottom, 8)
     }
 
-    private func row<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        HStack(spacing: 16, content: content).padding(.vertical, 16)
-            .overlay(alignment: .top) { Rectangle().fill(DesktopStyle.border).frame(height: 1) }
+    private func settingsGroup<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0, content: content)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .themeCard(cornerRadius: 12)
+    }
+
+    private var groupDivider: some View {
+        Rectangle()
+            .fill(AppTheme.borderSubtle)
+            .frame(height: 1)
+            .padding(.horizontal, 14)
+    }
+
+    private func settingsRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 16, content: content)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func refreshCache() {
         cacheSize = AudioCacheManager.formattedSize()
         cacheCount = AudioCacheManager.fileCount()
+    }
+}
+
+private struct SettingsNavRow<Label: View>: View {
+    var trailingIcon = "chevron.right"
+    let action: () -> Void
+    @ViewBuilder var label: Label
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                label
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: trailingIcon)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(DesktopStyle.secondary)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isHovering ? AppTheme.elevated.opacity(0.55) : .clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
     }
 }
 #endif

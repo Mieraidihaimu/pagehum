@@ -49,21 +49,26 @@ struct OfflineAudioButton: View {
     let id: String
     var canSave = true
     var canRemove = true
+    var compact = false
     let save: () -> Void
 
     var body: some View {
+        let size: CGFloat = compact ? 28 : 44
         if let progress = manager.progress[id] {
             Menu {
                 OfflineAudioMenuActions(manager: manager, id: id, canSave: canSave, canRemove: canRemove, save: save)
             } label: {
                 Image(systemName: progress.state == .ready ? "checkmark.circle.fill" : "arrow.down.circle")
                     .foregroundStyle(progress.state == .ready ? AppTheme.success : AppTheme.accentPrimary)
-                    .frame(minWidth: 44, minHeight: 44)
+                    .frame(minWidth: size, minHeight: size)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel(progress.label)
         } else {
             Button(action: save) {
-                Image(systemName: "arrow.down.circle").frame(minWidth: 44, minHeight: 44)
+                Image(systemName: "arrow.down.circle")
+                    .frame(minWidth: size, minHeight: size)
+                    .contentShape(Rectangle())
             }
             .disabled(!canSave)
             .accessibilityLabel("Save audio offline")

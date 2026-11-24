@@ -101,7 +101,10 @@ struct PlaylistView: View {
                         librarySection("Completed", systemImage: "checkmark.circle", count: completedItems.count,
                                        isExpanded: $completedExpanded) {
                             if selecting {
-                                ForEach(completedItems) { item in libraryRow(item) }
+                                ForEach(completedItems) { item in
+                                    libraryRow(item)
+                                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                }
                             } else {
                                 NavigationLink {
                                     CompletedArticlesView(viewModel: viewModel, initialSearchText: searchText, openReader: openReader)
@@ -159,11 +162,14 @@ struct PlaylistView: View {
             if selecting {
                 VStack(spacing: 10) {
                     HStack {
-                        Text("\(selectedItems.count) selected").font(.headline)
+                        Text("\(selectedItems.count) selected")
+                            .font(.headline)
+                            .foregroundStyle(AppTheme.textPrimary)
                         Spacer()
                         Button("Select all") {
                             selection = Set(displayOrder.map(\.persistentModelID))
                         }
+                        .foregroundStyle(AppTheme.accentPrimary)
                         .disabled(displayOrder.isEmpty)
                     }
                     HStack(spacing: 12) {
@@ -172,7 +178,7 @@ struct PlaylistView: View {
                         } label: {
                             Label("Remove from library", systemImage: "trash").labelStyle(.iconOnly)
                         }
-                        .buttonStyle(ThemeButtonStyle(primary: false))
+                        .buttonStyle(ThemeButtonStyle(primary: false, secondaryAccent: .destructive))
                         .controlSize(.large)
                         .disabled(removableItems.isEmpty)
                         .confirmationDialog(
@@ -221,7 +227,13 @@ struct PlaylistView: View {
                     }
                 }
                 .padding(16)
-                .background(AppTheme.surface)
+                .background(AppTheme.playerSurface)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(AppTheme.playerBorder)
+                        .frame(height: 1)
+                }
+                .shadow(color: AppTheme.floatingShadow, radius: 10, x: 0, y: -3)
             }
         }
         .navigationDestination(item: $selectedItem) { _ in
@@ -319,7 +331,7 @@ struct PlaylistView: View {
             } label: {
                 Label(item.isFavorite ? "Unstar" : "Star", systemImage: item.isFavorite ? "star.slash" : "star.fill")
             }
-            .tint(AppTheme.cta)
+            .tint(AppTheme.favorite)
         }
         .contextMenu {
             OfflineAudioMenuActions(manager: viewModel.offlineAudio, id: viewModel.offlineAudioID(for: item),
@@ -521,6 +533,7 @@ struct CompletedArticlesView: View {
                 #endif
             }
         }
+        .background(AppTheme.canvas)
         .navigationTitle("Completed")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -591,7 +604,7 @@ struct CompletedArticlesView: View {
             } label: {
                 Label(item.isFavorite ? "Unstar" : "Star", systemImage: item.isFavorite ? "star.slash" : "star.fill")
             }
-            .tint(AppTheme.cta)
+            .tint(AppTheme.favorite)
         }
         .contextMenu {
             Button {

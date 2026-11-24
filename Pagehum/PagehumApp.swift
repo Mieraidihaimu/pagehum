@@ -31,8 +31,8 @@ struct PagehumApp: App {
                         .font(.callout)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
-                        .foregroundStyle(AppTheme.warning)
-                        .background(AppTheme.ctaSubtle)
+                        .foregroundStyle(AppTheme.destructiveText)
+                        .background(AppTheme.destructiveSubtle)
                     }
                 }
                 .onOpenURL { url in
@@ -72,7 +72,7 @@ struct PagehumApp: App {
             }
         }
         #if os(macOS)
-        .defaultSize(width: 1120, height: 780)
+        .defaultSize(width: 1180, height: 820)
         .windowStyle(.hiddenTitleBar)
         .commands {
             CommandMenu("Playback") {

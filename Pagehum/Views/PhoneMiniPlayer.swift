@@ -38,9 +38,13 @@ struct PhoneMiniPlayer: View {
                                     .accessibilityHidden(true)
                             }
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(title).font(.subheadline.weight(.semibold))
+                                Text(title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(AppTheme.textPrimary)
                                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
-                                Text(status).font(.caption).foregroundStyle(queue.failure == nil ? AppTheme.textSecondary : AppTheme.warning)
+                                Text(status)
+                                    .font(.caption)
+                                    .foregroundStyle(queue.failure == nil ? AppTheme.textSecondary : AppTheme.destructiveText)
                                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -53,15 +57,18 @@ struct PhoneMiniPlayer: View {
 
                     Button { viewModel.togglePlayback() } label: {
                         Group {
-                            if viewModel.isPreparing { ProgressView() }
-                            else {
+                            if viewModel.isPreparing {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(AppTheme.onAccent)
+                            } else {
                                 Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-                                    .font(.system(size: 20, weight: .semibold))
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(AppTheme.onAccent)
                             }
                         }
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(ThemePlayButtonStyle(diameter: 34))
                     .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
                     .accessibilityLabel(viewModel.isPreparing ? "Cancel preparation" : viewModel.isPlaying ? "Pause" : "Play")
 
@@ -71,23 +78,35 @@ struct PhoneMiniPlayer: View {
                         }
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
 
-                ProgressView(value: min(1, max(0, viewModel.progress)))
-                    .tint(AppTheme.accentPrimaryFill)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 8)
-                    .accessibilityHidden(true)
+                progressHairline
             }
             .buttonStyle(.plain)
-            .themeCard(cornerRadius: 18)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .themeCard(cornerRadius: 16, floating: true)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .sheet(isPresented: $showsQueue) {
                 ListeningQueueSheet(viewModel: viewModel, queue: queue)
             }
         }
+    }
+
+    private var progressHairline: some View {
+        let fraction = viewModel.progress.isFinite ? min(1, max(0, viewModel.progress)) : 0
+        return GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Rectangle()
+                    .fill(AppTheme.accentPrimarySubtle)
+                Rectangle()
+                    .fill(AppTheme.accentPrimaryFill)
+                    .frame(width: geometry.size.width * fraction)
+            }
+        }
+        .frame(height: 2)
+        .accessibilityHidden(true)
     }
 }
 
@@ -104,7 +123,7 @@ struct PhoneQueueButton: View {
                     .font(.system(size: 20))
                 Text(count.formatted()).font(.caption.weight(.semibold).monospacedDigit())
             }
-            .foregroundStyle(needsAttention ? AppTheme.warning : AppTheme.accentPrimary)
+            .foregroundStyle(needsAttention ? AppTheme.destructiveText : AppTheme.accentPrimary)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
         }

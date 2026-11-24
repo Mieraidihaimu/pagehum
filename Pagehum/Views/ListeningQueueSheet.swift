@@ -17,7 +17,7 @@ struct ListeningQueueSheet: View {
                             OfflineAudioProgressView(manager: viewModel.offlineAudio, id: id)
                         }
                         if let failure = queue.failure {
-                            Text(failure).font(.footnote).foregroundStyle(AppTheme.warning)
+                            Text(failure).font(.footnote).foregroundStyle(AppTheme.destructiveText)
                         }
                     }
                     .listRowBackground(AppTheme.surface)

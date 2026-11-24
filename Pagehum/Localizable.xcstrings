@@ -20,6 +20,19 @@
     "·" : {
 
     },
+    "· %@" : {
+
+    },
+    "· %lld × %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "· %1$lld × %2$lld"
+          }
+        }
+      }
+    },
     "/ Offline Audio" : {
 
     },
@@ -323,9 +336,6 @@
     "All saved voices for these articles will be deleted. The articles stay in your library." : {
 
     },
-    "Already in your library" : {
-
-    },
     "Any" : {
 
     },
@@ -398,6 +408,12 @@
       }
     },
     "Audio in use is kept until you finish listening or remove it from the queue." : {
+
+    },
+    "Audio-Clean" : {
+
+    },
+    "Audio-Clean automatically summarizes code blocks and tables, and filters out footnote numbers while reading." : {
 
     },
     "Automatic iCloud sync is not enabled in this build. Apple requires a paid Developer Program membership for app-level iCloud sync. Manual backups work with a free Personal Team installation." : {
@@ -592,9 +608,6 @@
 
     },
     "Continues automatically · Resume saved positions" : {
-
-    },
-    "Continuous listening" : {
 
     },
     "Copied" : {
@@ -1329,9 +1342,6 @@
     "Playback needs attention. Open listening queue." : {
 
     },
-    "Playback options" : {
-
-    },
     "Playback requires a completed save and its article in your library." : {
 
     },
@@ -1666,7 +1676,13 @@
     "Show all %lld lines" : {
 
     },
+    "Show all %lld rows" : {
+
+    },
     "Show article" : {
+
+    },
+    "Show fewer rows" : {
 
     },
     "Show less" : {
@@ -1703,6 +1719,9 @@
 
     },
     "Sources, filters, and import limits" : {
+
+    },
+    "Speech Style" : {
 
     },
     "Star" : {
@@ -1746,6 +1765,9 @@
 
     },
     "System voices" : {
+
+    },
+    "Table" : {
 
     },
     "Tap the star beside an article to find it here." : {
@@ -1869,9 +1891,6 @@
 
     },
     "Up next" : {
-
-    },
-    "Up next · %lld" : {
 
     },
     "Up next, %lld articles" : {

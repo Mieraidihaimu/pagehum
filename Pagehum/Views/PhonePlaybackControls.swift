@@ -49,7 +49,7 @@ struct PhonePlaybackControls: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .themeCard(cornerRadius: 14)
+        .themeCard(cornerRadius: 14, floating: true)
         .buttonStyle(.plain)
         .sheet(isPresented: $showsQueue) {
             ListeningQueueSheet(viewModel: viewModel, queue: queue)
@@ -97,9 +97,13 @@ struct PhonePlaybackControls: View {
             PlayerSpeedOptions(speed: $viewModel.speed)
         } label: {
             Text(PlaybackSpeed.label(viewModel.speed))
-                .font(.callout.weight(.semibold))
+                .font(.caption.monospacedDigit().weight(.semibold))
                 .foregroundStyle(AppTheme.accentPrimary)
                 .fixedSize()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(AppTheme.elevated, in: Capsule())
+                .overlay(Capsule().strokeBorder(AppTheme.borderSubtle))
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
@@ -131,7 +135,7 @@ struct PhonePlaybackControls: View {
                     Text(status)
                 } else if viewModel.playbackFailureCount > 0 {
                     Text("\(viewModel.playbackFailureCount) sentences skipped")
-                        .foregroundStyle(AppTheme.warning)
+                        .foregroundStyle(AppTheme.destructiveText)
                 } else {
                     ViewThatFits(in: .horizontal) {
                         HStack {
@@ -187,7 +191,7 @@ struct PhonePlaybackControls: View {
                   ? "exclamationmark.circle" : "ellipsis")
                 .font(.system(size: 20))
                 .foregroundStyle(queue.failure != nil || viewModel.playbackFailureCount > 0
-                                 ? AppTheme.warning : AppTheme.accentPrimary)
+                                 ? AppTheme.destructiveText : AppTheme.accentPrimary)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }

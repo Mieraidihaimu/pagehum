@@ -65,7 +65,7 @@ struct TechBlogBrowseView: View {
                 content
             }
         }
-        .frame(minWidth: 620, idealWidth: 760, minHeight: 520, idealHeight: 680)
+        .frame(minWidth: 680, idealWidth: 840, minHeight: 540, idealHeight: 700)
         #else
         NavigationStack {
             content
@@ -325,7 +325,7 @@ struct TechBlogBrowseView: View {
             }
             if let error = viewModel.errorMessage {
                 Label(error, systemImage: "exclamationmark.circle")
-                    .font(.callout).foregroundStyle(AppTheme.warning)
+                    .font(.callout).foregroundStyle(AppTheme.destructiveText)
             }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {

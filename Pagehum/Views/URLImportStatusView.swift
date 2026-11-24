@@ -37,7 +37,7 @@ struct URLInputHint: View {
             }
         }
         .font(.caption)
-        .foregroundStyle(count == 0 && hasText ? AppTheme.warning : AppTheme.textSecondary)
+        .foregroundStyle(count == 0 && hasText ? AppTheme.destructiveText : AppTheme.textSecondary)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -61,6 +61,7 @@ struct URLImportStatusView: View {
                         openFirstArticleButton(progress.firstImportedItem)
                     }
                     ProgressView(value: Double(progress.processed), total: Double(progress.total))
+                        .tint(AppTheme.accentPrimaryFill)
                         .accessibilityLabel("Batch import progress")
                 }
                 .font(.callout)
@@ -77,7 +78,7 @@ struct URLImportStatusView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 12) {
                     Label(result.summary, systemImage: result.failures.isEmpty ? "checkmark.circle" : "exclamationmark.triangle")
-                        .foregroundStyle(result.failures.isEmpty ? AppTheme.textSecondary : AppTheme.warning)
+                        .foregroundStyle(result.failures.isEmpty ? AppTheme.textSecondary : AppTheme.destructiveText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if result.isBatch {
                         openFirstArticleButton(result.firstImportedItem)

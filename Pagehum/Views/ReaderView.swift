@@ -9,6 +9,11 @@ struct ReaderView: View {
     var showsArticleHeading = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var readingColumnMaxWidth: CGFloat {
+        guard desktopLayout || showsArticleHeading else { return .infinity }
+        return min(720, max(600, 560 + CGFloat(viewModel.textSize - 16) * 8))
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             if viewModel.content != nil {
@@ -81,7 +86,7 @@ struct ReaderView: View {
                                 }
                             }
                         }
-                        .frame(maxWidth: desktopLayout || showsArticleHeading ? 620 : .infinity, alignment: .leading)
+                        .frame(maxWidth: readingColumnMaxWidth, alignment: .leading)
                         .padding(.horizontal, 24)
                         .padding(.top, desktopLayout ? 40 : 20)
                         .padding(.bottom, showsPlaybackControls ? 76 : 36)
@@ -148,7 +153,7 @@ struct SentenceView: View {
         .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isCurrent ? AppTheme.accentPrimarySubtle : .clear)
+                .fill(isCurrent ? AppTheme.readerSentenceBg : .clear)
         )
         .animation(.easeInOut(duration: 0.3), value: currentIndex)
     }
@@ -167,17 +172,27 @@ struct SentenceView: View {
         let target = currentWord.trimmingCharacters(in: .punctuationCharacters).lowercased()
         let activeWordIndex = Self.findActiveWordIndex(words: words, target: target, tokenIndex: currentTokenIndex)
 
-        return words.enumerated().reduce(Text("")) { result, pair in
-            let (wordIdx, word) = pair
+        var attributed = AttributedString()
+        for (wordIdx, word) in words.enumerated() {
+            if wordIdx > 0 {
+                var space = AttributedString(" ")
+                space.foregroundColor = AppTheme.textPrimary
+                space.font = readerFont
+                attributed.append(space)
+            }
+            var part = AttributedString(word)
             let isActive = wordIdx == activeWordIndex
-            let styledWord = Text(word + " ")
-                .foregroundColor(isActive ? AppTheme.ctaText : AppTheme.textPrimary)
-                .fontWeight(isActive ? .semibold : .regular)
-                .underline(isActive, color: AppTheme.ctaText)
-            return result + styledWord
+            part.foregroundColor = isActive ? AppTheme.readerWordText : AppTheme.textPrimary
+            part.font = isActive ? readerFont.weight(.semibold) : readerFont
+            if isActive {
+                part.backgroundColor = AppTheme.readerWordBg
+            }
+            attributed.append(part)
         }
-        .font(readerFont)
-        .frame(maxWidth: .infinity, alignment: .leading)
+
+        return Text(attributed)
+            .font(readerFont)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     static func findActiveWordIndex(words: [String], target: String, tokenIndex: Int) -> Int? {

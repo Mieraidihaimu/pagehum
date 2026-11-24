@@ -44,7 +44,7 @@ struct DesktopButtonStyle: ButtonStyle {
 }
 
 struct DesktopPage<Content: View>: View {
-    var width: CGFloat = 680
+    var width: CGFloat = 720
     @ViewBuilder var content: Content
 
     var body: some View {

@@ -32,6 +32,7 @@ struct DesktopLibraryView: View {
         let (currentItems, olderItems) = filter.groupByAge(filteredItems)
         let visibleItems = olderExpanded ? currentItems + olderItems : currentItems
         let selectedItems = visibleItems.filter { selection.contains($0.persistentModelID) }
+        let allSelected = !visibleItems.isEmpty && visibleItems.allSatisfy { selection.contains($0.persistentModelID) }
         let queueableItems = selectedItems.filter { !isAlreadyQueued($0) }
         let removableItems = selectedItems.filter { $0.persistentModelID != viewModel.currentPlaylistItemID }
         let pendingRemoval = itemsToDelete.filter { $0.persistentModelID != viewModel.currentPlaylistItemID }
@@ -42,20 +43,15 @@ struct DesktopLibraryView: View {
                     Text("Your library").font(.system(size: 24, weight: .medium))
                     Spacer(minLength: 0)
                     Button {
-                        viewModel.saveAudioOffline(selectedItems)
+                        toggleSelectAll(visibleItems, allSelected: allSelected)
                     } label: {
-                        Label("Save audio offline", systemImage: "arrow.down.circle").labelStyle(.iconOnly)
+                        Label(allSelected ? "Deselect all" : "Select all", systemImage: "checkmark.rectangle.stack")
+                            .font(.system(size: 12))
                     }
-                    .disabled(selectedItems.isEmpty || !viewModel.isModelLoaded).help("Save selected audio offline")
-                    Button {
-                        selection = Set(visibleItems.map(\.persistentModelID))
-                    } label: {
-                        Image(systemName: "checkmark.rectangle.stack").frame(width: 28, height: 28)
-                    }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(ThemeButtonStyle(primary: false, cornerRadius: 8, minHeight: 30))
                     .disabled(visibleItems.isEmpty)
-                    .help("Select all articles")
-                    .accessibilityLabel("Select all articles")
+                    .help(allSelected ? "Deselect all articles" : "Select all articles")
+                    .accessibilityLabel(allSelected ? "Deselect all articles" : "Select all articles")
                 }
                 LibrarySearchControls(query: $searchText, favoritesOnly: $favoritesOnly, compact: true)
                 HStack(spacing: 12) {
@@ -105,41 +101,79 @@ struct DesktopLibraryView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !selectedItems.isEmpty {
                 HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("\(selectedItems.count) selected").font(.callout.weight(.medium))
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            Text("\(selectedItems.count) selected")
+                                .font(.callout.weight(.medium))
+                            Button(allSelected ? "Deselect" : "Select all") {
+                                toggleSelectAll(visibleItems, allSelected: allSelected)
+                            }
+                            .buttonStyle(.borderless)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(AppTheme.accentText)
+                            .help(allSelected ? "Deselect all articles" : "Select all articles")
+                        }
                         if !queueableItems.isEmpty {
                             Text("\(ListeningQueue.durationLabel(characters: selectedCharacters, speed: viewModel.speed)) at \(PlaybackSpeed.label(viewModel.speed))")
-                                .font(.caption).foregroundStyle(DesktopStyle.secondary)
+                                .font(.caption)
+                                .foregroundStyle(DesktopStyle.secondary)
+                                .lineLimit(1)
                         }
                     }
                     Spacer(minLength: 0)
                     Button {
+                        viewModel.saveAudioOffline(selectedItems)
+                    } label: {
+                        Label("Save offline", systemImage: "arrow.down.circle")
+                            .labelStyle(.titleAndIcon)
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundStyle(selectedItems.isEmpty || !viewModel.isModelLoaded ? AppTheme.textMuted : AppTheme.accentPrimary)
+                    .disabled(selectedItems.isEmpty || !viewModel.isModelLoaded)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .help(viewModel.isModelLoaded ? "Save selected audio offline" : "Waiting for the voice engine to load")
+                    Button {
                         if let item = selectedItems.first { openItem(item) }
                     } label: {
-                        Label("Open article", systemImage: "book").labelStyle(.iconOnly)
+                        Label("Open article", systemImage: "book")
+                            .labelStyle(.iconOnly)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
-                    .disabled(selectedItems.count != 1).help("Open selected article")
+                    .disabled(selectedItems.count != 1)
+                    .help("Open selected article")
                     Button(role: .destructive) {
                         requestRemoval(selectedItems)
                     } label: {
-                        Label("Remove from library", systemImage: "trash").labelStyle(.iconOnly)
+                        Label("Remove from library", systemImage: "trash")
+                            .labelStyle(.iconOnly)
+                            .foregroundStyle(removableItems.isEmpty ? AppTheme.textMuted : AppTheme.destructiveText)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
-                    .disabled(removableItems.isEmpty).help("Remove selected articles")
+                    .disabled(removableItems.isEmpty)
+                    .help("Remove selected articles")
                     Button(queueTitle(count: queueableItems.count)) {
                         enqueue(queueableItems)
                     }
                     .buttonStyle(DesktopButtonStyle(primary: true))
+                    .fixedSize(horizontal: true, vertical: false)
                     .disabled(queueableItems.isEmpty || !viewModel.isModelLoaded || viewModel.isLoading)
                     .help(viewModel.isModelLoaded ? "Listen in the displayed sort order" : "Waiting for the voice engine to load")
                     Button { selection = [] } label: {
-                        Label("Clear selection", systemImage: "xmark").labelStyle(.iconOnly)
+                        Label("Clear selection", systemImage: "xmark")
+                            .labelStyle(.iconOnly)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
                     .help("Clear selection")
                 }
                 .buttonStyle(.borderless)
-                .padding(.horizontal, 24).padding(.vertical, 12)
-                .background(DesktopStyle.panel)
-                .overlay(alignment: .top) { Rectangle().fill(DesktopStyle.border).frame(height: 1) }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .themeCard(cornerRadius: 14, floating: true)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
             }
         }
         .onChange(of: queueableItems.map(\.persistentModelID)) { _, _ in
@@ -172,7 +206,8 @@ struct DesktopLibraryView: View {
     private func articleTable(_ articles: [PlaylistItem], olderArticles: [PlaylistItem],
                               visibleArticles: [PlaylistItem], availableWidth: CGFloat) -> some View {
         let sourceWidth = min(140, max(76, availableWidth * 0.16))
-        let fixedColumnsAndInsets: CGFloat = 104 + 72 + 60 + 100
+        let actionsWidth: CGFloat = 64
+        let fixedColumnsAndInsets: CGFloat = 104 + 72 + actionsWidth + 104
         return Table(of: PlaylistItem.self, selection: $selection, sortOrder: $sortOrder) {
             TableColumn("Title", value: \PlaylistItem.title) { item in
                 HStack(spacing: 8) {
@@ -194,7 +229,7 @@ struct DesktopLibraryView: View {
                 }
                 .frame(height: 32)
             }
-            .width(min: 150, ideal: max(150, availableWidth - sourceWidth - fixedColumnsAndInsets))
+            .width(min: 140, ideal: max(140, availableWidth - sourceWidth - fixedColumnsAndInsets))
             TableColumn("Source", value: \PlaylistItem.librarySource) { item in
                 Text(item.librarySource).foregroundStyle(DesktopStyle.secondary)
                     .lineLimit(1).help(item.sourceURL ?? item.librarySource)
@@ -228,18 +263,23 @@ struct DesktopLibraryView: View {
             }
             .width(72)
             TableColumn("Actions") { item in
-                HStack(spacing: 0) {
+                HStack(spacing: 2) {
                     LibraryFavoriteButton(item: item, compact: true)
                     Menu {
                         articleActions([item])
                     } label: {
-                        Image(systemName: "ellipsis").frame(width: 24, height: 28)
+                        Image(systemName: "ellipsis")
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
-                    .menuStyle(.borderlessButton).menuIndicator(.hidden)
-                    .help("Article options").accessibilityLabel("Options for \(item.title)")
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .frame(width: 28, height: 28)
+                    .help("Article options")
+                    .accessibilityLabel("Options for \(item.title)")
                 }
             }
-            .width(60)
+            .width(actionsWidth)
         } rows: {
             ForEach(articles) { TableRow($0) }
             if !olderArticles.isEmpty {
@@ -297,6 +337,10 @@ struct DesktopLibraryView: View {
         guard !queueableItems.isEmpty, viewModel.isModelLoaded, !viewModel.isLoading else { return }
         queue.enqueue(queueableItems)
         selection = []
+    }
+
+    private func toggleSelectAll(_ visibleItems: [PlaylistItem], allSelected: Bool) {
+        selection = allSelected ? [] : Set(visibleItems.map(\.persistentModelID))
     }
 
     private func requestRemoval(_ articles: [PlaylistItem]) {
