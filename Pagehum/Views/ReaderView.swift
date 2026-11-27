@@ -8,6 +8,11 @@ struct ReaderView: View {
     var desktopLayout = false
     var showsArticleHeading = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var effectiveColorScheme: ColorScheme {
+        viewModel.currentArticleAppearance.resolvedColorScheme(system: colorScheme)
+    }
 
     private var readingColumnMaxWidth: CGFloat {
         guard desktopLayout || showsArticleHeading else { return .infinity }
@@ -117,6 +122,7 @@ struct ReaderView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(AppTheme.canvas, for: .navigationBar)
         #endif
+        .environment(\.colorScheme, effectiveColorScheme)
     }
 }
 

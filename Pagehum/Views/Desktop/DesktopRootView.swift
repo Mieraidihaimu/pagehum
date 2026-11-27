@@ -254,6 +254,26 @@ struct DesktopRootView: View {
                 if content.source.webURL == nil {
                     textSizePill
                 }
+                Menu {
+                    Picker("Appearance", selection: $viewModel.currentArticleAppearance) {
+                        ForEach(ReaderAppearance.allCases, id: \.self) { appearance in
+                            Label(appearance.label, systemImage: appearance.systemImage)
+                                .tag(appearance)
+                        }
+                    }
+                } label: {
+                    Image(systemName: viewModel.currentArticleAppearance.systemImage)
+                        .foregroundStyle(
+                            viewModel.currentArticleAppearance == .system ? DesktopStyle.secondary : DesktopStyle.accent
+                        )
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .help("Reader appearance (\(viewModel.currentArticleAppearance.label))")
+                .accessibilityLabel("Reader appearance: \(viewModel.currentArticleAppearance.label)")
                 if let webURL = content.source.webURL {
                     Link(destination: webURL) {
                         Image(systemName: "arrow.up.right.square")

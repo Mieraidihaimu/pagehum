@@ -15,13 +15,23 @@ struct WebReaderView: View {
         viewModel.highlightNeedle(at: viewModel.currentSentenceIndex)
     }
 
+    private var appearance: ReaderAppearance {
+        viewModel.currentArticleAppearance
+    }
+
+    private var effectiveColorScheme: ColorScheme {
+        appearance.resolvedColorScheme(system: colorScheme)
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             WebViewContainer(
                 url: url,
                 currentSentence: currentSentence,
                 isPlaying: viewModel.isPlaying,
-                theme: WebHighlightTheme(colorScheme: colorScheme)
+                appearance: appearance,
+                effectiveColorScheme: effectiveColorScheme,
+                theme: WebHighlightTheme(colorScheme: effectiveColorScheme, appearance: appearance)
             )
             .id(url)
             #if os(iOS)
@@ -39,6 +49,7 @@ struct WebReaderView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(AppTheme.canvas, for: .navigationBar)
         #endif
+        .environment(\.colorScheme, effectiveColorScheme)
     }
 }
 
@@ -46,11 +57,13 @@ private struct WebHighlightTheme: Equatable {
     let sentenceBg: String
     let wordBg: String
     let wordText: String
+    let appearance: ReaderAppearance
 
-    init(colorScheme: ColorScheme) {
+    init(colorScheme: ColorScheme, appearance: ReaderAppearance) {
         sentenceBg = AppTheme.webHighlightColor(for: colorScheme)
         wordBg = AppTheme.webColor(AppTheme.readerWordBg, for: colorScheme)
         wordText = AppTheme.webColor(AppTheme.readerWordText, for: colorScheme)
+        self.appearance = appearance
     }
 
     var cssProperties: [String: String] {
@@ -58,6 +71,7 @@ private struct WebHighlightTheme: Equatable {
             "--pagehum-sentence-bg": sentenceBg,
             "--pagehum-word-bg": wordBg,
             "--pagehum-word-text": wordText,
+            "--pagehum-appearance": appearance.rawValue,
         ]
     }
 }
@@ -66,9 +80,16 @@ private struct WebViewContainer {
     let url: URL
     let currentSentence: String?
     let isPlaying: Bool
+    let appearance: ReaderAppearance
+    let effectiveColorScheme: ColorScheme
     let theme: WebHighlightTheme
 
-    fileprivate static func createWebView(url: URL, coordinator: Coordinator) -> WKWebView {
+    fileprivate static func createWebView(
+        url: URL,
+        appearance: ReaderAppearance,
+        effectiveColorScheme: ColorScheme,
+        coordinator: Coordinator
+    ) -> WKWebView {
         let config = WKWebViewConfiguration()
         #if os(iOS)
         config.allowsInlineMediaPlayback = true
@@ -76,11 +97,8 @@ private struct WebViewContainer {
         let webView = WKWebView(frame: .zero, configuration: config)
         #if os(iOS)
         webView.isOpaque = false
-        webView.backgroundColor = UIColor(AppTheme.canvas)
-        webView.underPageBackgroundColor = UIColor(AppTheme.canvas)
-        #else
-        webView.underPageBackgroundColor = NSColor(AppTheme.canvas)
         #endif
+        applyPlatformAppearance(appearance, effectiveColorScheme: effectiveColorScheme, to: webView)
         webView.allowsBackForwardNavigationGestures = true
         webView.navigationDelegate = coordinator
         webView.load(URLRequest(url: url))
@@ -88,7 +106,38 @@ private struct WebViewContainer {
         return webView
     }
 
+    fileprivate static func applyPlatformAppearance(
+        _ appearance: ReaderAppearance,
+        effectiveColorScheme: ColorScheme,
+        to webView: WKWebView
+    ) {
+        #if os(iOS)
+        switch appearance {
+        case .system: webView.overrideUserInterfaceStyle = .unspecified
+        case .light: webView.overrideUserInterfaceStyle = .light
+        case .dark: webView.overrideUserInterfaceStyle = .dark
+        }
+        let bgColor = UIColor(AppTheme.canvas).resolvedColor(
+            with: UITraitCollection(userInterfaceStyle: effectiveColorScheme == .dark ? .dark : .light)
+        )
+        webView.backgroundColor = bgColor
+        webView.underPageBackgroundColor = bgColor
+        #else
+        switch appearance {
+        case .system: webView.appearance = nil
+        case .light: webView.appearance = NSAppearance(named: .aqua)
+        case .dark: webView.appearance = NSAppearance(named: .darkAqua)
+        }
+        var bgColor = NSColor.clear
+        NSAppearance(named: effectiveColorScheme == .dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
+            bgColor = NSColor(AppTheme.canvas).usingColorSpace(.sRGB) ?? .clear
+        }
+        webView.underPageBackgroundColor = bgColor
+        #endif
+    }
+
     fileprivate func updateWebView(_ webView: WKWebView, coordinator: Coordinator) {
+        Self.applyPlatformAppearance(appearance, effectiveColorScheme: effectiveColorScheme, to: webView)
         coordinator.theme = theme
         guard coordinator.isReady else { return }
         coordinator.applyTheme()
@@ -141,6 +190,51 @@ private struct WebViewContainer {
         (function() {
             var currentMark = null;
 
+            function parseBackground(el) {
+                if (!el) return null;
+                var bg = window.getComputedStyle(el).backgroundColor;
+                if (!bg) return null;
+                var match = bg.match(/rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)(?:\\s*,\\s*([\\d.]+))?\\s*\\)/);
+                if (!match) return null;
+                var alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
+                if (alpha <= 0.1) return null;
+                var r = parseInt(match[1], 10) / 255;
+                var g = parseInt(match[2], 10) / 255;
+                var b = parseInt(match[3], 10) / 255;
+                return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            }
+
+            function updateAppearanceOverride(mode) {
+                var existing = document.getElementById('pagehum-appearance-override');
+                if (existing) existing.remove();
+                if (!mode || mode === 'system') return;
+
+                var bodyLum = parseBackground(document.body);
+                var htmlLum = parseBackground(document.documentElement);
+                var effectiveLum = bodyLum !== null ? bodyLum : htmlLum;
+
+                var css = null;
+                if (mode === 'dark') {
+                    if (effectiveLum === null || effectiveLum >= 0.3) {
+                        var bgRule = effectiveLum === null ? 'background-color: #ffffff !important;' : '';
+                        css = 'html { ' + bgRule + ' filter: invert(0.92) hue-rotate(180deg) !important; } ' +
+                              'img, video, picture, canvas, svg { filter: invert(1) hue-rotate(180deg) !important; }';
+                    }
+                } else if (mode === 'light') {
+                    if (effectiveLum !== null && effectiveLum < 0.25) {
+                        css = 'html { filter: invert(0.92) hue-rotate(180deg) !important; } ' +
+                              'img, video, picture, canvas, svg { filter: invert(1) hue-rotate(180deg) !important; }';
+                    }
+                }
+
+                if (css && document.head) {
+                    var style = document.createElement('style');
+                    style.id = 'pagehum-appearance-override';
+                    style.textContent = css;
+                    document.head.appendChild(style);
+                }
+            }
+
             window.__pagehumSetTheme = function(tokens) {
                 if (!tokens || typeof tokens !== 'object') return;
                 var root = document.documentElement;
@@ -151,6 +245,7 @@ private struct WebViewContainer {
                         }
                     }
                 }
+                updateAppearanceOverride(tokens['--pagehum-appearance']);
                 if (currentMark) {
                     currentMark.style.backgroundColor = 'var(--pagehum-sentence-bg)';
                 }
@@ -231,7 +326,12 @@ extension WebViewContainer: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(theme: theme) }
 
     func makeUIView(context: Context) -> WKWebView {
-        Self.createWebView(url: url, coordinator: context.coordinator)
+        Self.createWebView(
+            url: url,
+            appearance: appearance,
+            effectiveColorScheme: effectiveColorScheme,
+            coordinator: context.coordinator
+        )
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
@@ -243,7 +343,12 @@ extension WebViewContainer: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(theme: theme) }
 
     func makeNSView(context: Context) -> WKWebView {
-        Self.createWebView(url: url, coordinator: context.coordinator)
+        Self.createWebView(
+            url: url,
+            appearance: appearance,
+            effectiveColorScheme: effectiveColorScheme,
+            coordinator: context.coordinator
+        )
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {

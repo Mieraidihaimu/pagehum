@@ -31,44 +31,89 @@ struct PhoneReaderView: View {
         .toolbarBackground(AppTheme.canvas, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                if let id = viewModel.currentOfflineAudioID {
-                    OfflineAudioButton(manager: viewModel.offlineAudio, id: id, canSave: viewModel.isModelLoaded,
-                                       canRemove: !viewModel.isPlaying && !viewModel.isPreparing,
-                                       save: viewModel.saveCurrentAudioOffline)
-                        .foregroundStyle(AppTheme.accentPrimary)
-                        .tint(AppTheme.accentPrimary)
-                }
+                PhoneReaderMoreMenu(viewModel: viewModel)
             }
-            ToolbarItem(placement: .primaryAction) {
-                if let url = viewModel.content?.source.webURL {
-                    Link(destination: url) {
-                        Image(systemName: "arrow.up.right.square")
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel("Open in browser")
-                    .foregroundStyle(AppTheme.accentPrimary)
-                    .tint(AppTheme.accentPrimary)
-                } else {
-                    Menu {
-                        Button("Larger text", systemImage: "textformat.size.larger") {
-                            viewModel.textSize = min(32, viewModel.textSize + 2)
-                        }
-                        .disabled(viewModel.textSize >= 32)
-                        Button("Smaller text", systemImage: "textformat.size.smaller") {
-                            viewModel.textSize = max(12, viewModel.textSize - 2)
-                        }
-                        .disabled(viewModel.textSize <= 12)
-                    } label: {
-                        Image(systemName: "textformat.size")
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .accessibilityLabel("Reading options")
-                    .foregroundStyle(AppTheme.accentPrimary)
-                    .tint(AppTheme.accentPrimary)
-                }
+        }
+    }
+}
+
+private struct PhoneReaderMoreMenu: View {
+    @ObservedObject var viewModel: ReaderModel
+    @ObservedObject private var queue: ListeningQueue
+    @ObservedObject private var offlineAudio: OfflineAudioManager
+    @State private var showsQueue = false
+
+    init(viewModel: ReaderModel) {
+        self.viewModel = viewModel
+        queue = viewModel.listeningQueue
+        offlineAudio = viewModel.offlineAudio
+    }
+
+    var body: some View {
+        Menu {
+            Text(viewModel.phonePlaybackStatus)
+            if let id = viewModel.currentOfflineAudioID {
+                OfflineAudioMenuActions(manager: offlineAudio, id: id, canSave: viewModel.isModelLoaded,
+                                        canRemove: !viewModel.isPlaying && !viewModel.isPreparing,
+                                        save: viewModel.saveCurrentAudioOffline)
             }
+            if viewModel.playbackFailureCount > 0 {
+                Text("\(viewModel.playbackFailureCount) sentences skipped")
+            }
+            Divider()
+            Menu {
+                Picker("Appearance", selection: $viewModel.currentArticleAppearance) {
+                    ForEach(ReaderAppearance.allCases, id: \.self) { appearance in
+                        Label(appearance.label, systemImage: appearance.systemImage)
+                            .tag(appearance)
+                    }
+                }
+            } label: {
+                Label("Appearance", systemImage: viewModel.currentArticleAppearance.systemImage)
+            }
+            if let url = viewModel.content?.source.webURL {
+                Link(destination: url) {
+                    Label("Open in browser", systemImage: "arrow.up.right.square")
+                }
+            } else {
+                Button("Larger text", systemImage: "textformat.size.larger") {
+                    viewModel.textSize = min(32, viewModel.textSize + 2)
+                }
+                .disabled(viewModel.textSize >= 32)
+                Button("Smaller text", systemImage: "textformat.size.smaller") {
+                    viewModel.textSize = max(12, viewModel.textSize - 2)
+                }
+                .disabled(viewModel.textSize <= 12)
+            }
+            Divider()
+            Button("Restart from beginning", systemImage: "arrow.counterclockwise") {
+                viewModel.restartFromBeginning()
+            }
+            .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
+            if queue.isActive {
+                Button("Next article", systemImage: "forward.end.fill") {
+                    queue.skip()
+                }
+                .disabled(queue.upcoming.isEmpty || viewModel.isLoading)
+            }
+            Button("Up next, \(queue.upcoming.count) articles", systemImage: "list.bullet") {
+                showsQueue = true
+            }
+        } label: {
+            Image(systemName: queue.failure != nil || viewModel.playbackFailureCount > 0
+                  ? "exclamationmark.circle" : "ellipsis")
+                .font(.system(size: 20))
+                .foregroundStyle(queue.failure != nil || viewModel.playbackFailureCount > 0
+                                 ? AppTheme.destructiveText : AppTheme.accentPrimary)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .tint(AppTheme.accentPrimary)
+        .accessibilityLabel("Playback actions")
+        .accessibilityValue(queue.failure ?? viewModel.phonePlaybackStatus)
+        .sheet(isPresented: $showsQueue) {
+            ListeningQueueSheet(viewModel: viewModel, queue: queue)
+                .presentationDragIndicator(.visible)
         }
     }
 }

@@ -188,6 +188,32 @@ final class ReaderModel: ObservableObject {
         }
     }
 
+    @Published private var appearanceOverrides: [String: ReaderAppearance] = ReaderAppearanceStore.load()
+
+    var currentArticleAppearanceKey: String? {
+        ReaderAppearanceStore.key(for: content, textID: currentTextID)
+    }
+
+    var currentArticleAppearance: ReaderAppearance {
+        get {
+            guard let key = currentArticleAppearanceKey else { return .system }
+            return appearanceOverrides[key] ?? .system
+        }
+        set {
+            setArticleAppearance(newValue, for: currentArticleAppearanceKey)
+        }
+    }
+
+    func setArticleAppearance(_ appearance: ReaderAppearance, for key: String?, defaults: UserDefaults = .standard) {
+        guard let key else { return }
+        if appearance == .system {
+            appearanceOverrides.removeValue(forKey: key)
+        } else {
+            appearanceOverrides[key] = appearance
+        }
+        ReaderAppearanceStore.save(appearanceOverrides, to: defaults)
+    }
+
     var sentences: [String] = []
     private var sentenceStartOffsetsUTF16: [Int] = []
 

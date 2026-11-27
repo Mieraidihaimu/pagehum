@@ -718,12 +718,13 @@ struct PlaylistRowView: View {
                 .font(.caption)
                 .foregroundStyle(AppTheme.textSecondary)
 
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 5) {
                         LibraryDurationLabel(item: item, speed: speed)
                         listeningStatus
                     }
-                    VStack(alignment: .leading, spacing: 5) {
+                } else {
+                    HStack(spacing: 8) {
                         LibraryDurationLabel(item: item, speed: speed)
                         listeningStatus
                     }
@@ -742,10 +743,13 @@ struct PlaylistRowView: View {
 
     @ViewBuilder private var listeningStatus: some View {
         if item.progressPercent >= 1 || item.status == PlaylistItem.Status.completed.rawValue {
-            Label("Completed", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(AppTheme.success)
-                .font(.caption)
-                .fixedSize()
+            HStack(spacing: 4) {
+                Image(systemName: "checkmark.circle.fill")
+                Text("Completed")
+            }
+            .foregroundStyle(AppTheme.success)
+            .font(.caption)
+            .fixedSize()
         } else if item.progressPercent > 0 {
             Text("\(Int(item.progressPercent * 100))% complete")
                 .foregroundStyle(AppTheme.accentPrimary)

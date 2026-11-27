@@ -3,26 +3,14 @@ import SwiftUI
 
 struct PhonePlaybackControls: View {
     @ObservedObject var viewModel: ReaderModel
-    @ObservedObject private var queue: ListeningQueue
     @ObservedObject private var offlineAudio: OfflineAudioManager
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isScrubbing = false
     @State private var scrubProgress = 0.0
-    @State private var showsQueue = false
 
     init(viewModel: ReaderModel) {
         self.viewModel = viewModel
-        queue = viewModel.listeningQueue
         offlineAudio = viewModel.offlineAudio
-    }
-
-    private var status: String {
-        if viewModel.isWaitingForOfflineAudio { return "Open Pagehum to prepare audio" }
-        if !viewModel.isModelLoaded && !viewModel.isCurrentAudioSaved { return "Loading voice…" }
-        if viewModel.isPreparing { return "Preparing audio…" }
-        if viewModel.isPlaying { return "Playing" }
-        if viewModel.progress >= 1 { return "Finished" }
-        return viewModel.isPaused ? "Paused" : "Ready to listen"
     }
 
     var body: some View {
@@ -34,16 +22,13 @@ struct PhonePlaybackControls: View {
                         speedMenu
                         Spacer(minLength: 0)
                         transportButtons
-                        Spacer(minLength: 0)
-                        actionsMenu
                     }
                 }
             } else {
                 HStack(spacing: 4) {
-                    transportButtons
-                    progressControl
                     speedMenu
-                    actionsMenu
+                    progressControl
+                    transportButtons
                 }
             }
         }
@@ -51,10 +36,6 @@ struct PhonePlaybackControls: View {
         .padding(.vertical, 2)
         .themeCard(cornerRadius: 14, floating: true)
         .buttonStyle(.plain)
-        .sheet(isPresented: $showsQueue) {
-            ListeningQueueSheet(viewModel: viewModel, queue: queue)
-                .presentationDragIndicator(.visible)
-        }
     }
 
     private var transportButtons: some View {
@@ -132,7 +113,7 @@ struct PhonePlaybackControls: View {
                    saving.state != .ready {
                     Text(saving.label)
                 } else if (!viewModel.isModelLoaded && !viewModel.isCurrentAudioSaved) || viewModel.isPreparing || viewModel.isWaitingForOfflineAudio {
-                    Text(status)
+                    Text(viewModel.phonePlaybackStatus)
                 } else if viewModel.playbackFailureCount > 0 {
                     Text("\(viewModel.playbackFailureCount) sentences skipped")
                         .foregroundStyle(AppTheme.destructiveText)
@@ -156,47 +137,6 @@ struct PhonePlaybackControls: View {
             .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private var actionsMenu: some View {
-        Menu {
-            Text(status)
-            if let id = viewModel.currentOfflineAudioID {
-                OfflineAudioMenuActions(manager: offlineAudio, id: id, canSave: viewModel.isModelLoaded,
-                                        canRemove: !viewModel.isPlaying && !viewModel.isPreparing,
-                                        save: viewModel.saveCurrentAudioOffline)
-            }
-            if viewModel.playbackFailureCount > 0 {
-                Text("\(viewModel.playbackFailureCount) sentences skipped")
-            }
-            Divider()
-            Button("Back 20 seconds", systemImage: "gobackward") {
-                viewModel.skipBackward()
-            }
-            .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
-            Button("Forward 20 seconds", systemImage: "goforward") {
-                viewModel.skipForward()
-            }
-            .disabled(viewModel.sentences.isEmpty || viewModel.isLoading)
-            Button("Restart from beginning", systemImage: "arrow.counterclockwise") {
-                viewModel.restartFromBeginning()
-            }
-            .disabled(!viewModel.canPlayCurrentContent || viewModel.isLoading)
-            Divider()
-            Button("Up next, \(queue.upcoming.count) articles", systemImage: "list.bullet") {
-                showsQueue = true
-            }
-        } label: {
-            Image(systemName: queue.failure != nil || viewModel.playbackFailureCount > 0
-                  ? "exclamationmark.circle" : "ellipsis")
-                .font(.system(size: 20))
-                .foregroundStyle(queue.failure != nil || viewModel.playbackFailureCount > 0
-                                 ? AppTheme.destructiveText : AppTheme.accentPrimary)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel("Playback actions")
-        .accessibilityValue(queue.failure ?? status)
     }
 
     private var playButton: some View {
@@ -237,6 +177,17 @@ struct PhonePlaybackControls: View {
     private func timeText(_ seconds: Double) -> String {
         let total = max(0, Int(seconds))
         return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
+
+extension ReaderModel {
+    var phonePlaybackStatus: String {
+        if isWaitingForOfflineAudio { return "Open Pagehum to prepare audio" }
+        if !isModelLoaded && !isCurrentAudioSaved { return "Loading voice…" }
+        if isPreparing { return "Preparing audio…" }
+        if isPlaying { return "Playing" }
+        if progress >= 1 { return "Finished" }
+        return isPaused ? "Paused" : "Ready to listen"
     }
 }
 #endif
