@@ -99,13 +99,20 @@ struct ReaderView: View {
                     }
                     .background(AppTheme.canvas)
                     .onAppear {
-                        if viewModel.currentSentenceIndex > 0 {
+                        if viewModel.autoScroll, viewModel.currentSentenceIndex > 0 {
                             proxy.scrollTo(viewModel.currentSentenceIndex, anchor: .center)
                         }
                     }
                     .onChange(of: viewModel.currentSentenceIndex) { _, newIndex in
+                        guard viewModel.autoScroll else { return }
                         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.5)) {
                             proxy.scrollTo(newIndex, anchor: .center)
+                        }
+                    }
+                    .onChange(of: viewModel.autoScroll) { _, enabled in
+                        guard enabled else { return }
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.5)) {
+                            proxy.scrollTo(viewModel.currentSentenceIndex, anchor: .center)
                         }
                     }
                 }

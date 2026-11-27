@@ -342,6 +342,9 @@
     "Any score" : {
 
     },
+    "Appearance" : {
+
+    },
     "Article imports" : {
       "localizations" : {
         "zh-Hans" : {
@@ -414,6 +417,9 @@
 
     },
     "Audio-Clean automatically summarizes code blocks and tables, and filters out footnote numbers while reading." : {
+
+    },
+    "Auto-scroll" : {
 
     },
     "Automatic iCloud sync is not enabled in this build. Apple requires a paid Developer Program membership for app-level iCloud sync. Manual backups work with a free Personal Team installation." : {
@@ -638,6 +644,9 @@
 
     },
     "Daily Activity" : {
+
+    },
+    "Dark" : {
 
     },
     "Data" : {
@@ -975,6 +984,9 @@
 
     },
     "Library Unavailable" : {
+
+    },
+    "Light" : {
 
     },
     "Link" : {
@@ -1759,6 +1771,9 @@
 
     },
     "Submitted within" : {
+
+    },
+    "System" : {
 
     },
     "System voices" : {

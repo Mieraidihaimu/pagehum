@@ -188,6 +188,12 @@ final class ReaderModel: ObservableObject {
         }
     }
 
+    @Published var autoScroll: Bool = (UserDefaults.standard.object(forKey: "autoScroll") as? Bool) ?? false {
+        didSet {
+            UserDefaults.standard.set(autoScroll, forKey: "autoScroll")
+        }
+    }
+
     @Published private var appearanceOverrides: [String: ReaderAppearance] = ReaderAppearanceStore.load()
 
     var currentArticleAppearanceKey: String? {

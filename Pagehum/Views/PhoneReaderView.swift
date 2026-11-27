@@ -85,6 +85,7 @@ private struct PhoneReaderMoreMenu: View {
                 }
                 .disabled(viewModel.textSize <= 12)
             }
+            Toggle("Auto-scroll", systemImage: "arrow.up.and.down", isOn: $viewModel.autoScroll)
             Divider()
             Button("Restart from beginning", systemImage: "arrow.counterclockwise") {
                 viewModel.restartFromBeginning()

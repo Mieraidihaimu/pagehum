@@ -29,6 +29,7 @@ struct WebReaderView: View {
                 url: url,
                 currentSentence: currentSentence,
                 isPlaying: viewModel.isPlaying,
+                autoScroll: viewModel.autoScroll,
                 appearance: appearance,
                 effectiveColorScheme: effectiveColorScheme,
                 theme: WebHighlightTheme(colorScheme: effectiveColorScheme, appearance: appearance)
@@ -80,6 +81,7 @@ private struct WebViewContainer {
     let url: URL
     let currentSentence: String?
     let isPlaying: Bool
+    let autoScroll: Bool
     let appearance: ReaderAppearance
     let effectiveColorScheme: ColorScheme
     let theme: WebHighlightTheme
@@ -142,17 +144,17 @@ private struct WebViewContainer {
         guard coordinator.isReady else { return }
         coordinator.applyTheme()
         if isPlaying, let sentence = currentSentence {
-            highlightSentence(sentence, in: webView)
+            highlightSentence(sentence, autoScroll: autoScroll, in: webView)
         } else if !isPlaying {
             clearHighlight(in: webView)
         }
     }
 
-    private func highlightSentence(_ sentence: String, in webView: WKWebView) {
+    private func highlightSentence(_ sentence: String, autoScroll: Bool, in webView: WKWebView) {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: [sentence]),
               let jsonString = String(data: jsonData, encoding: .utf8) else { return }
         let inner = String(jsonString.dropFirst(1).dropLast(1))
-        let js = "window.__pagehumHighlight(\(inner));"
+        let js = "window.__pagehumHighlight(\(inner), \(autoScroll ? "true" : "false"));"
         webView.evaluateJavaScript(js, completionHandler: nil)
     }
 
@@ -189,6 +191,7 @@ private struct WebViewContainer {
         static let highlightJS = """
         (function() {
             var currentMark = null;
+            var lastAutoScroll = false;
 
             function parseBackground(el) {
                 if (!el) return null;
@@ -290,7 +293,8 @@ private struct WebViewContainer {
                 return null;
             }
 
-            window.__pagehumHighlight = function(sentence) {
+            window.__pagehumHighlight = function(sentence, autoScroll) {
+                var previousMark = currentMark;
                 // Clear previous
                 if (currentMark) {
                     currentMark.style.removeProperty('background-color');
@@ -305,7 +309,15 @@ private struct WebViewContainer {
                     el.style.backgroundColor = 'var(--pagehum-sentence-bg)';
                     el.style.borderRadius = '4px';
                     el.style.transition = 'background-color 0.3s ease';
+
+                    if (autoScroll && (el !== previousMark || !lastAutoScroll)) {
+                        var rect = el.getBoundingClientRect();
+                        if (rect.top < 80 || rect.bottom > window.innerHeight - 100) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
                 }
+                lastAutoScroll = !!autoScroll;
             };
 
             window.__pagehumClear = function() {
