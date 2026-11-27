@@ -20,6 +20,12 @@ Speech is generated on your device using **Kokoro and Apple's MLX framework**. N
 
 [Listen to a short Pagehum voice sample](https://github.com/Mieraidihaimu/pagehum/releases/download/v0.1.0/pagehum-sample.m4a).
 
+<p align="center">
+  <img src="docs/screenshots/add.png" width="240" alt="Pagehum Add Content screen" />
+  <img src="docs/screenshots/library.png" width="240" alt="Pagehum Library screen" />
+  <img src="docs/screenshots/listen.png" width="240" alt="Pagehum Listen reader screen" />
+</p>
+
 ## What you can do
 
 - **Listen to your reading list.** Import a web article, PDF, or pasted text into the app.
