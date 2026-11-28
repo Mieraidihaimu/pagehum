@@ -24,6 +24,21 @@ private extension Double {
     }
 }
 
+struct WebHighlightRequest: Equatable, Encodable, Sendable {
+    enum BlockKind: String, Encodable, Sendable {
+        case code
+        case table
+    }
+
+    let text: String
+    let prevText: String?
+    let nextText: String?
+    let progress: Double
+    let blockKind: BlockKind?
+
+    var isBlockMode: Bool { blockKind != nil }
+}
+
 nonisolated struct SentenceAudio {
     let buffer: AVAudioPCMBuffer
     let tokens: [WordTiming]?
@@ -707,10 +722,64 @@ final class ReaderModel: ObservableObject {
     /// `WebReaderView`. For a code or table block the announcement doesn't exist in the DOM, so hand back a
     /// real line of the source instead and let the page's `<pre>` or `<table>` light up.
     func highlightNeedle(at index: Int) -> String? {
+        highlightRequest(at: index)?.text
+    }
+
+    /// Context-aware highlight payload for `WebReaderView`, including adjacent prose sentences
+    /// and normalized playback progress so short or repeated phrases resolve accurately.
+    func highlightRequest(at index: Int) -> WebHighlightRequest? {
         guard index >= 0, index < sentences.count else { return nil }
-        if let block = codeBlocks[index] { return block.firstSubstantialLine }
-        if let table = tableBlocks[index] { return table.firstSubstantialCell }
-        return sentences[index]
+        let progress = sentences.count > 1
+            ? Double(index) / Double(sentences.count - 1)
+            : 0
+
+        if let block = codeBlocks[index] {
+            let line = block.firstSubstantialLine ?? block.source
+                .components(separatedBy: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .first { !$0.isEmpty }
+            guard let line else { return nil }
+            return WebHighlightRequest(
+                text: line,
+                prevText: adjacentProseSentence(before: index),
+                nextText: adjacentProseSentence(after: index),
+                progress: progress,
+                blockKind: .code
+            )
+        }
+
+        if let table = tableBlocks[index] {
+            guard let cell = table.firstSubstantialCell else { return nil }
+            return WebHighlightRequest(
+                text: cell,
+                prevText: adjacentProseSentence(before: index),
+                nextText: adjacentProseSentence(after: index),
+                progress: progress,
+                blockKind: .table
+            )
+        }
+
+        return WebHighlightRequest(
+            text: sentences[index],
+            prevText: adjacentProseSentence(before: index),
+            nextText: adjacentProseSentence(after: index),
+            progress: progress,
+            blockKind: nil
+        )
+    }
+
+    private func adjacentProseSentence(before index: Int) -> String? {
+        guard index > 0 else { return nil }
+        let candidate = index - 1
+        guard codeBlocks[candidate] == nil, tableBlocks[candidate] == nil else { return nil }
+        return sentences[candidate]
+    }
+
+    private func adjacentProseSentence(after index: Int) -> String? {
+        let candidate = index + 1
+        guard candidate < sentences.count else { return nil }
+        guard codeBlocks[candidate] == nil, tableBlocks[candidate] == nil else { return nil }
+        return sentences[candidate]
     }
 
     // MARK: - Save for Later
